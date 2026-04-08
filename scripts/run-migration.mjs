@@ -2,136 +2,85 @@ import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
+import pg from "pg";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const anonKey = process.env.SUPABASE_ANON_KEY;
+const dbPassword = process.env.SUPABASE_DB_PASSWORD;
 
 if (!supabaseUrl || !serviceRoleKey) {
   console.error("[SuperScout] Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
   process.exit(1);
 }
+if (!dbPassword) {
+  console.error("[SuperScout] Missing SUPABASE_DB_PASSWORD");
+  process.exit(1);
+}
+
+const projectRef = supabaseUrl.replace("https://", "").replace(".supabase.co", "").replace(/\//g, "");
+console.log("[SuperScout] Project ref:", projectRef);
 
 const fullSql = readFileSync(resolve(__dirname, "supabase-migration.sql"), "utf-8");
 
-console.log("[SuperScout] Running migration via Supabase SQL API...");
+const hosts = [
+  `db.${projectRef}.supabase.co`,
+  `${projectRef}.supabase.co`,
+  `aws-0-eu-west-2.pooler.supabase.com`,
+  `aws-0-us-east-1.pooler.supabase.com`,
+  `aws-0-eu-central-1.pooler.supabase.com`,
+  `aws-0-us-west-1.pooler.supabase.com`,
+  `aws-0-ap-southeast-1.pooler.supabase.com`,
+];
 
-const projectRef = supabaseUrl.replace("https://", "").replace(".supabase.co", "");
-console.log("[SuperScout] Project ref:", projectRef);
+const ports = [5432, 6543];
+const users = ["postgres", `postgres.${projectRef}`];
 
-const response = await fetch(`${supabaseUrl}/rest/v1/rpc`, {
-  method: "POST",
-  headers: {
-    "apikey": serviceRoleKey,
-    "Authorization": `Bearer ${serviceRoleKey}`,
-    "Content-Type": "application/json",
-  },
-});
-console.log("[SuperScout] RPC endpoint check:", response.status);
+let connected = false;
 
-const statements = fullSql
-  .split(/;\s*$/m)
-  .map((s) => s.trim())
-  .filter((s) => s.length > 0 && !s.startsWith("--"));
+for (const host of hosts) {
+  for (const port of ports) {
+    for (const user of users) {
+      if (connected) break;
+      const client = new pg.Client({
+        host,
+        port,
+        user,
+        password: dbPassword,
+        database: "postgres",
+        ssl: { rejectUnauthorized: false },
+        connectionTimeoutMillis: 8000,
+      });
 
-console.log(`[SuperScout] Parsed ${statements.length} SQL statements`);
+      try {
+        console.log(`[SuperScout] Trying ${user}@${host}:${port}...`);
+        await client.connect();
+        console.log(`[SuperScout] Connected to ${host}:${port} as ${user}`);
+        connected = true;
 
-let successCount = 0;
-let failCount = 0;
-const failures = [];
-
-for (let i = 0; i < statements.length; i++) {
-  const stmt = statements[i];
-  const preview = stmt.substring(0, 80).replace(/\n/g, " ");
-
-  const resp = await fetch(`${supabaseUrl}/rest/v1/rpc/`, {
-    method: "POST",
-    headers: {
-      "apikey": serviceRoleKey,
-      "Authorization": `Bearer ${serviceRoleKey}`,
-      "Content-Type": "application/json",
-      "Prefer": "return=minimal",
-    },
-    body: JSON.stringify({}),
-  });
-
-  if (i === 0) {
-    console.log("[SuperScout] First RPC attempt status:", resp.status);
-  }
-}
-
-console.log("[SuperScout] REST RPC not viable for raw SQL. Switching to pg direct connection...");
-
-let pg;
-try {
-  pg = await import("pg");
-} catch (e) {
-  console.log("[SuperScout] pg module not installed. Installing...");
-  const { execSync } = await import("child_process");
-  execSync("pnpm add -w pg", { encoding: "utf-8", stdio: "inherit" });
-  pg = await import("pg");
-}
-
-const dbHost = `db.${projectRef}.supabase.co`;
-const dbPassword = process.env.SUPABASE_DB_PASSWORD;
-
-if (!dbPassword) {
-  console.log("[SuperScout] No SUPABASE_DB_PASSWORD found.");
-  console.log("[SuperScout] Attempting Supabase Management API approach...");
-
-  const mgmtResp = await fetch(
-    `https://api.supabase.com/v1/projects/${projectRef}/database/query`,
-    {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${serviceRoleKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ query: fullSql }),
+        console.log("[SuperScout] Running migration SQL...");
+        await client.query(fullSql);
+        console.log("[SuperScout] Migration SQL executed successfully!");
+        await client.end();
+      } catch (err) {
+        const msg = err.message || "";
+        if (msg.includes("ENOTFOUND") || msg.includes("timeout") || msg.includes("ECONNREFUSED")) {
+          continue;
+        }
+        console.error(`[SuperScout] Error with ${host}:${port}:`, msg);
+        try { await client.end(); } catch (_) {}
+        if (msg.includes("password authentication failed")) continue;
+      }
     }
-  );
-
-  if (mgmtResp.ok) {
-    const result = await mgmtResp.json();
-    console.log("[SuperScout] Migration executed via Management API!");
-    console.log("[SuperScout] Result:", JSON.stringify(result).substring(0, 200));
-  } else {
-    const errText = await mgmtResp.text();
-    console.log("[SuperScout] Management API status:", mgmtResp.status);
-
-    console.log("\n[SuperScout] Direct SQL execution not available from this environment.");
-    console.log("[SuperScout] Please run the migration SQL manually:");
-    console.log("  1. Go to your Supabase Dashboard → SQL Editor");
-    console.log("  2. Paste the contents of scripts/supabase-migration.sql");
-    console.log("  3. Click 'Run'");
-    console.log("\n[SuperScout] Alternatively, provide SUPABASE_DB_PASSWORD as a secret for direct Postgres access.");
-    process.exit(1);
   }
 }
 
-if (dbPassword) {
-  const client = new pg.default.Client({
-    host: dbHost,
-    port: 5432,
-    user: "postgres",
-    password: dbPassword,
-    database: "postgres",
-    ssl: { rejectUnauthorized: false },
-  });
-
-  try {
-    await client.connect();
-    console.log("[SuperScout] Connected to Supabase Postgres directly");
-    await client.query(fullSql);
-    console.log("[SuperScout] Migration SQL executed successfully!");
-    await client.end();
-  } catch (err) {
-    console.error("[SuperScout] Postgres error:", err.message);
-    await client.end();
-    process.exit(1);
-  }
+if (!connected) {
+  console.error("\n[SuperScout] Could not connect to Supabase Postgres with any known host pattern.");
+  console.error("[SuperScout] Please run the SQL manually in the Supabase Dashboard → SQL Editor.");
+  console.error("[SuperScout] The migration file is at: scripts/supabase-migration.sql");
+  process.exit(1);
 }
 
 console.log("\n[SuperScout] Running verification test...");
