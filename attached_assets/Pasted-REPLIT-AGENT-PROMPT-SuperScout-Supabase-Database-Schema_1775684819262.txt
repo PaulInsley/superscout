@@ -1,0 +1,336 @@
+REPLIT AGENT PROMPT — SuperScout: Supabase Database Schema (18 Tables)
+
+Connect this app to Supabase and create the complete database schema. This is the foundation for the entire product. Some of these tables start collecting data from day one and that data cannot be backfilled later — so the structure must be right from the start.
+
+=== CONNECTING TO SUPABASE ===
+
+The Supabase credentials are stored in Replit Secrets (environment variables):
+
+- SUPABASE_URL — the project URL
+- SUPABASE_ANON_KEY — the public API key
+
+Install the Supabase JavaScript client library. Create a shared Supabase client module that the rest of the app can import. Keep this client in a shared services or config location — NOT inside the FPL connector folder, because Supabase is used across the whole app and is not sport-specific.
+
+IMPORTANT: Do NOT put any Supabase credentials in the code. Read them only from the environment variables.
+
+=== CREATE THE FOLLOWING 18 TABLES ===
+
+Use the Supabase SQL editor or migrations. All primary keys should be uuid type with auto-generation using gen_random_uuid(). All timestamp fields should be “timestamp with time zone” and default to now() unless stated otherwise.
+
+— TABLE 1: users —
+This stores every person who signs up.
+
+Fields:
+
+- id (uuid, primary key, default gen_random_uuid())
+- email (text, unique, not null)
+- fpl_manager_id (text)
+- default_persona (text, check constraint: must be one of ‘expert’, ‘critic’, ‘fanboy’, default ‘expert’)
+- subscription_tier (text, check constraint: must be one of ‘free’, ‘pro’, ‘elite’, ‘season_pass’, default ‘free’)
+- analytics_consent (boolean, default false)
+- push_notification_token (text, nullable)
+- onboarding_completed (boolean, default false)
+- created_at (timestamptz, default now())
+- updated_at (timestamptz, default now())
+- deleted_at (timestamptz, nullable)
+
+— TABLE 2: recommendations —
+Every time the AI generates options for a user, one row is created here. This is the Decision Log backbone.
+
+Fields:
+
+- id (uuid, primary key, default gen_random_uuid())
+- user_id (uuid, not null, foreign key references users(id) on delete cascade)
+- season (text, not null, e.g. ‘2026-27’)
+- gameweek (integer, not null)
+- decision_type (text, not null, check constraint: must be one of ‘captain’, ‘transfer’, ‘chip_usage’, ‘lineup’)
+- options_shown (jsonb, not null — stores the full array of 3-5 options. Each option includes: player_name, expected_points, confidence_level, upside_text, risk_text, is_superscout_pick boolean)
+- confidence_levels (jsonb — array of confidence levels matching options)
+- data_sources_used (text[] — array of source names, e.g. ARRAY[‘fpl_api’] or ARRAY[‘fpl_api’, ‘understat’, ‘reddit’])
+- persona_used (text, check constraint: must be one of ‘expert’, ‘critic’, ‘fanboy’)
+- tier_at_time (text — which subscription tier the user was on when this was generated)
+- created_at (timestamptz, default now())
+
+— TABLE 3: user_decisions —
+Records what the user actually chose when presented with options.
+
+Fields:
+
+- id (uuid, primary key, default gen_random_uuid())
+- recommendation_id (uuid, not null, foreign key references recommendations(id) on delete cascade)
+- user_id (uuid, not null, foreign key references users(id) on delete cascade)
+- chosen_option (text, not null — the option label/identifier the user selected, or ‘ignored’ if they did not act)
+- hours_before_deadline (decimal — how many hours before the FPL deadline the decision was made, e.g. 3.5 means 3 hours 30 minutes before deadline)
+- created_at (timestamptz, default now())
+
+— TABLE 4: outcomes —
+After each gameweek, records what actually happened for every option that was shown, not just the chosen one.
+
+Fields:
+
+- id (uuid, primary key, default gen_random_uuid())
+- recommendation_id (uuid, not null, foreign key references recommendations(id) on delete cascade)
+- option_index (integer, not null — position in the options array, starting at 1)
+- player_id (integer — the FPL player element ID)
+- actual_points (integer)
+- gameweek (integer, not null)
+- was_chosen (boolean, default false)
+- was_superscout_pick (boolean, default false)
+- gameweek_average_points (decimal — the overall FPL average score for this gameweek)
+- recorded_at (timestamptz, default now())
+
+— TABLE 5: source_tracking —
+Logs which data sources informed each recommendation.
+
+Fields:
+
+- id (uuid, primary key, default gen_random_uuid())
+- recommendation_id (uuid, not null, foreign key references recommendations(id) on delete cascade)
+- source_type (text, not null, check constraint: must be one of ‘fpl_api’, ‘understat’, ‘reddit’, ‘twitter’, ‘blog’, ‘betting’, ‘ai_knowledge’)
+- source_detail (text — specific source name, e.g. ‘r/FantasyPL trending thread’, ‘Understat xG per 90’)
+- weight_applied (decimal — 0.0 to 1.0)
+- confidence_contribution (decimal — how much this source contributed to the confidence level)
+- created_at (timestamptz, default now())
+
+— TABLE 6: structural_knowledge —
+Cross-season learning. Not populated until end of Season 1.
+
+Fields:
+
+- id (uuid, primary key, default gen_random_uuid())
+- insight_type (text, not null — e.g. ‘source_accuracy’, ‘strategy_timing’, ‘sentiment_reliability’)
+- source_type (text)
+- season_stage (text, check constraint: must be one of ‘early’, ‘mid’, ‘late’, ‘pre_season’)
+- accuracy_metric (decimal)
+- sample_size (integer)
+- season (text)
+- created_at (timestamptz, default now())
+
+— TABLE 7: player_continuity —
+Maps player identities across FPL seasons.
+
+Fields:
+
+- id (uuid, primary key, default gen_random_uuid())
+- player_name (text, not null)
+- team (text)
+- fpl_id_current (integer)
+- fpl_id_previous (integer, nullable)
+- season (text, not null)
+
+— TABLE 8: streaks —
+Tracks gameweek streaks per user.
+
+Fields:
+
+- id (uuid, primary key, default gen_random_uuid())
+- user_id (uuid, not null, foreign key references users(id) on delete cascade)
+- current_streak (integer, default 0)
+- longest_streak (integer, default 0)
+- streak_shield_available (boolean, default true)
+- season (text, not null)
+- last_active_gameweek (integer)
+
+— TABLE 9: manager_profiles —
+Adaptive learning profile per user. Not populated until GW5+.
+
+Fields:
+
+- id (uuid, primary key, default gen_random_uuid())
+- user_id (uuid, not null, foreign key references users(id) on delete cascade)
+- risk_appetite (decimal — 0 to 100)
+- recency_bias_score (decimal — 0 to 100)
+- timing_pattern (text, check constraint: must be one of ‘early_week’, ‘mid_week’, ‘deadline_day’, ‘variable’)
+- template_vs_contrarian (decimal — -100 to 100)
+- captain_hit_rate (decimal — 0 to 100)
+- transfer_timing_quality (decimal — 0 to 100)
+- comfort_zone_override_rate (decimal — 0 to 100, percentage of times the user picks the option outside their detected comfort zone)
+- superscout_score (integer, default 0 — cumulative engagement score across challenges, streaks, decisions)
+- season (text, not null)
+- last_updated (timestamptz, default now())
+
+— TABLE 10: squad_cards —
+Tracks every squad card generated and whether it was shared.
+
+Fields:
+
+- id (uuid, primary key, default gen_random_uuid())
+- user_id (uuid, not null, foreign key references users(id) on delete cascade)
+- season (text, not null)
+- gameweek (integer, not null)
+- skin_name (text, default ‘default’)
+- was_shared (boolean, default false)
+- share_platform (text, nullable, check constraint: must be one of ‘twitter’, ‘whatsapp’, ‘imessage’, ‘instagram’, ‘clipboard’, or null)
+- quip_text (text — the AI-generated one-liner)
+- created_at (timestamptz, default now())
+
+— TABLE 11: subscription_events —
+Logs every subscription change.
+
+Fields:
+
+- id (uuid, primary key, default gen_random_uuid())
+- user_id (uuid, not null, foreign key references users(id) on delete cascade)
+- event_type (text, not null, check constraint: must be one of ‘signup’, ‘upgrade’, ‘downgrade’, ‘cancel’, ‘expired’, ‘resubscribe’)
+- tier_from (text)
+- tier_to (text)
+- gameweek (integer)
+- source (text, check constraint: must be one of ‘app_store’, ‘google_play’, ‘web_stripe’)
+- created_at (timestamptz, default now())
+
+— TABLE 12: mini_league_context —
+Stores user’s mini-league data for banter and rival analysis.
+
+Fields:
+
+- id (uuid, primary key, default gen_random_uuid())
+- user_id (uuid, not null, foreign key references users(id) on delete cascade)
+- mini_league_id (text, not null)
+- mini_league_name (text)
+- current_rank (integer)
+- rival_manager_ids (jsonb — array of FPL manager IDs in this league)
+- season (text, not null)
+- last_refreshed (timestamptz, default now())
+
+— TABLE 13: challenges —
+Challenge definitions for each gameweek. Created empty now, populated from GW15.
+
+Fields:
+
+- id (uuid, primary key, default gen_random_uuid())
+- challenge_name (text, not null)
+- challenge_type (text, not null, check constraint: must be one of ‘captain_roulette’, ‘scouts_differential’, ‘prediction’, ‘contrarian’, ‘streak_survivor’, ‘xg_detective’, ‘formation’, ‘nemesis’, ‘clean_sheet_gamble’, ‘value_hunter’)
+- gameweek (integer, not null)
+- season (text, not null)
+- description (text — full description shown to the user)
+- rules (jsonb — structured rules and constraints for this specific challenge instance)
+- created_at (timestamptz, default now())
+- expires_at (timestamptz — when entries close, typically first deadline of the gameweek)
+- free_tier_eligible (boolean, default false — most challenges are Pro/Elite only)
+- prize_type (text, nullable — e.g. ‘cp_only’, ‘cash’, ‘badge’)
+- cash_prize_amount (decimal, nullable)
+
+— TABLE 14: challenge_entries —
+User entries for challenges. Results populated after the gameweek finishes.
+
+Fields:
+
+- id (uuid, primary key, default gen_random_uuid())
+- user_id (uuid, not null, foreign key references users(id) on delete cascade)
+- challenge_id (uuid, not null, foreign key references challenges(id) on delete cascade)
+- entry_details (jsonb, not null — shape depends on challenge type: captain picked, predictions made, formation submitted, etc.)
+- submitted_at (timestamptz, default now())
+- cp_earned (integer, default 0 — calculated after gameweek concludes)
+- cash_prize_won (decimal, nullable)
+- completed (boolean, default false)
+- leaderboard_rank (integer, nullable — calculated after gameweek concludes)
+
+— TABLE 15: superscout_leagues —
+In-app league definitions. Created empty now, populated from GW15.
+
+Fields:
+
+- id (uuid, primary key, default gen_random_uuid())
+- league_type (text, not null, check constraint: must be one of ‘weekly_sprint’, ‘monthly_marathon’, ‘decision_quality’, ‘persona’, ‘challenge_points’)
+- league_tier (text, not null, check constraint: must be one of ‘bronze’, ‘silver’, ‘gold’, ‘diamond’)
+- season (text, not null)
+- period_start_gameweek (integer, not null)
+- period_end_gameweek (integer, not null)
+- max_members (integer, default 25)
+- persona_filter (text, nullable, check constraint: must be one of ‘expert’, ‘critic’, ‘fanboy’, or null — only used for persona league type)
+- created_at (timestamptz, default now())
+
+— TABLE 16: league_memberships —
+Tracks which users are in which leagues and their performance.
+
+Fields:
+
+- id (uuid, primary key, default gen_random_uuid())
+- user_id (uuid, not null, foreign key references users(id) on delete cascade)
+- league_id (uuid, not null, foreign key references superscout_leagues(id) on delete cascade)
+- current_score (decimal, default 0)
+- current_rank (integer, nullable)
+- cp_earned_this_period (integer, default 0)
+- promotion_status (text, default ‘pending’, check constraint: must be one of ‘promoted’, ‘demoted’, ‘stayed’, ‘pending’)
+- assigned_at (timestamptz, default now())
+
+— TABLE 17: challenge_points_balance —
+Each user’s CP balance for the current season.
+
+Fields:
+
+- id (uuid, primary key, default gen_random_uuid())
+- user_id (uuid, not null, foreign key references users(id) on delete cascade)
+- season (text, not null)
+- total_lifetime_earned (integer, default 0)
+- current_spendable_balance (integer, default 0)
+- last_updated (timestamptz, default now())
+
+— TABLE 18: reward_redemptions —
+Logs what users have spent their CP on.
+
+Fields:
+
+- id (uuid, primary key, default gen_random_uuid())
+- user_id (uuid, not null, foreign key references users(id) on delete cascade)
+- reward_type (text, not null, check constraint: must be one of ‘skin’, ‘badge’, ‘persona_customisation’, ‘feature_access’, ‘early_access’)
+- reward_name (text, not null)
+- cp_cost (integer, not null)
+- redeemed_at (timestamptz, default now())
+
+=== INDEXES ===
+
+Create indexes on the following fields for query performance:
+
+- users.email
+- users.fpl_manager_id
+- recommendations.user_id
+- recommendations.gameweek
+- recommendations.season
+- user_decisions.user_id
+- user_decisions.recommendation_id
+- outcomes.recommendation_id
+- outcomes.gameweek
+- source_tracking.recommendation_id
+- squad_cards.user_id
+- squad_cards.gameweek
+- subscription_events.user_id
+- mini_league_context.user_id
+- challenge_entries.user_id
+- challenge_entries.challenge_id
+- league_memberships.user_id
+- league_memberships.league_id
+- challenge_points_balance.user_id
+
+=== ROW LEVEL SECURITY ===
+
+Enable Row Level Security (RLS) on ALL 18 tables. For now, create simple policies:
+
+- On the users table: users can only read and update their own row (where auth.uid() = id)
+- On all other tables with a user_id column: users can only read rows where user_id matches their auth.uid()
+- We will refine policies later, but RLS must be enabled from the start — it is a Supabase security requirement
+
+If RLS setup fails or causes issues with the current auth setup, enable RLS on all tables but create permissive policies that allow all operations for now (we will lock them down properly when authentication is built in Phase 1). The important thing is that RLS is turned ON — the policies can be refined later.
+
+=== IMPORTANT DESIGN NOTES ===
+
+1. The options_shown field in recommendations is JSONB, not plain JSON. JSONB allows querying inside the JSON structure, which is needed for the What If analysis later.
+1. All foreign keys referencing users(id) should use ON DELETE CASCADE — when a user is deleted, all their data is automatically removed. This supports the GDPR right to erasure.
+1. Do NOT put any Supabase credentials in the code. Read them only from the environment variables SUPABASE_URL and SUPABASE_ANON_KEY.
+1. Tables 13-18 will be empty for now. They exist to avoid mid-season schema migrations when the engagement system launches at GW15. Do not worry that they have no data — that is intentional.
+
+=== VERIFICATION TEST ===
+
+After creating all 18 tables:
+
+1. Insert a test user into the users table with: email ‘test@superscout.pro’, fpl_manager_id ‘13042160’, default_persona ‘expert’
+1. Insert a test recommendation linked to that user with: season ‘2025-26’, gameweek 31, decision_type ‘captain’, options_shown as a JSON array with 3 dummy options, data_sources_used as ARRAY[‘fpl_api’]
+1. Read both records back and display them in the console to confirm the connection and foreign keys work
+1. Delete the test user (the test recommendation should automatically cascade-delete)
+1. Confirm both records are gone
+
+Print “[SuperScout] All 18 tables created and verified” when complete.
+
+=== GIT SAFETY INSTRUCTION ===
+
+Do NOT run any destructive git operations. No git reset –hard, no orphan commits, no force pushes that rewrite history. If you think a destructive git operation is needed for any reason, STOP and explain to me what you want to do and why before running it. I need to approve it first.
