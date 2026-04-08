@@ -1,0 +1,23 @@
+Replit Agent Prompt — SuperScout: First FPL API Connection
+Build a React Native mobile app called SuperScout. This is a fantasy sports AI coach. Right now we're starting with FPL (Fantasy Premier League) but the architecture must be sport-agnostic from the start — I'll explain what that means below.
+What to build:
+
+A constants/config file. Store the brand name "SuperScout" in a single config or constants file. Every screen that displays the brand name should pull from this file — never hardcode the name anywhere else. This means if I ever need to rebrand, I change one line.
+Connect to the FPL API. The base URL is https://fantasy.premierleague.com/api/. Hit the /bootstrap-static/ endpoint. This returns a big JSON object. The part I care about right now is the elements array — that's every player in the game.
+Display a player list screen. Show every player from the API with three pieces of information:
+
+Player name (combine first_name and second_name from the API)
+Current price (the field is now_cost — divide by 10 to get the actual price in millions, e.g. 130 becomes £13.0m)
+Form rating (the field is form — this is a string, display it as-is)
+
+Sort the list by price, highest first. Make it scrollable. Keep the design clean and simple — white background, clear text, nothing fancy yet.
+Architecture note — this is important. The data-fetching layer that talks to the FPL API should be in its own separate module or folder (something like services/fpl/ or connectors/fpl/). Don't scatter API calls throughout the app. When I add F1 Fantasy later, I want to drop in a new connector module without touching the rest of the codebase. Think of it as: the app's personality engine and user interface are sport-agnostic, and the sport-specific data lives in swappable modules.
+Basic error handling. If the API call fails (network error, API down), show a friendly message on screen like "Couldn't reach the FPL servers — try again in a moment." Don't let the app crash silently.
+
+Git safety instruction — read this carefully: Do NOT run any destructive git operations. That means no git reset --hard, no orphan commits, no force pushes that rewrite history. If you think a destructive git operation is needed for any reason, STOP and explain to me what you want to do and why before running it. I need to approve it first.
+Tech notes:
+
+This is a React Native app using Expo
+Push code to my GitHub repo called superscout when done
+No authentication or user accounts needed yet — this is just the data connection proof
+The FPL API has CORS restrictions on browser calls, but React Native makes server-side calls natively so this shouldn't be an issue

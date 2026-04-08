@@ -1,8 +1,8 @@
-# Workspace
+# SuperScout
 
 ## Overview
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+SuperScout is a fantasy sports AI coach mobile app built with Expo (React Native). Currently connects to the Fantasy Premier League (FPL) API. The architecture is sport-agnostic — sport-specific data connectors live in swappable modules.
 
 ## Stack
 
@@ -10,11 +10,26 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Node.js version**: 24
 - **Package manager**: pnpm
 - **TypeScript version**: 5.9
-- **API framework**: Express 5
-- **Database**: PostgreSQL + Drizzle ORM
+- **Mobile**: Expo (React Native) with expo-router
+- **API framework**: Express 5 (backend proxy for CORS)
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
+
+## Architecture
+
+### Brand Config
+- `artifacts/superscout/constants/config.ts` — single source of truth for the brand name "SuperScout". All screens pull from this file.
+
+### Sport Connectors (sport-agnostic pattern)
+- `artifacts/superscout/services/fpl/` — FPL connector module
+  - `types.ts` — FPL-specific data types and normalized player interface
+  - `api.ts` — API calls to FPL (uses proxy on web, direct on native)
+  - `index.ts` — barrel export
+- To add a new sport: create `services/<sport>/` with the same pattern (types, api, index)
+
+### API Proxy
+- `artifacts/api-server/src/routes/fpl.ts` — server-side proxy for FPL API to bypass CORS on web. Native mobile calls FPL directly.
 
 ## Key Commands
 
