@@ -332,6 +332,17 @@ export default function SquadScreen() {
   const renderSquadTab = () => {
     if (!managerData) return null;
 
+    if (managerData.isNewManager) {
+      return (
+        <View style={styles.emptyState}>
+          <Feather name="clock" size={40} color={colors.mutedForeground} />
+          <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+            This manager hasn't played a gameweek yet. Squad data will appear once they've entered their first gameweek.
+          </Text>
+        </View>
+      );
+    }
+
     if (managerData.squad.length === 0) {
       return (
         <View style={styles.emptyState}>
@@ -348,6 +359,11 @@ export default function SquadScreen() {
 
     return (
       <View style={styles.tabContent}>
+        {managerData.gameweekLoaded != null && (
+          <Text style={[styles.gwIndicator, { color: colors.mutedForeground }]}>
+            Gameweek {managerData.gameweekLoaded}
+          </Text>
+        )}
         <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
           Starting XI
         </Text>
@@ -855,5 +871,16 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 15,
     fontFamily: "Inter_500Medium",
+    textAlign: "center",
+    paddingHorizontal: 16,
+    lineHeight: 22,
+  },
+  gwIndicator: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 8,
+    paddingHorizontal: 4,
   },
 });

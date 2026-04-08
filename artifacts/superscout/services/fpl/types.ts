@@ -38,6 +38,7 @@ export interface FPLManagerInfo {
   summary_overall_rank: number | null;
   current_event: number | null;
   started_event: number;
+  entered_events: number[];
   leagues: {
     classic: FPLLeague[];
   };
@@ -119,6 +120,8 @@ export interface ManagerData {
   overallPoints: number | null;
   overallRank: number | null;
   currentGwPoints: number | null;
+  gameweekLoaded: number | null;
+  isNewManager: boolean;
   squad: SquadPlayer[];
   transfers: NormalizedTransfer[];
   leagues: FPLLeague[];

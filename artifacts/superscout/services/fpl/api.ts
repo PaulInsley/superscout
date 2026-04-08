@@ -77,9 +77,13 @@ function getCurrentGameweek(data: FPLBootstrapResponse): number {
   return 1;
 }
 
-function buildPlayerMap(
-  elements: FPLPlayer[]
-): Map<number, FPLPlayer> {
+function getLastFinishedGameweek(data: FPLBootstrapResponse): number | null {
+  const finished = data.events.filter((e) => e.finished);
+  if (finished.length === 0) return null;
+  return Math.max(...finished.map((e) => e.id));
+}
+
+function buildPlayerMap(elements: FPLPlayer[]): Map<number, FPLPlayer> {
   const map = new Map<number, FPLPlayer>();
   for (const el of elements) {
     map.set(el.id, el);
@@ -94,15 +98,25 @@ async function fetchManagerInfo(managerId: number): Promise<FPLManagerInfo> {
       ? `${base}/entry/${managerId}`
       : `${base}/entry/${managerId}/`;
 
+  console.log("[SuperScout] Fetching manager info:", url);
   const response = await fetch(url);
   if (!response.ok) {
+    console.log("[SuperScout] Manager info error:", response.status);
     if (response.status === 404) {
       throw new Error("MANAGER_NOT_FOUND");
     }
     throw new Error(`FPL API error: ${response.status}`);
   }
 
-  return response.json();
+  const data = await response.json();
+  console.log("[SuperScout] Manager info loaded:", {
+    name: data.name,
+    started_event: data.started_event,
+    entered_events: data.entered_events,
+    summary_overall_points: data.summary_overall_points,
+    summary_overall_rank: data.summary_overall_rank,
+  });
+  return data;
 }
 
 async function fetchPicks(
@@ -115,12 +129,16 @@ async function fetchPicks(
       ? `${base}/entry/${managerId}/event/${gameweek}/picks`
       : `${base}/entry/${managerId}/event/${gameweek}/picks/`;
 
+  console.log("[SuperScout] Fetching picks:", url);
   const response = await fetch(url);
   if (!response.ok) {
+    console.log("[SuperScout] Picks error:", response.status, "for GW", gameweek);
     throw new Error(`FPL API error: ${response.status}`);
   }
 
-  return response.json();
+  const data = await response.json();
+  console.log("[SuperScout] Picks loaded for GW", gameweek, "- picks count:", data.picks?.length);
+  return data;
 }
 
 async function fetchTransfers(managerId: number): Promise<FPLTransfer[]> {
@@ -138,26 +156,75 @@ async function fetchTransfers(managerId: number): Promise<FPLTransfer[]> {
   return response.json();
 }
 
+async function tryFetchPicks(
+  managerId: number,
+  gameweeksToTry: number[]
+): Promise<{ picks: FPLPicksResponse; gameweek: number } | null> {
+  for (const gw of gameweeksToTry) {
+    try {
+      const picks = await fetchPicks(managerId, gw);
+      return { picks, gameweek: gw };
+    } catch {
+      console.log("[SuperScout] No picks for GW", gw, "- trying next...");
+    }
+  }
+  return null;
+}
+
 export async function fetchManagerData(
   managerId: number
 ): Promise<ManagerData> {
   const bootstrapData = await getBootstrapData();
   const currentGw = getCurrentGameweek(bootstrapData);
+  const lastFinishedGw = getLastFinishedGameweek(bootstrapData);
   const playerMap = buildPlayerMap(bootstrapData.elements);
+
+  console.log("[SuperScout] Detected gameweeks - current:", currentGw, "lastFinished:", lastFinishedGw);
 
   const managerInfo = await fetchManagerInfo(managerId);
   const transfersData = await fetchTransfers(managerId);
 
-  let picksData: FPLPicksResponse | null = null;
-  try {
-    picksData = await fetchPicks(managerId, currentGw);
-  } catch {
-    // Manager may not have picks for this gameweek (new manager, etc.)
+  const hasEnteredEvents =
+    managerInfo.entered_events && managerInfo.entered_events.length > 0;
+  const isNewManager = !hasEnteredEvents;
+
+  console.log("[SuperScout] Manager started_event:", managerInfo.started_event,
+    "entered_events:", managerInfo.entered_events?.length ?? 0,
+    "isNewManager:", isNewManager);
+
+  let picksResult: { picks: FPLPicksResponse; gameweek: number } | null = null;
+
+  if (!isNewManager) {
+    const gameweeksToTry: number[] = [];
+
+    if (managerInfo.entered_events && managerInfo.entered_events.length > 0) {
+      const sortedEvents = [...managerInfo.entered_events].sort((a, b) => b - a);
+      const relevantEvents = sortedEvents.filter((gw) => gw <= currentGw);
+      gameweeksToTry.push(...relevantEvents.slice(0, 3));
+    }
+
+    if (gameweeksToTry.length === 0) {
+      gameweeksToTry.push(currentGw);
+      if (lastFinishedGw && lastFinishedGw !== currentGw) {
+        gameweeksToTry.push(lastFinishedGw);
+      }
+      if (currentGw > 1) {
+        gameweeksToTry.push(currentGw - 1);
+      }
+    }
+
+    const uniqueGws = [...new Set(gameweeksToTry)];
+    console.log("[SuperScout] Gameweeks to try for picks:", uniqueGws);
+
+    picksResult = await tryFetchPicks(managerId, uniqueGws);
+  } else {
+    console.log("[SuperScout] New manager - no gameweeks entered yet, skipping picks fetch");
   }
 
   let squad: SquadPlayer[] = [];
-  if (picksData) {
-    squad = picksData.picks.map((pick) => {
+  if (picksResult) {
+    console.log("[SuperScout] Successfully loaded picks for GW", picksResult.gameweek);
+    squad = picksResult.picks.picks.map((pick) => {
       const player = playerMap.get(pick.element);
       return {
         id: pick.element,
@@ -177,6 +244,8 @@ export async function fetchManagerData(
     });
 
     squad.sort((a, b) => a.pickPosition - b.pickPosition);
+  } else {
+    console.log("[SuperScout] No picks data available for any gameweek");
   }
 
   const recentTransfers = transfersData.slice(-10).reverse();
@@ -202,7 +271,9 @@ export async function fetchManagerData(
     managerName: `${managerInfo.player_first_name} ${managerInfo.player_last_name}`,
     overallPoints: managerInfo.summary_overall_points,
     overallRank: managerInfo.summary_overall_rank,
-    currentGwPoints: picksData?.entry_history.points ?? null,
+    currentGwPoints: picksResult?.picks.entry_history.points ?? null,
+    gameweekLoaded: picksResult?.gameweek ?? null,
+    isNewManager,
     squad,
     transfers,
     leagues: managerInfo.leagues.classic,
