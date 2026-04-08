@@ -20,6 +20,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "person.3", selected: "person.3.fill" }} />
         <Label>Players</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="squad">
+        <Icon sf={{ default: "sportscourt", selected: "sportscourt.fill" }} />
+        <Label>My Squad</Label>
+      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }
@@ -72,6 +76,19 @@ function ClassicTabLayout() {
               <SymbolView name="person.3" tintColor={color} size={24} />
             ) : (
               <Feather name="users" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="squad"
+        options={{
+          title: "My Squad",
+          headerShown: false,
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="sportscourt" tintColor={color} size={24} />
+            ) : (
+              <Feather name="shield" size={22} color={color} />
             ),
         }}
       />

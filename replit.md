@@ -29,7 +29,12 @@ SuperScout is a fantasy sports AI coach mobile app built with Expo (React Native
 - To add a new sport: create `services/<sport>/` with the same pattern (types, api, index)
 
 ### API Proxy
-- `artifacts/api-server/src/routes/fpl.ts` — server-side proxy for FPL API to bypass CORS on web. Native mobile calls FPL directly.
+- `artifacts/api-server/src/routes/fpl.ts` — server-side proxy for FPL API to bypass CORS on web. Proxies: bootstrap-static, entry/{id}, entry/{id}/event/{gw}/picks, entry/{id}/transfers. Native mobile calls FPL directly.
+
+### My Squad Screen
+- `app/(tabs)/squad.tsx` — Manager squad screen with three sub-tabs (Squad, Transfers, Leagues)
+- Manager ID stored locally via AsyncStorage for persistence across sessions
+- Handles edge cases: new managers with no picks, null stats, API errors, invalid manager IDs
 
 ## Key Commands
 
