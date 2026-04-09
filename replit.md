@@ -66,7 +66,7 @@ SuperScout is a fantasy sports AI coach mobile app built with Expo (React Native
 - Anonymous user uses nil UUID `00000000-0000-0000-0000-000000000000` (pre-created in users table)
 - Season hardcoded to '2026-27', engine_level to 1 (FPL API only)
 - Tables written: recommendations, recommendation_options, inference_context, user_decisions
-- Confidence label mapping: AI uses BANKER/CALCULATED_RISK/BOLD_PUNT → DB stores HIGH/MEDIUM/SPECULATIVE (CHECK constraint on recommendation_options)
+- Confidence labels stored as-is: BANKER, CALCULATED_RISK, BOLD_PUNT (DB CHECK constraint updated to match AI output)
 - Decision type values: 'captain', 'transfer', 'chip_usage', 'lineup' (CHECK constraint on recommendations)
 
 ### Captain Picker
