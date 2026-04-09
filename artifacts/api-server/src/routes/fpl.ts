@@ -76,4 +76,17 @@ router.get(
   }
 );
 
+router.get("/fpl/fixtures", (req: Request, res: Response) => {
+  proxyFplRequest(req, res, "/fixtures/");
+});
+
+router.get("/fpl/event/:event/live", (req: Request, res: Response) => {
+  const { event } = req.params;
+  if (!isValidEvent(event)) {
+    res.status(400).json({ error: "Invalid gameweek number" });
+    return;
+  }
+  proxyFplRequest(req, res, `/event/${event}/live/`);
+});
+
 export default router;

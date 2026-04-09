@@ -51,8 +51,20 @@ SuperScout is a fantasy sports AI coach mobile app built with Expo (React Native
   - All operations fail silently (try/catch, console.error only) — never crashes the app
   - Season hardcoded to '2026-27', engine_level to 1 (FPL API only)
 
+### Captain Picker
+- `app/(tabs)/captain.tsx` — Captain Picker tab screen with AI-powered captain recommendations
+- Loads squad data via `fetchCaptainCandidates()`, sends to AI via `/api/captain-picks` POST, displays 3 `ChoiceCard` components
+- `components/ChoiceCard.tsx` — reusable card component with confidence badges (HIGH=green, MEDIUM=amber, SPECULATIVE=red), SuperScout Pick badge
+- `services/ai/captainPrompt.ts` — captain-picker instruction prompt
+- `services/ai/generateCaptainPicks.ts` — combines context + vibe prompt + sends to AI
+- Mock data fallback for off-season testing via `getMockCaptainData()`
+- Silent Decision Log writes on captain confirmation
+- API URL pattern: web uses `https://${EXPO_PUBLIC_DOMAIN}/api/captain-picks` (not `/api-server/api/...` — POST routing through Replit proxy only works with the `/api` prefix)
+
 ### API Proxy
-- `artifacts/api-server/src/routes/fpl.ts` — server-side proxy for FPL API to bypass CORS on web. Proxies: bootstrap-static, entry/{id}, entry/{id}/event/{gw}/picks, entry/{id}/transfers. Native mobile calls FPL directly.
+- `artifacts/api-server/src/routes/fpl.ts` — server-side proxy for FPL API to bypass CORS on web. Proxies: bootstrap-static, entry/{id}, entry/{id}/event/{gw}/picks, entry/{id}/transfers, fixtures, event/{event}/live. Native mobile calls FPL directly.
+- `artifacts/api-server/src/routes/captain.ts` — POST `/api/captain-picks` endpoint for AI captain recommendations using Claude, with robust JSON extraction (balanced-brace parser)
+- CORS: exact origin matching with Set; `*.replit.dev` wildcard allowed in dev only
 
 ### Onboarding Flow
 - `artifacts/superscout/app/onboarding/` — 5-screen onboarding flow shown on first launch

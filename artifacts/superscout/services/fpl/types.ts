@@ -7,6 +7,9 @@ export interface FPLPlayer {
   team: number;
   element_type: number;
   total_points: number;
+  selected_by_percent: string;
+  status: string;
+  chance_of_playing_next_round: number | null;
 }
 
 export interface FPLEvent {
@@ -15,11 +18,13 @@ export interface FPLEvent {
   is_current: boolean;
   is_next: boolean;
   finished: boolean;
+  deadline_time: string;
 }
 
 export interface FPLBootstrapResponse {
   elements: FPLPlayer[];
   events: FPLEvent[];
+  teams: FPLTeam[];
 }
 
 export interface NormalizedPlayer {
@@ -112,6 +117,74 @@ export interface NormalizedTransfer {
   playerOut: string;
   playerOutCost: number;
   time: string;
+}
+
+export interface FPLFixture {
+  id: number;
+  event: number | null;
+  team_h: number;
+  team_a: number;
+  team_h_difficulty: number;
+  team_a_difficulty: number;
+  kickoff_time: string | null;
+  finished: boolean;
+}
+
+export interface FPLTeam {
+  id: number;
+  name: string;
+  short_name: string;
+}
+
+export interface FPLLiveElement {
+  id: number;
+  stats: {
+    minutes: number;
+    goals_scored: number;
+    assists: number;
+    clean_sheets: number;
+    bonus: number;
+    total_points: number;
+  };
+}
+
+export interface FPLLiveResponse {
+  elements: FPLLiveElement[];
+}
+
+export interface CaptainCandidate {
+  id: number;
+  name: string;
+  team: string;
+  teamId: number;
+  position: string;
+  form: string;
+  totalPoints: number;
+  ownershipPct: number;
+  price: number;
+  opponent: string;
+  isHome: boolean;
+  fixtureDifficulty: number;
+  status: string;
+  chanceOfPlaying: number | null;
+}
+
+export interface CaptainRecommendation {
+  player_name: string;
+  team: string;
+  opponent: string;
+  expected_points: number;
+  confidence: "HIGH" | "MEDIUM" | "SPECULATIVE";
+  ownership_pct: number;
+  upside: string;
+  risk: string;
+  case: string;
+  is_superscout_pick: boolean;
+}
+
+export interface CaptainPicksResponse {
+  gameweek: number;
+  recommendations: CaptainRecommendation[];
 }
 
 export interface ManagerData {
