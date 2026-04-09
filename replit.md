@@ -34,7 +34,8 @@ SuperScout is a fantasy sports AI coach mobile app built with Expo (React Native
 - **21 tables**: users, recommendations, user_decisions, outcomes, source_tracking, structural_knowledge, player_continuity, streaks, manager_profiles, squad_cards, subscription_events, mini_league_context, challenges, challenge_entries, superscout_leagues, league_memberships, challenge_points_balance, reward_redemptions, recommendation_options, inference_context, consent_events
 - `scripts/supabase-migration-v2.sql` — v2 additions: recommendation_options (normalised options), inference_context (AI model tracking), consent_events (GDPR), user GDPR deletion fields
 - Tables 13-18 (challenges, engagement, leagues) are empty by design until GW15
-- RLS enabled on all tables with permissive policies (to be tightened in Phase 1)
+- RLS tightened: owner-scoped policies on user-data tables (auth.uid() = user_id), read-only public on reference tables
+- `scripts/supabase-rls-fix.sql` — RLS policy migration (owner-scoped access controls on all 21 tables)
 - All foreign keys use ON DELETE CASCADE for GDPR compliance
 - Required secrets: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_DB_PASSWORD
 
@@ -43,8 +44,24 @@ SuperScout is a fantasy sports AI coach mobile app built with Expo (React Native
 - Persona prompts: `sharedSystemPrompt.ts`, `expertPrompt.ts`, `criticPrompt.ts`, `fanBoyPrompt.ts`
 - **Server-side only**: ai.ts is NOT imported from the React Native app bundle (app/ directory). It will be called via the API server to keep the Anthropic API key out of the app binary.
 
+### Decision Log
+- `artifacts/superscout/services/decisionLog.ts` — silent logging service for all recommendations and user decisions
+  - `logRecommendation()` — writes to recommendations, recommendation_options, and inference_context tables
+  - `logUserDecision()` — writes to user_decisions table
+  - All operations fail silently (try/catch, console.error only) — never crashes the app
+  - Season hardcoded to '2026-27', engine_level to 1 (FPL API only)
+
 ### API Proxy
 - `artifacts/api-server/src/routes/fpl.ts` — server-side proxy for FPL API to bypass CORS on web. Proxies: bootstrap-static, entry/{id}, entry/{id}/event/{gw}/picks, entry/{id}/transfers. Native mobile calls FPL directly.
+
+### Onboarding Flow
+- `artifacts/superscout/app/onboarding/` — 5-screen onboarding flow shown on first launch
+  - WelcomeScreen → ConnectFPLScreen → ChoosePersonaScreen → WhatWeDoScreen → YoureInScreen
+  - FPL Manager ID entered during onboarding pre-populates the Squad screen (shared AsyncStorage key `superscout_manager_id`)
+  - Persona choice saved to AsyncStorage key `superscout_persona`
+  - Completion stored in AsyncStorage key `superscout_onboarding_complete`
+  - Root layout (`_layout.tsx`) checks onboarding status on launch and shows flow before main tabs if not completed
+  - `fetchTeamName()` in `services/fpl/teamLookup.ts` — lightweight FPL API lookup for onboarding
 
 ### My Squad Screen
 - `app/(tabs)/squad.tsx` — Manager squad screen with three sub-tabs (Squad, Transfers, Leagues)

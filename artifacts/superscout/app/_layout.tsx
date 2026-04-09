@@ -5,17 +5,20 @@ import {
   Inter_700Bold,
   useFonts,
 } from "@expo-google-fonts/inter";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import OnboardingFlow, {
+  ONBOARDING_COMPLETE_KEY,
+} from "./onboarding/OnboardingFlow";
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
@@ -36,13 +39,30 @@ export default function RootLayout() {
     Inter_700Bold,
   });
 
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
   useEffect(() => {
-    if (fontsLoaded || fontError) {
+    AsyncStorage.getItem(ONBOARDING_COMPLETE_KEY)
+      .then((value) => {
+        setShowOnboarding(value !== "true");
+      })
+      .catch(() => {
+        setShowOnboarding(true);
+      })
+      .finally(() => {
+        setOnboardingChecked(true);
+      });
+  }, []);
+
+  useEffect(() => {
+    if ((fontsLoaded || fontError) && onboardingChecked) {
       SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, fontError]);
+  }, [fontsLoaded, fontError, onboardingChecked]);
 
   if (!fontsLoaded && !fontError) return null;
+  if (!onboardingChecked) return null;
 
   return (
     <SafeAreaProvider>
@@ -50,7 +70,13 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <GestureHandlerRootView>
             <KeyboardProvider>
-              <RootLayoutNav />
+              {showOnboarding ? (
+                <OnboardingFlow
+                  onComplete={() => setShowOnboarding(false)}
+                />
+              ) : (
+                <RootLayoutNav />
+              )}
             </KeyboardProvider>
           </GestureHandlerRootView>
         </QueryClientProvider>

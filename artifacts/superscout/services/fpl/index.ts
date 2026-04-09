@@ -1,4 +1,5 @@
 export { fetchPlayers, fetchManagerData, clearBootstrapCache } from "./api";
+export { fetchTeamName } from "./teamLookup";
 export type {
   FPLPlayer,
   FPLBootstrapResponse,
