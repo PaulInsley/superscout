@@ -16,7 +16,7 @@ router.post("/process-decisions/:gameweek", async (req: Request, res: Response) 
       }
     }
 
-    const gw = parseInt(req.params.gameweek, 10);
+    const gw = parseInt(String(req.params.gameweek), 10);
     if (isNaN(gw) || gw < 1 || gw > 50) {
       res.status(400).json({ error: "Invalid gameweek" });
       return;
@@ -47,27 +47,43 @@ router.post("/process-decisions/:gameweek", async (req: Request, res: Response) 
       req.log.warn("Could not verify deadline, proceeding anyway");
     }
 
-    const { data: recs, error: recError } = await supabase
-      .from("recommendations")
-      .select("id, user_id, gameweek, options_shown")
-      .eq("gameweek", gw)
-      .eq("decision_type", "captain");
+    const [captainResult, transferResult] = await Promise.all([
+      supabase
+        .from("recommendations")
+        .select("id, user_id, gameweek, options_shown")
+        .eq("gameweek", gw)
+        .eq("decision_type", "captain"),
+      supabase
+        .from("recommendations")
+        .select("id, user_id, gameweek, options_shown")
+        .eq("gameweek", gw)
+        .eq("decision_type", "transfer_suggestion"),
+    ]);
 
-    if (recError) {
-      req.log.error({ err: recError }, "Failed to fetch recommendations");
-      res.status(500).json({ error: "Failed to fetch recommendations" });
+    if (captainResult.error) {
+      req.log.error({ err: captainResult.error }, "Failed to fetch captain recommendations");
+    }
+    if (transferResult.error) {
+      req.log.warn({ err: transferResult.error }, "Failed to fetch transfer recommendations");
+    }
+
+    const recs = captainResult.data ?? [];
+    const transferRecs = transferResult.data ?? [];
+
+    if (recs.length === 0 && transferRecs.length === 0) {
+      res.json({
+        message: "No recommendations found for this gameweek",
+        captain: { processed: 0, matched_superscout: 0, ignored_superscout: 0 },
+        transfers: { processed: 0, matched_superscout: 0 },
+      });
       return;
     }
 
-    if (!recs || recs.length === 0) {
-      res.json({ message: "No recommendations found for this gameweek", processed: 0, matched: 0, ignored: 0 });
-      return;
-    }
-
+    const allRecIds = [...recs, ...transferRecs].map((r: { id: string }) => r.id);
     const { data: existingDecisions } = await supabase
       .from("user_decisions")
       .select("recommendation_id")
-      .in("recommendation_id", recs.map((r: { id: string }) => r.id));
+      .in("recommendation_id", allRecIds);
 
     const alreadyProcessed = new Set(
       (existingDecisions ?? []).map((d: { recommendation_id: string }) => d.recommendation_id)
@@ -76,8 +92,9 @@ router.post("/process-decisions/:gameweek", async (req: Request, res: Response) 
     const managerIdOverride = req.body?.manager_id ? parseInt(req.body.manager_id, 10) : null;
 
     const userFplMap = new Map<string, number>();
+    const allUserRecs = [...recs, ...transferRecs];
     if (managerIdOverride) {
-      for (const rec of recs) {
+      for (const rec of allUserRecs) {
         userFplMap.set(rec.user_id, managerIdOverride);
       }
     } else {
@@ -207,16 +224,84 @@ router.post("/process-decisions/:gameweek", async (req: Request, res: Response) 
       }
     }
 
+    let transferProcessed = 0;
+    let transferMatched = 0;
+
+    if (transferRecs.length > 0) {
+      for (const rec of transferRecs) {
+        if (alreadyProcessed.has(rec.id)) continue;
+
+        const managerId = userFplMap.get(rec.user_id);
+        if (!managerId) continue;
+
+        try {
+          const transfersResp = await fetch(
+            `${FPL_BASE_URL}/entry/${managerId}/transfers/`
+          );
+          if (!transfersResp.ok) continue;
+
+          const transfers = await transfersResp.json() as Array<{
+            element_in: number;
+            element_out: number;
+            event: number;
+          }>;
+
+          const gwTransfers = transfers.filter((t) => t.event === gw);
+
+          const recommendedTransfers: Array<{ player_out?: string; player_in?: string; is_hold_recommendation?: boolean }> = [];
+          if (Array.isArray(rec.options_shown)) {
+            for (const opt of rec.options_shown as Array<{ player_out?: string; player_in?: string; is_hold_recommendation?: boolean }>) {
+              recommendedTransfers.push(opt);
+            }
+          }
+
+          let chosenOption = "no_transfer";
+          if (gwTransfers.length > 0) {
+            const transferNames = gwTransfers.map((t) => {
+              const inName = playerNameMap.get(t.element_in) ?? `#${t.element_in}`;
+              const outName = playerNameMap.get(t.element_out) ?? `#${t.element_out}`;
+              return `${outName} → ${inName}`;
+            });
+            chosenOption = transferNames.join(", ");
+
+            const didFollow = gwTransfers.some((t) => {
+              const inName = playerNameMap.get(t.element_in)?.toLowerCase() ?? "";
+              const outName = playerNameMap.get(t.element_out)?.toLowerCase() ?? "";
+              return recommendedTransfers.some((r) =>
+                r.player_in?.toLowerCase().includes(inName) ||
+                r.player_out?.toLowerCase().includes(outName)
+              );
+            });
+            if (didFollow) transferMatched++;
+          } else {
+            const hadHoldRec = recommendedTransfers.some((r) => r.is_hold_recommendation);
+            if (hadHoldRec) transferMatched++;
+          }
+
+          await supabase.from("user_decisions").insert({
+            recommendation_id: rec.id,
+            user_id: rec.user_id,
+            recommendation_option_id: null,
+            chosen_option: chosenOption,
+            hours_before_deadline: null,
+          });
+
+          transferProcessed++;
+        } catch (err) {
+          req.log.error({ err }, "Error processing transfer decision");
+        }
+      }
+    }
+
     req.log.info(
-      { gameweek: gw, processed, matched, ignored },
+      { gameweek: gw, processed, matched, ignored, transferProcessed, transferMatched },
       "Decision processing complete"
     );
 
     res.json({
       gameweek: gw,
-      processed,
-      matched_superscout: matched,
-      ignored_superscout: ignored,
+      captain: { processed, matched_superscout: matched, ignored_superscout: ignored },
+      transfers: { processed: transferProcessed, matched_superscout: transferMatched },
     });
   } catch (error) {
     req.log.error({ err: error }, "Process decisions failed");

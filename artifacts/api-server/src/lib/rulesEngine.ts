@@ -6,9 +6,7 @@ interface RulesConfig {
   strategyPath: string;
 }
 
-const WORKSPACE_ROOT = process.env.REPL_HOME
-  ? resolve(process.env.REPL_HOME, "workspace")
-  : resolve("/home/runner/workspace");
+const WORKSPACE_ROOT = process.env.REPL_HOME ?? "/home/runner/workspace";
 
 const SPORT_CONFIGS: Record<string, RulesConfig> = {
   fpl: {

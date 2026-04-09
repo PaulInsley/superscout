@@ -33,6 +33,7 @@ SuperScout is a fantasy sports AI coach mobile app built with Expo (React Native
 - `scripts/supabase-migration.sql` — full schema (18 tables) with indexes and RLS
 - **21 tables**: users, recommendations, user_decisions, outcomes, source_tracking, structural_knowledge, player_continuity, streaks, manager_profiles, squad_cards, subscription_events, mini_league_context, challenges, challenge_entries, superscout_leagues, league_memberships, challenge_points_balance, reward_redemptions, recommendation_options, inference_context, consent_events
 - `scripts/supabase-migration-v2.sql` — v2 additions: recommendation_options (normalised options), inference_context (AI model tracking), consent_events (GDPR), user GDPR deletion fields
+- `scripts/supabase-migration-sport-interest.sql` — Table 22: `sport_interest` (cross-sport discovery nudges, RLS enabled, no policies yet)
 - Tables 13-18 (challenges, engagement, leagues) are empty by design until GW15
 - RLS tightened: owner-scoped policies on user-data tables (auth.uid() = user_id), read-only public on reference tables
 - `scripts/supabase-rls-fix.sql` — RLS policy migration (owner-scoped access controls on all 21 tables)
@@ -85,8 +86,27 @@ SuperScout is a fantasy sports AI coach mobile app built with Expo (React Native
 - Logs: processed count, matched (user followed SuperScout advice), ignored (user chose differently)
 - Skips users with no FPL ID, already-processed recommendations, or FPL API errors
 
+### FPL API Caching Layer
+- `artifacts/api-server/src/lib/fplCache.ts` — In-memory 3-tier cache: Static (6hr TTL), Semi-Live (30min/2min during live matches), User-specific (5min)
+- `artifacts/api-server/src/lib/fplRateLimiter.ts` — Sequential request queue, 1 req/2s, exponential backoff on 429/5xx (1s→2s→4s→8s, max 60s), 15s timeout
+- All FPL proxy routes go through cache — cache metadata in response headers (`X-Cache: HIT/MISS/STALE`, `X-Cache-Age`)
+- Fallback: stale cache served when FPL API is down; never shows blank screen
+- Live match detection: checks fixture `started/finished` to toggle semi-live polling rate
+
+### Transfer Advisor
+- `artifacts/api-server/src/routes/transfer.ts` — POST `/api/transfer-advice` endpoint
+- Pre-filters 500+ players to top 50 candidates by: form × fixture difficulty × points-per-million
+- Ensures minimum 5 players per position in candidate pool
+- Assembles context: squad with selling prices, free transfers, budget, chips remaining, filtered candidates
+- Server-side validation: budget check, club limit (R1.03), position count (R1.04), player availability
+- AI returns 3-5 recommendations including optional "Hold your transfer" option
+- `artifacts/superscout/components/TransferCard.tsx` — Transfer-specific card with OUT→IN swap layout, net cost, hit/free indicator, 3GW impact
+- `artifacts/superscout/app/(tabs)/transfers.tsx` — Transfer Advisor tab with summary bar, card display, regenerate button
+- Decision Log writes with `decision_type: "transfer_suggestion"`
+- processDecisions extended: also checks actual FPL transfers after deadline and matches against recommendations
+
 ### API Proxy
-- `artifacts/api-server/src/routes/fpl.ts` — server-side proxy for FPL API to bypass CORS on web. Proxies: bootstrap-static, entry/{id}, entry/{id}/event/{gw}/picks, entry/{id}/transfers, fixtures, event/{event}/live. Native mobile calls FPL directly.
+- `artifacts/api-server/src/routes/fpl.ts` — server-side proxy for FPL API (now cached). Proxies: bootstrap-static, entry/{id}, entry/{id}/event/{gw}/picks, entry/{id}/transfers, entry/{id}/history, fixtures, event/{event}/live. Native mobile calls FPL directly.
 - `artifacts/api-server/src/routes/captain.ts` — POST `/api/captain-picks` endpoint for AI captain recommendations using Claude, with robust JSON extraction (balanced-brace parser)
 - CORS: exact origin matching with Set; `*.replit.dev` wildcard allowed in dev only
 
@@ -100,7 +120,8 @@ SuperScout is a fantasy sports AI coach mobile app built with Expo (React Native
   - `fetchTeamName()` in `services/fpl/teamLookup.ts` — lightweight FPL API lookup for onboarding
 
 ### Vibe System (AI Personality Engine)
-- `config/vibes/vibePrompts.ts` — Three sport-agnostic AI system prompts (Expert, Critic, Fanboy) with shared rules
+- `artifacts/api-server/src/lib/vibes.ts` — Server-side shared VIBE_PROMPTS used by both captain.ts and transfer.ts (single source of truth for AI persona prompts)
+- `config/vibes/vibePrompts.ts` — Client-side three sport-agnostic AI system prompts (Expert, Critic, Fanboy) with shared rules
 - `config/vibes/fpl/banterSheet.ts` — Premier League team banter data (all 20 clubs + promoted template) with FPL API IDs
 - `config/vibes/fpl/rivalryMap.ts` — Rivalry pairs, banter rules, and `buildBanterContext()` helper
 - `config/vibes/index.ts` — Barrel export for all vibe config
