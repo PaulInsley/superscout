@@ -109,7 +109,7 @@ export default function TransferAdvisorScreen() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           gameweek: data.gameweek,
-          decision_type: "transfer_suggestion",
+          decision_type: "transfer",
           options_shown: data.recommendations,
           persona_used: vibe,
           tier_at_time: "free",
@@ -122,7 +122,12 @@ export default function TransferAdvisorScreen() {
               r.confidence === "BANKER" ? 0.9
                 : r.confidence === "CALCULATED_RISK" ? 0.6
                   : 0.3,
-            confidence_label: r.confidence,
+            confidence_label:
+              r.confidence === "BANKER"
+                ? "HIGH"
+                : r.confidence === "CALCULATED_RISK"
+                  ? "MEDIUM"
+                  : "SPECULATIVE",
             upside_text: r.upside,
             risk_text: r.risk,
             is_superscout_pick: r.is_superscout_pick,

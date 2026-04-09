@@ -57,7 +57,7 @@ router.post("/process-decisions/:gameweek", async (req: Request, res: Response) 
         .from("recommendations")
         .select("id, user_id, gameweek, options_shown")
         .eq("gameweek", gw)
-        .eq("decision_type", "transfer_suggestion"),
+        .eq("decision_type", "transfer"),
     ]);
 
     if (captainResult.error) {

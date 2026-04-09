@@ -144,7 +144,12 @@ export default function CaptainPickerScreen() {
                 : r.confidence === "CALCULATED_RISK"
                   ? 0.6
                   : 0.3,
-            confidence_label: r.confidence,
+            confidence_label:
+              r.confidence === "BANKER"
+                ? "HIGH"
+                : r.confidence === "CALCULATED_RISK"
+                  ? "MEDIUM"
+                  : "SPECULATIVE",
             upside_text: r.upside,
             risk_text: r.risk,
             is_superscout_pick: r.is_superscout_pick,
