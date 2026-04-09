@@ -31,7 +31,8 @@ SuperScout is a fantasy sports AI coach mobile app built with Expo (React Native
 ### Supabase Database
 - `artifacts/superscout/services/supabase.ts` — shared Supabase client (reads EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY)
 - `scripts/supabase-migration.sql` — full schema (18 tables) with indexes and RLS
-- **18 tables**: users, recommendations, user_decisions, outcomes, source_tracking, structural_knowledge, player_continuity, streaks, manager_profiles, squad_cards, subscription_events, mini_league_context, challenges, challenge_entries, superscout_leagues, league_memberships, challenge_points_balance, reward_redemptions
+- **21 tables**: users, recommendations, user_decisions, outcomes, source_tracking, structural_knowledge, player_continuity, streaks, manager_profiles, squad_cards, subscription_events, mini_league_context, challenges, challenge_entries, superscout_leagues, league_memberships, challenge_points_balance, reward_redemptions, recommendation_options, inference_context, consent_events
+- `scripts/supabase-migration-v2.sql` — v2 additions: recommendation_options (normalised options), inference_context (AI model tracking), consent_events (GDPR), user GDPR deletion fields
 - Tables 13-18 (challenges, engagement, leagues) are empty by design until GW15
 - RLS enabled on all tables with permissive policies (to be tightened in Phase 1)
 - All foreign keys use ON DELETE CASCADE for GDPR compliance
