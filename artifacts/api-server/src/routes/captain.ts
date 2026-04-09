@@ -1,5 +1,8 @@
 import { Router, type Request, type Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
+import { getRulesContext, loadRules } from "../lib/rulesEngine";
+
+loadRules("fpl");
 
 const router = Router();
 
@@ -134,13 +137,22 @@ router.post("/captain-picks", async (req: Request, res: Response) => {
       return;
     }
 
-    const systemPrompt = `${vibePrompt}\n\nIMPORTANT: You MUST respond with valid JSON only. No markdown, no backticks, no preamble. Follow the EXACT JSON structure specified in the user message — use the exact field names provided (player_name, team, opponent, expected_points, confidence, ownership_pct, upside, risk, case, is_superscout_pick). Do not add extra fields or rename fields.\n\nCRITICAL PERSONA REQUIREMENT: You MUST write the "case" field in your assigned persona voice. The Expert is calm and analytical — no emojis, no exclamation marks, references data. The Critic is sharp and sarcastic — dry wit, rhetorical questions, no emojis. The Fanboy uses CAPITALS for emphasis, slang like BRO and DUDE, 1-2 emojis (🔥🚀🚨), and extreme hype. If the case text could have been written by any of the three personas, you have failed the task.`;
+    const gwMatch = context.match(/GAMEWEEK:\s*(\d+)/i);
+    const gameweek = gwMatch ? parseInt(gwMatch[1], 10) : undefined;
+    const rulesContext = getRulesContext(gameweek);
+
+    const systemPrompt = [
+      vibePrompt,
+      rulesContext,
+      `IMPORTANT: You MUST respond with valid JSON only. No markdown, no backticks, no preamble. Follow the EXACT JSON structure specified in the user message — use the exact field names provided (player_name, team, opponent, expected_points, confidence, ownership_pct, upside, risk, case, is_superscout_pick). Do not add extra fields or rename fields.`,
+      `CRITICAL PERSONA REQUIREMENT: You MUST write the "case" field in your assigned persona voice. The Expert is calm and analytical — no emojis, no exclamation marks, references data. The Critic is sharp and sarcastic — dry wit, rhetorical questions, no emojis. The Fanboy uses CAPITALS for emphasis, slang like BRO and DUDE, 1-2 emojis (🔥🚀🚨), and extreme hype. If the case text could have been written by any of the three personas, you have failed the task.`,
+    ].filter(Boolean).join("\n\n");
 
     const client = getClient();
 
     const message = await client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 1500,
+      max_tokens: 2000,
       system: systemPrompt,
       messages: [{ role: "user", content: context }],
     });

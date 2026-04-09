@@ -40,9 +40,22 @@ SuperScout is a fantasy sports AI coach mobile app built with Expo (React Native
 - Required secrets: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_DB_PASSWORD
 
 ### AI Service
-- `artifacts/superscout/services/ai.ts` — `generateRecommendation(persona, context)` function using Claude (claude-sonnet-4-6, max_tokens: 1000)
+- `artifacts/superscout/services/ai.ts` — `generateRecommendation(persona, context)` function using Claude (claude-sonnet-4-6, max_tokens: 2000)
 - Shared system prompt: `sharedSystemPrompt.ts`; vibe-specific prompts in `config/vibes/vibePrompts.ts`
 - **Server-side only**: ai.ts is NOT imported from the React Native app bundle (app/ directory). It will be called via the API server to keep the Anthropic API key out of the app binary.
+
+### FPL Rules Engine (sport-agnostic)
+- `artifacts/superscout/services/rules/fpl-2025-26.md` — Complete FPL 2025/26 ruleset (R1-R11: squad composition, transfers, pricing, captaincy, chips, scoring, defensive contributions, assists, BPS, auto-subs, deadlines)
+- `artifacts/superscout/services/rules/fpl-strategy-2025-26.md` — Strategic context (SC1-SC6: chip strategy, transfer strategy, captain strategy, defensive contributions, fixture difficulty, season phases)
+- `artifacts/api-server/src/lib/rulesEngine.ts` — Loads and caches rules files at startup, provides `getRulesContext(gameweek)` which includes current season phase. Sport-configurable — add new sports by adding entries to `SPORT_CONFIGS`.
+- Rules are injected into every AI system prompt: vibe prompt + rules + strategy + feature-specific instructions
+- Architecture: rules files are the only sport-specific part. When F1 Fantasy is added, create `services/rules/f1-2026.md` and register in `SPORT_CONFIGS`.
+
+### Validation Layer
+- `artifacts/superscout/services/validation/fpl-validator.ts` — Pre-display validation for AI recommendations
+- Captain validation: checks player is in starting XI (R4.03), has a fixture, is not injured; adds warnings for doubtful players
+- Transfer validation (ready for Transfer Advisor): budget check with sell price formula (R3.06), club limit (R1.03), position count (R1.04)
+- Returns: unchanged recommendation (valid), recommendation with warning (doubtful), or null (invalid — filtered out)
 
 ### Decision Log
 - **Server-side** via API server routes — all Supabase writes go through the API server using the service role key (not the client anon key, which is blocked by RLS for unauthenticated users)
