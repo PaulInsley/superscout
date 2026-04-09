@@ -1,0 +1,26 @@
+A security review of the codebase has identified one critical issue that must be fixed before any users touch the app. The Supabase database has Row Level Security enabled on all tables, but the current policies say USING (true) — which means any user can read, edit, or delete any other user's data. This needs to be fixed now.
+How RLS works in Supabase:
+The service role key (used by the backend) bypasses RLS entirely — so all backend operations will keep working exactly as they do now. The RLS policies only govern what the anon key can access — which is what the app itself uses. We want to lock that down so users can only see and modify their own data.
+What I need you to do:
+Generate a SQL file called scripts/supabase-rls-fix.sql containing the following changes. Do not run it — just generate the file. I will run it manually in Supabase as before.
+The SQL should:
+Step 1 — Drop all existing permissive policies on all 21 tables. Use DROP POLICY IF EXISTS for each named policy that currently exists.
+Step 2 — Create proper owner-scoped policies using the following rules:
+For these user-data tables — users, recommendations, user_decisions, outcomes, source_tracking, streaks, manager_profiles, squad_cards, subscription_events, mini_league_context, challenge_entries, league_memberships, challenge_points_balance, reward_redemptions, recommendation_options, inference_context, consent_events:
+
+SELECT: auth.uid()::text = user_id::text (user can only see their own rows)
+INSERT: auth.uid()::text = user_id::text (user can only insert their own rows)
+UPDATE: auth.uid()::text = user_id::text
+DELETE: auth.uid()::text = user_id::text
+
+For these shared reference tables — structural_knowledge, player_continuity, challenges, superscout_leagues:
+
+SELECT: true (anyone can read reference data)
+INSERT: false (only service role can write — these are backend-managed)
+UPDATE: false
+DELETE: false
+
+Step 3 — Add a note in the file explaining that the service role key bypasses RLS entirely, so all backend operations are unaffected. These policies govern the anon key only.
+Once you have generated the file, show me its full contents so I can review it before running it in Supabase.
+After I confirm it looks correct, I will run it in Supabase SQL Editor and report back. You do not need to do anything else until I confirm it has run successfully.
+Do not run any destructive git operations without telling me first.
