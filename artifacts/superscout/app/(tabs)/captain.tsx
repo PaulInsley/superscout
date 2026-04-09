@@ -11,6 +11,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery } from "@tanstack/react-query";
+import { useFocusEffect } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 import ChoiceCard from "@/components/ChoiceCard";
 import { fetchCaptainCandidates } from "@/services/fpl/api";
@@ -57,6 +58,24 @@ export default function CaptainPickerScreen() {
   const [isMockData, setIsMockData] = useState(false);
   const [vibe, setVibe] = useState<"expert" | "critic" | "fanboy">("expert");
 
+  useFocusEffect(
+    useCallback(() => {
+      AsyncStorage.getItem(PERSONA_KEY).then((persona) => {
+        if (persona === "expert" || persona === "critic" || persona === "fanboy") {
+          setVibe((prev) => {
+            if (prev !== persona) {
+              setRecommendations(null);
+              setSelectedIndex(null);
+              setConfirmed(false);
+              setAiError(null);
+            }
+            return persona;
+          });
+        }
+      }).catch(() => {});
+    }, []),
+  );
+
   const {
     data: candidateData,
     isLoading: candidatesLoading,
@@ -65,10 +84,6 @@ export default function CaptainPickerScreen() {
     queryKey: ["captainCandidates"],
     queryFn: async () => {
       const managerId = await AsyncStorage.getItem(MANAGER_ID_KEY);
-      const persona = await AsyncStorage.getItem(PERSONA_KEY);
-      if (persona === "critic" || persona === "fanboy") {
-        setVibe(persona);
-      }
       if (!managerId) {
         throw new Error("NO_MANAGER_ID");
       }

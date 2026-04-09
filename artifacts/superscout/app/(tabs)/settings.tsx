@@ -58,7 +58,7 @@ export default function SettingsScreen() {
 
   if (showPersonaPicker) {
     return (
-      <ChoosePersonaScreen onNext={handlePersonaChange} isSettings />
+      <ChoosePersonaScreen onNext={handlePersonaChange} onCancel={() => setShowPersonaPicker(false)} isSettings />
     );
   }
 

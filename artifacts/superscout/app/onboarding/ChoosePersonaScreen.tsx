@@ -48,13 +48,14 @@ export const PERSONAS: PersonaCard[] = [
 
 interface Props {
   onNext: (persona: Persona) => void;
+  onCancel?: () => void;
   isSettings?: boolean;
 }
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CAROUSEL_ITEM_WIDTH = SCREEN_WIDTH - 48;
 
-export default function ChoosePersonaScreen({ onNext, isSettings }: Props) {
+export default function ChoosePersonaScreen({ onNext, onCancel, isSettings }: Props) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [selected, setSelected] = useState<Persona | null>(null);
@@ -79,6 +80,12 @@ export default function ChoosePersonaScreen({ onNext, isSettings }: Props) {
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
     >
+      {isSettings && onCancel && (
+        <Pressable onPress={onCancel} style={styles.backButton}>
+          <Feather name="arrow-left" size={22} color={colors.foreground} />
+          <Text style={[styles.backText, { color: colors.foreground }]}>Back</Text>
+        </Pressable>
+      )}
       <Text style={[styles.title, { color: colors.foreground }]}>
         Choose Your Vibe
       </Text>
@@ -321,6 +328,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 24,
+  },
+  backButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 12,
+    paddingVertical: 4,
+  },
+  backText: {
+    fontSize: 16,
+    fontFamily: "Inter_500Medium",
   },
   scrollContent: {
     paddingBottom: 24,
