@@ -163,17 +163,33 @@ CREATE POLICY "user_decisions_insert_own" ON user_decisions FOR INSERT WITH CHEC
 CREATE POLICY "user_decisions_update_own" ON user_decisions FOR UPDATE USING (auth.uid()::text = user_id::text);
 CREATE POLICY "user_decisions_delete_own" ON user_decisions FOR DELETE USING (auth.uid()::text = user_id::text);
 
--- outcomes
-CREATE POLICY "outcomes_select_own" ON outcomes FOR SELECT USING (auth.uid()::text = user_id::text);
-CREATE POLICY "outcomes_insert_own" ON outcomes FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
-CREATE POLICY "outcomes_update_own" ON outcomes FOR UPDATE USING (auth.uid()::text = user_id::text);
-CREATE POLICY "outcomes_delete_own" ON outcomes FOR DELETE USING (auth.uid()::text = user_id::text);
+-- outcomes (linked via recommendation_id)
+CREATE POLICY "outcomes_select_own" ON outcomes FOR SELECT USING (
+  EXISTS (SELECT 1 FROM recommendations r WHERE r.id = recommendation_id AND auth.uid()::text = r.user_id::text)
+);
+CREATE POLICY "outcomes_insert_own" ON outcomes FOR INSERT WITH CHECK (
+  EXISTS (SELECT 1 FROM recommendations r WHERE r.id = recommendation_id AND auth.uid()::text = r.user_id::text)
+);
+CREATE POLICY "outcomes_update_own" ON outcomes FOR UPDATE USING (
+  EXISTS (SELECT 1 FROM recommendations r WHERE r.id = recommendation_id AND auth.uid()::text = r.user_id::text)
+);
+CREATE POLICY "outcomes_delete_own" ON outcomes FOR DELETE USING (
+  EXISTS (SELECT 1 FROM recommendations r WHERE r.id = recommendation_id AND auth.uid()::text = r.user_id::text)
+);
 
--- source_tracking
-CREATE POLICY "source_tracking_select_own" ON source_tracking FOR SELECT USING (auth.uid()::text = user_id::text);
-CREATE POLICY "source_tracking_insert_own" ON source_tracking FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
-CREATE POLICY "source_tracking_update_own" ON source_tracking FOR UPDATE USING (auth.uid()::text = user_id::text);
-CREATE POLICY "source_tracking_delete_own" ON source_tracking FOR DELETE USING (auth.uid()::text = user_id::text);
+-- source_tracking (linked via recommendation_id)
+CREATE POLICY "source_tracking_select_own" ON source_tracking FOR SELECT USING (
+  EXISTS (SELECT 1 FROM recommendations r WHERE r.id = recommendation_id AND auth.uid()::text = r.user_id::text)
+);
+CREATE POLICY "source_tracking_insert_own" ON source_tracking FOR INSERT WITH CHECK (
+  EXISTS (SELECT 1 FROM recommendations r WHERE r.id = recommendation_id AND auth.uid()::text = r.user_id::text)
+);
+CREATE POLICY "source_tracking_update_own" ON source_tracking FOR UPDATE USING (
+  EXISTS (SELECT 1 FROM recommendations r WHERE r.id = recommendation_id AND auth.uid()::text = r.user_id::text)
+);
+CREATE POLICY "source_tracking_delete_own" ON source_tracking FOR DELETE USING (
+  EXISTS (SELECT 1 FROM recommendations r WHERE r.id = recommendation_id AND auth.uid()::text = r.user_id::text)
+);
 
 -- streaks
 CREATE POLICY "streaks_select_own" ON streaks FOR SELECT USING (auth.uid()::text = user_id::text);
@@ -229,17 +245,33 @@ CREATE POLICY "reward_redemptions_insert_own" ON reward_redemptions FOR INSERT W
 CREATE POLICY "reward_redemptions_update_own" ON reward_redemptions FOR UPDATE USING (auth.uid()::text = user_id::text);
 CREATE POLICY "reward_redemptions_delete_own" ON reward_redemptions FOR DELETE USING (auth.uid()::text = user_id::text);
 
--- recommendation_options
-CREATE POLICY "recommendation_options_select_own" ON recommendation_options FOR SELECT USING (auth.uid()::text = user_id::text);
-CREATE POLICY "recommendation_options_insert_own" ON recommendation_options FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
-CREATE POLICY "recommendation_options_update_own" ON recommendation_options FOR UPDATE USING (auth.uid()::text = user_id::text);
-CREATE POLICY "recommendation_options_delete_own" ON recommendation_options FOR DELETE USING (auth.uid()::text = user_id::text);
+-- recommendation_options (linked via recommendation_id)
+CREATE POLICY "recommendation_options_select_own" ON recommendation_options FOR SELECT USING (
+  EXISTS (SELECT 1 FROM recommendations r WHERE r.id = recommendation_id AND auth.uid()::text = r.user_id::text)
+);
+CREATE POLICY "recommendation_options_insert_own" ON recommendation_options FOR INSERT WITH CHECK (
+  EXISTS (SELECT 1 FROM recommendations r WHERE r.id = recommendation_id AND auth.uid()::text = r.user_id::text)
+);
+CREATE POLICY "recommendation_options_update_own" ON recommendation_options FOR UPDATE USING (
+  EXISTS (SELECT 1 FROM recommendations r WHERE r.id = recommendation_id AND auth.uid()::text = r.user_id::text)
+);
+CREATE POLICY "recommendation_options_delete_own" ON recommendation_options FOR DELETE USING (
+  EXISTS (SELECT 1 FROM recommendations r WHERE r.id = recommendation_id AND auth.uid()::text = r.user_id::text)
+);
 
--- inference_context
-CREATE POLICY "inference_context_select_own" ON inference_context FOR SELECT USING (auth.uid()::text = user_id::text);
-CREATE POLICY "inference_context_insert_own" ON inference_context FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
-CREATE POLICY "inference_context_update_own" ON inference_context FOR UPDATE USING (auth.uid()::text = user_id::text);
-CREATE POLICY "inference_context_delete_own" ON inference_context FOR DELETE USING (auth.uid()::text = user_id::text);
+-- inference_context (linked via recommendation_id)
+CREATE POLICY "inference_context_select_own" ON inference_context FOR SELECT USING (
+  EXISTS (SELECT 1 FROM recommendations r WHERE r.id = recommendation_id AND auth.uid()::text = r.user_id::text)
+);
+CREATE POLICY "inference_context_insert_own" ON inference_context FOR INSERT WITH CHECK (
+  EXISTS (SELECT 1 FROM recommendations r WHERE r.id = recommendation_id AND auth.uid()::text = r.user_id::text)
+);
+CREATE POLICY "inference_context_update_own" ON inference_context FOR UPDATE USING (
+  EXISTS (SELECT 1 FROM recommendations r WHERE r.id = recommendation_id AND auth.uid()::text = r.user_id::text)
+);
+CREATE POLICY "inference_context_delete_own" ON inference_context FOR DELETE USING (
+  EXISTS (SELECT 1 FROM recommendations r WHERE r.id = recommendation_id AND auth.uid()::text = r.user_id::text)
+);
 
 -- consent_events
 CREATE POLICY "consent_events_select_own" ON consent_events FOR SELECT USING (auth.uid()::text = user_id::text);
