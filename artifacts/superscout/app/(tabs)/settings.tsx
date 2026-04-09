@@ -94,7 +94,7 @@ export default function SettingsScreen() {
           <Text
             style={[styles.sectionTitle, { color: colors.mutedForeground }]}
           >
-            AI Coach
+            Vibe
           </Text>
 
           <Pressable
@@ -110,7 +110,7 @@ export default function SettingsScreen() {
                 <Text
                   style={[styles.settingLabel, { color: colors.foreground }]}
                 >
-                  Change persona
+                  Change your Vibe
                 </Text>
                 <Text
                   style={[

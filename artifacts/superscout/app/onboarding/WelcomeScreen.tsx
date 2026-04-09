@@ -30,7 +30,7 @@ export default function WelcomeScreen({ onNext }: Props) {
           </Text>
         </View>
         <Text style={[styles.tagline, { color: colors.primaryForeground }]}>
-          Your AI fantasy football coach.{"\n"}Three personalities. Smarter
+          Your AI fantasy football coach.{"\n"}Three vibes. Smarter
           decisions.
         </Text>
       </View>

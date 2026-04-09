@@ -80,10 +80,10 @@ export default function ChoosePersonaScreen({ onNext, isSettings }: Props) {
       showsVerticalScrollIndicator={false}
     >
       <Text style={[styles.title, { color: colors.foreground }]}>
-        Choose Your Persona
+        Choose Your Vibe
       </Text>
       <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-        How do you want your AI coach to talk to you?
+        How do you want your AI coach to sound?
       </Text>
 
       <Pressable
@@ -164,7 +164,7 @@ export default function ChoosePersonaScreen({ onNext, isSettings }: Props) {
             <Feather name="arrow-left" size={24} color={colors.foreground} />
           </Pressable>
           <Text style={[styles.title, { color: colors.foreground, flex: 1, textAlign: "center" }]}>
-            Compare Voices
+            Compare Vibes
           </Text>
           <View style={{ width: 24 }} />
         </View>
@@ -308,7 +308,7 @@ export default function ChoosePersonaScreen({ onNext, isSettings }: Props) {
                 },
               ]}
             >
-              {isSettings ? "Save persona" : "This is my vibe"}
+              {isSettings ? "Save vibe" : "This is my vibe"}
             </Text>
           </Pressable>
         </View>
