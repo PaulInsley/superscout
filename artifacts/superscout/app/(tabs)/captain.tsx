@@ -14,7 +14,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
 import ChoiceCard from "@/components/ChoiceCard";
 import { fetchCaptainCandidates } from "@/services/fpl/api";
-import { logRecommendation, logUserDecision } from "@/services/decisionLog";
 import type {
   CaptainRecommendation,
   CaptainPicksResponse,
@@ -50,6 +49,7 @@ export default function CaptainPickerScreen() {
     CaptainRecommendation[] | null
   >(null);
   const [recommendationId, setRecommendationId] = useState<string | null>(null);
+  const [optionIds, setOptionIds] = useState<string[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [gameweek, setGameweek] = useState<number>(0);
@@ -133,31 +133,39 @@ export default function CaptainPickerScreen() {
     gw: number,
   ) => {
     try {
-      const id = await logRecommendation({
-        user_id: "anonymous",
-        gameweek: gw,
-        decision_type: "captain",
-        options_shown: data.recommendations,
-        persona_used: vibe,
-        tier_at_time: "free",
-        options: data.recommendations.map((r, i) => ({
-          option_rank: i + 1,
-          player_id: null,
-          option_type: "captain_pick",
-          expected_points: r.expected_points,
-          confidence_score:
-            r.confidence === "HIGH"
-              ? 0.9
-              : r.confidence === "MEDIUM"
-                ? 0.6
-                : 0.3,
-          confidence_label: r.confidence,
-          upside_text: r.upside,
-          risk_text: r.risk,
-          is_superscout_pick: r.is_superscout_pick,
-        })),
+      const apiBase = getApiBaseUrl();
+      const resp = await fetch(`${apiBase}/decision-log/recommendation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gameweek: gw,
+          decision_type: "captain",
+          options_shown: data.recommendations,
+          persona_used: vibe,
+          tier_at_time: "free",
+          options: data.recommendations.map((r, i) => ({
+            option_rank: i + 1,
+            player_id: null,
+            option_type: "captain_pick",
+            expected_points: r.expected_points,
+            confidence_score:
+              r.confidence === "HIGH"
+                ? 0.9
+                : r.confidence === "MEDIUM"
+                  ? 0.6
+                  : 0.3,
+            confidence_label: r.confidence,
+            upside_text: r.upside,
+            risk_text: r.risk,
+            is_superscout_pick: r.is_superscout_pick,
+          })),
+        }),
       });
-      if (id) setRecommendationId(id);
+      if (resp.ok) {
+        const result = await resp.json();
+        if (result.recommendation_id) setRecommendationId(result.recommendation_id);
+        if (result.option_ids) setOptionIds(result.option_ids);
+      }
     } catch {
       // silent
     }
@@ -172,14 +180,18 @@ export default function CaptainPickerScreen() {
 
     if (recommendationId) {
       try {
-        await logUserDecision({
-          recommendation_id: recommendationId,
-          user_id: "anonymous",
-          recommendation_option_id: recommendationId,
-          chosen_option: chosen.player_name,
-          hours_before_deadline: deadlineTime
-            ? (new Date(deadlineTime).getTime() - Date.now()) / 3600000
-            : null,
+        const apiBase = getApiBaseUrl();
+        await fetch(`${apiBase}/decision-log/decision`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            recommendation_id: recommendationId,
+            recommendation_option_id: optionIds[selectedIndex] ?? null,
+            chosen_option: chosen.player_name,
+            hours_before_deadline: deadlineTime
+              ? (new Date(deadlineTime).getTime() - Date.now()) / 3600000
+              : null,
+          }),
         });
       } catch {
         // silent

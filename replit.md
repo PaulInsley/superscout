@@ -45,11 +45,13 @@ SuperScout is a fantasy sports AI coach mobile app built with Expo (React Native
 - **Server-side only**: ai.ts is NOT imported from the React Native app bundle (app/ directory). It will be called via the API server to keep the Anthropic API key out of the app binary.
 
 ### Decision Log
-- `artifacts/superscout/services/decisionLog.ts` — silent logging service for all recommendations and user decisions
-  - `logRecommendation()` — writes to recommendations, recommendation_options, and inference_context tables
-  - `logUserDecision()` — writes to user_decisions table
-  - All operations fail silently (try/catch, console.error only) — never crashes the app
-  - Season hardcoded to '2026-27', engine_level to 1 (FPL API only)
+- **Server-side** via API server routes — all Supabase writes go through the API server using the service role key (not the client anon key, which is blocked by RLS for unauthenticated users)
+- `artifacts/api-server/src/routes/decisionLog.ts` — POST `/api/decision-log/recommendation` and POST `/api/decision-log/decision`
+- `artifacts/api-server/src/lib/supabase.ts` — Supabase client using `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`
+- Captain.tsx calls these API endpoints instead of Supabase directly; all calls fail silently
+- Anonymous user uses nil UUID `00000000-0000-0000-0000-000000000000` (pre-created in users table)
+- Season hardcoded to '2026-27', engine_level to 1 (FPL API only)
+- Tables written: recommendations, recommendation_options, inference_context, user_decisions
 
 ### Captain Picker
 - `app/(tabs)/captain.tsx` — Captain Picker tab screen with AI-powered captain recommendations
