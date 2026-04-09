@@ -1,141 +1,123 @@
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import type { CaptainRecommendation } from "@/services/fpl/types";
 
 interface ChoiceCardProps {
   recommendation: CaptainRecommendation;
-  isSelected: boolean;
-  onSelect: () => void;
 }
 
-const CONFIDENCE_COLORS: Record<string, string> = {
-  HIGH: "#22c55e",
-  MEDIUM: "#f59e0b",
-  SPECULATIVE: "#ef4444",
+const CONFIDENCE_CONFIG: Record<string, { label: string; color: string }> = {
+  BANKER: { label: "Banker", color: "#22c55e" },
+  CALCULATED_RISK: { label: "Calculated Risk", color: "#f59e0b" },
+  BOLD_PUNT: { label: "Bold Punt", color: "#f97316" },
 };
 
-export default function ChoiceCard({
-  recommendation,
-  isSelected,
-  onSelect,
-}: ChoiceCardProps) {
+export default function ChoiceCard({ recommendation }: ChoiceCardProps) {
   const colors = useColors();
-  const confidenceColor =
-    CONFIDENCE_COLORS[recommendation.confidence] ?? colors.mutedForeground;
+  const conf = CONFIDENCE_CONFIG[recommendation.confidence] ?? {
+    label: recommendation.confidence,
+    color: colors.mutedForeground,
+  };
   const isSuperScoutPick = recommendation.is_superscout_pick;
 
   return (
-    <Pressable onPress={onSelect}>
-      <View
-        style={[
-          styles.card,
-          {
-            backgroundColor: colors.card,
-            borderColor: isSelected
-              ? colors.accent
-              : isSuperScoutPick
-                ? colors.accent + "60"
-                : colors.border,
-            borderWidth: isSelected ? 2 : isSuperScoutPick ? 1.5 : 1,
-          },
-        ]}
-      >
-        {isSuperScoutPick && (
-          <View style={[styles.badge, { backgroundColor: colors.accent }]}>
-            <Text style={[styles.badgeText, { color: colors.primary }]}>
-              SuperScout Pick
-            </Text>
-          </View>
-        )}
-
-        <View style={styles.header}>
-          <View style={{ flex: 1 }}>
-            <Text
-              style={[styles.playerName, { color: colors.foreground }]}
-              numberOfLines={1}
-            >
-              {recommendation.player_name}
-            </Text>
-            <Text style={[styles.teamLine, { color: colors.mutedForeground }]}>
-              {recommendation.team} vs {recommendation.opponent}
-            </Text>
-          </View>
-          <View style={styles.pointsContainer}>
-            <Text style={[styles.expectedPoints, { color: colors.accent }]}>
-              {recommendation.expected_points.toFixed(1)}
-            </Text>
-            <Text
-              style={[styles.pointsLabel, { color: colors.mutedForeground }]}
-            >
-              exp pts
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.metaRow}>
-          <View
-            style={[
-              styles.confidenceBadge,
-              { backgroundColor: confidenceColor + "20", borderColor: confidenceColor },
-            ]}
-          >
-            <Text style={[styles.confidenceText, { color: confidenceColor }]}>
-              {recommendation.confidence}
-            </Text>
-          </View>
-          <Text style={[styles.ownership, { color: colors.mutedForeground }]}>
-            {recommendation.ownership_pct.toFixed(1)}% owned
+    <View
+      style={[
+        styles.card,
+        {
+          backgroundColor: colors.card,
+          borderColor: isSuperScoutPick ? colors.accent + "60" : colors.border,
+          borderWidth: isSuperScoutPick ? 1.5 : 1,
+        },
+      ]}
+    >
+      {isSuperScoutPick && (
+        <View style={[styles.badge, { backgroundColor: colors.accent }]}>
+          <Text style={[styles.badgeText, { color: colors.primary }]}>
+            SuperScout Pick
           </Text>
         </View>
+      )}
 
-        <View style={styles.reasoningContainer}>
-          <View style={styles.reasonRow}>
-            <Text style={[styles.reasonLabel, { color: "#22c55e" }]}>
-              Upside
-            </Text>
-            <Text
-              style={[styles.reasonText, { color: colors.foreground }]}
-              numberOfLines={2}
-            >
-              {recommendation.upside}
-            </Text>
-          </View>
-          <View style={styles.reasonRow}>
-            <Text style={[styles.reasonLabel, { color: "#ef4444" }]}>Risk</Text>
-            <Text
-              style={[styles.reasonText, { color: colors.foreground }]}
-              numberOfLines={2}
-            >
-              {recommendation.risk}
-            </Text>
-          </View>
+      <View style={styles.header}>
+        <View style={{ flex: 1 }}>
+          <Text
+            style={[styles.playerName, { color: colors.foreground }]}
+            numberOfLines={1}
+          >
+            {recommendation.player_name}
+          </Text>
+          <Text style={[styles.teamLine, { color: colors.mutedForeground }]}>
+            {recommendation.team} vs {recommendation.opponent}
+          </Text>
         </View>
+        <View style={styles.pointsContainer}>
+          <Text style={[styles.expectedPoints, { color: colors.accent }]}>
+            {recommendation.expected_points.toFixed(1)}
+          </Text>
+          <Text
+            style={[styles.pointsLabel, { color: colors.mutedForeground }]}
+          >
+            exp pts
+          </Text>
+        </View>
+      </View>
 
+      <View style={styles.metaRow}>
         <View
           style={[
-            styles.caseContainer,
-            { backgroundColor: colors.primary + "15" },
+            styles.confidenceBadge,
+            { backgroundColor: conf.color + "20", borderColor: conf.color },
           ]}
         >
-          <Text
-            style={[
-              styles.caseText,
-              { color: colors.foreground, fontStyle: "italic" },
-            ]}
-          >
-            "{recommendation.case}"
+          <Text style={[styles.confidenceText, { color: conf.color }]}>
+            {conf.label}
           </Text>
         </View>
-
-        {isSelected && (
-          <View style={[styles.selectedIndicator, { backgroundColor: colors.accent }]}>
-            <Text style={[styles.selectedText, { color: colors.primary }]}>
-              Selected
-            </Text>
-          </View>
-        )}
+        <Text style={[styles.ownership, { color: colors.mutedForeground }]}>
+          {recommendation.ownership_pct.toFixed(1)}% owned
+        </Text>
       </View>
-    </Pressable>
+
+      <View style={styles.reasoningContainer}>
+        <View style={styles.reasonRow}>
+          <Text style={[styles.reasonLabel, { color: "#22c55e" }]}>
+            Upside
+          </Text>
+          <Text
+            style={[styles.reasonText, { color: colors.foreground }]}
+            numberOfLines={2}
+          >
+            {recommendation.upside}
+          </Text>
+        </View>
+        <View style={styles.reasonRow}>
+          <Text style={[styles.reasonLabel, { color: "#ef4444" }]}>Risk</Text>
+          <Text
+            style={[styles.reasonText, { color: colors.foreground }]}
+            numberOfLines={2}
+          >
+            {recommendation.risk}
+          </Text>
+        </View>
+      </View>
+
+      <View
+        style={[
+          styles.caseContainer,
+          { backgroundColor: colors.primary + "15" },
+        ]}
+      >
+        <Text
+          style={[
+            styles.caseText,
+            { color: colors.foreground, fontStyle: "italic" },
+          ]}
+        >
+          "{recommendation.case}"
+        </Text>
+      </View>
+    </View>
   );
 }
 
@@ -233,17 +215,5 @@ const styles = StyleSheet.create({
   caseText: {
     fontSize: 13,
     lineHeight: 18,
-  },
-  selectedIndicator: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingVertical: 4,
-    alignItems: "center",
-  },
-  selectedText: {
-    fontSize: 12,
-    fontWeight: "700",
   },
 });

@@ -1,0 +1,103 @@
+# REPLIT AGENT PROMPT — SuperScout: Captain Picker Fixes (Vibe Bug, Confidence Labels, Remove Confirm, Auto-Pull Decisions)
+
+Four changes in this prompt. All relate to the Captain Picker screen and the Decision Log. Read all four before starting.
+
+**Before you start:** Do not run any destructive git operations (git reset –hard, force pushes, orphan commits) at any point during this task. If you encounter a git problem, stop and explain it to me before doing anything.
+
+-----
+
+## FIX 1 — Vibe not changing the captain advice
+
+When the user switches their vibe in Settings (e.g. from Expert to Fanboy), the Captain Picker still generates recommendations in Expert voice. The “case” text on the cards should sound completely different depending on the vibe.
+
+Check and fix the following:
+
+1. **Settings save:** When the user changes their vibe in Settings and taps Save, the new vibe must be written to the `users` table in Supabase (the `default_persona` field). Verify this is actually happening — check that the Supabase write succeeds and the value updates.
+1. **Captain Picker reads current vibe:** When the Captain Picker builds the AI prompt, it must read the user’s CURRENT vibe from Supabase (not from a cached or hardcoded value) and send the matching system prompt from `config/vibes/vibePrompts.ts`.
+1. **The system prompt must actually change the AI output.** The three vibes should produce very different “case” text:
+- **Expert** — analytical, measured, references data. Example: “The numbers suggest a form score of 11.5 does not occur by accident — Bruno is the standout captaincy option by a considerable margin.”
+- **Critic** — sharp, sarcastic, calls out bad decisions. Example: “You could overthink this, or you could just captain the guy averaging 11.5 and save yourself the embarrassment.”
+- **Fanboy** — CAPITALS, slang, emojis, hype. Example: “BRUNO IS ON ABSOLUTE FIRE BRO!! 11.5 form?! That’s not a player that’s a CHEAT CODE!! Captain him and don’t even THINK about it!! 🔥🔥”
+
+If the system prompt is being sent but the AI is ignoring it, strengthen the instruction by adding: “You MUST write the case text in your assigned persona voice. The Expert is calm and analytical. The Critic is sharp and sarcastic. The Fanboy uses CAPITALS, slang like BRO and DUDE, emojis, and extreme hype. If the case text could have been written by any of the three personas, you have failed the task.”
+
+**After fixing:** Generate captain recommendations in all three vibes and confirm the case text is noticeably different each time.
+
+-----
+
+## FIX 2 — Replace confidence labels
+
+The current labels (HIGH, MEDIUM, SPECULATIVE) don’t mean anything to a normal user. Replace them throughout the Captain Picker with:
+
+- **Banker** — the safe, obvious pick. Colour: green. This replaces HIGH.
+- **Calculated Risk** — good data supports it but not guaranteed. Colour: amber. This replaces MEDIUM.
+- **Bold Punt** — high ceiling, real chance it blanks. The pick you make when chasing a gap. Colour: red/orange. This replaces SPECULATIVE.
+
+Update:
+
+- The AI instruction prompt — tell it to use “BANKER”, “CALCULATED_RISK”, or “BOLD_PUNT” as confidence values instead of HIGH/MEDIUM/SPECULATIVE
+- The JSON template in the prompt
+- The card display — show the label text (“Banker”, “Calculated Risk”, “Bold Punt”) with the matching colour badge
+- The `confidence_levels` field in the `recommendations` table logging — log the new labels
+- The `recommendation_options` table if confidence is stored there too
+
+Do not change any other tables or fields.
+
+-----
+
+## FIX 3 — Remove the Confirm Captain button and confirmation message
+
+The Captain Picker should NOT have a confirm button. SuperScout does not push picks to the official FPL app — the user sets their captain there. We don’t need the user to confirm inside our app because we will pull their actual captain choice from the FPL API after the deadline automatically (see Fix 4 below).
+
+Remove:
+
+- The “Confirm Captain” button at the bottom of the Captain Picker screen
+- The vibe-voiced confirmation message that appeared after tapping confirm
+- The “Selected” state on the cards — users can tap cards to expand/read them, but there’s no selection or confirmation flow
+- The manual write to `user_decisions` that happened when the user tapped confirm
+
+The Captain Picker screen now does two things only:
+
+1. Generates and displays 3 captain recommendations in the user’s vibe voice
+1. Silently logs the recommendations to Supabase (this already works — don’t break it)
+
+The user reads the advice, then goes to the official FPL app to set their captain.
+
+Add a small text line at the bottom of the Captain Picker screen: **“Set your captain in the official FPL app before the deadline”** — styled subtly, not as a button.
+
+-----
+
+## FIX 4 — Auto-pull actual captain choices after deadline
+
+Build a background function (not triggered by the user) that runs after each gameweek deadline and populates the `user_decisions` table automatically.
+
+Here’s what it does:
+
+1. **Trigger:** This function should run once, approximately 1-2 hours after the gameweek deadline. For now, build it as a callable function that can be triggered manually or by a cron job — we’ll set up the automatic scheduling later. Add a simple API endpoint like `/api/process-decisions/{gameweek}` that triggers it.
+1. **For each user who received captain recommendations that gameweek:**
+- Fetch their actual picks from the FPL API: `/entry/{manager_id}/event/{event_id}/picks/`
+- Find which player has `is_captain: true` in the response
+- Look up the matching recommendation row in the `recommendations` table for that user and gameweek
+- Write a row to `user_decisions`:
+  - `recommendation_id` — the ID of the recommendation
+  - `chosen_option` — the name of the player they actually captained
+  - `hours_before_deadline` — set this to null (we don’t know exactly when they decided in the FPL app, and that’s fine)
+1. **Edge cases to handle:**
+- If a user received recommendations but hasn’t set a captain yet (the deadline hasn’t passed), skip them
+- If a user’s FPL manager ID is invalid or the API returns an error, log the error and skip that user — don’t crash the whole job
+- If a user captained someone who WASN’T in the 3 recommendations, still record it — the `chosen_option` field just records what they actually did, even if they ignored SuperScout entirely. This is valuable data.
+1. **Logging:** After the function runs, log how many users were processed, how many matched a SuperScout recommendation, and how many ignored the advice. This goes to the server console only — users never see it.
+
+-----
+
+## WHAT DONE LOOKS LIKE
+
+After all four fixes:
+
+1. Switching vibe in Settings changes the Captain Picker output — Expert, Critic, and Fanboy produce visibly different case text
+1. Confidence badges say “Banker” (green), “Calculated Risk” (amber), or “Bold Punt” (red/orange) — not HIGH/MEDIUM/SPECULATIVE
+1. No confirm button on the Captain Picker screen — just recommendations and a subtle “Set your captain in the official FPL app” line
+1. A new API endpoint `/api/process-decisions/{gameweek}` exists that pulls actual captain choices from the FPL API and writes them to `user_decisions`
+1. The silent Decision Log still records every recommendation generated (check Supabase after testing)
+
+Push all code to GitHub when done. Commit message: “Captain Picker fixes: vibe switching, confidence labels, auto-pull decisions”

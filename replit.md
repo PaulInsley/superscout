@@ -56,12 +56,21 @@ SuperScout is a fantasy sports AI coach mobile app built with Expo (React Native
 ### Captain Picker
 - `app/(tabs)/captain.tsx` — Captain Picker tab screen with AI-powered captain recommendations
 - Loads squad data via `fetchCaptainCandidates()`, sends to AI via `/api/captain-picks` POST, displays 3 `ChoiceCard` components
-- `components/ChoiceCard.tsx` — reusable card component with confidence badges (HIGH=green, MEDIUM=amber, SPECULATIVE=red), SuperScout Pick badge
-- `services/ai/captainPrompt.ts` — captain-picker instruction prompt
-- `services/ai/generateCaptainPicks.ts` — combines context + vibe prompt + sends to AI
+- `components/ChoiceCard.tsx` — reusable card component with confidence badges: **Banker** (green), **Calculated Risk** (amber), **Bold Punt** (orange). SuperScout Pick badge.
+- No confirm button — user reads advice then sets captain in the official FPL app. Subtle reminder text shown at bottom.
+- Regenerate button lets user re-run recommendations.
+- Vibe re-read on tab focus via `useFocusEffect` — switching vibe in Settings clears old recommendations
 - Mock data fallback for off-season testing via `getMockCaptainData()`
-- Silent Decision Log writes on captain confirmation
+- Silent Decision Log writes on recommendation generation (not on confirm — there is no confirm)
 - API URL pattern: web uses `https://${EXPO_PUBLIC_DOMAIN}/api/captain-picks` (not `/api-server/api/...` — POST routing through Replit proxy only works with the `/api` prefix)
+
+### Auto-Pull Decisions
+- `artifacts/api-server/src/routes/processDecisions.ts` — POST `/api/process-decisions/:gameweek`
+- Runs after a gameweek deadline; pulls actual captain choices from FPL API and writes to `user_decisions`
+- Accepts optional `manager_id` in body for single-user mode (current anonymous user setup)
+- Fetches bootstrap-static once for player name resolution, then iterates over all recommendations for that GW
+- Logs: processed count, matched (user followed SuperScout advice), ignored (user chose differently)
+- Skips users with no FPL ID, already-processed recommendations, or FPL API errors
 
 ### API Proxy
 - `artifacts/api-server/src/routes/fpl.ts` — server-side proxy for FPL API to bypass CORS on web. Proxies: bootstrap-static, entry/{id}, entry/{id}/event/{gw}/picks, entry/{id}/transfers, fixtures, event/{event}/live. Native mobile calls FPL directly.

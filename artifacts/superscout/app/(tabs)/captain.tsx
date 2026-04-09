@@ -23,15 +23,6 @@ import type {
 const MANAGER_ID_KEY = "superscout_manager_id";
 const PERSONA_KEY = "superscout_persona";
 
-const CONFIRM_MESSAGES: Record<string, string> = {
-  expert:
-    "Locked in. The data backs this decision. Now we wait for the numbers to confirm it.",
-  critic:
-    "Bold choice. Don't come crying to me on Monday.",
-  fanboy:
-    "LET'S GOOOOO!! THIS IS YOUR WEEK BRO!! 🔥",
-};
-
 function getApiBaseUrl(): string {
   if (Platform.OS === "web") {
     const domain = process.env.EXPO_PUBLIC_DOMAIN;
@@ -43,14 +34,9 @@ function getApiBaseUrl(): string {
 export default function CaptainPickerScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [confirmed, setConfirmed] = useState(false);
-  const [confirmMessage, setConfirmMessage] = useState("");
   const [recommendations, setRecommendations] = useState<
     CaptainRecommendation[] | null
   >(null);
-  const [recommendationId, setRecommendationId] = useState<string | null>(null);
-  const [optionIds, setOptionIds] = useState<string[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [gameweek, setGameweek] = useState<number>(0);
@@ -65,8 +51,6 @@ export default function CaptainPickerScreen() {
           setVibe((prev) => {
             if (prev !== persona) {
               setRecommendations(null);
-              setSelectedIndex(null);
-              setConfirmed(false);
               setAiError(null);
             }
             return persona;
@@ -97,8 +81,6 @@ export default function CaptainPickerScreen() {
     setAiLoading(true);
     setAiError(null);
     setRecommendations(null);
-    setSelectedIndex(null);
-    setConfirmed(false);
     setGameweek(candidateData.gameweek);
     setDeadlineTime(candidateData.deadlineTime);
     setIsMockData(candidateData.isMockData);
@@ -126,13 +108,6 @@ export default function CaptainPickerScreen() {
       const data: CaptainPicksResponse = await response.json();
       setRecommendations(data.recommendations);
 
-      const superscoutIdx = data.recommendations.findIndex(
-        (r) => r.is_superscout_pick,
-      );
-      if (superscoutIdx >= 0) {
-        setSelectedIndex(superscoutIdx);
-      }
-
       logRecommendationSilently(data, candidateData.gameweek);
     } catch {
       setAiError(
@@ -149,7 +124,7 @@ export default function CaptainPickerScreen() {
   ) => {
     try {
       const apiBase = getApiBaseUrl();
-      const resp = await fetch(`${apiBase}/decision-log/recommendation`, {
+      await fetch(`${apiBase}/decision-log/recommendation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -164,9 +139,9 @@ export default function CaptainPickerScreen() {
             option_type: "captain_pick",
             expected_points: r.expected_points,
             confidence_score:
-              r.confidence === "HIGH"
+              r.confidence === "BANKER"
                 ? 0.9
-                : r.confidence === "MEDIUM"
+                : r.confidence === "CALCULATED_RISK"
                   ? 0.6
                   : 0.3,
             confidence_label: r.confidence,
@@ -176,41 +151,8 @@ export default function CaptainPickerScreen() {
           })),
         }),
       });
-      if (resp.ok) {
-        const result = await resp.json();
-        if (result.recommendation_id) setRecommendationId(result.recommendation_id);
-        if (result.option_ids) setOptionIds(result.option_ids);
-      }
     } catch {
       // silent
-    }
-  };
-
-  const handleConfirm = async () => {
-    if (selectedIndex === null || !recommendations) return;
-
-    const chosen = recommendations[selectedIndex];
-    setConfirmed(true);
-    setConfirmMessage(CONFIRM_MESSAGES[vibe] ?? CONFIRM_MESSAGES.expert);
-
-    if (recommendationId) {
-      try {
-        const apiBase = getApiBaseUrl();
-        await fetch(`${apiBase}/decision-log/decision`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            recommendation_id: recommendationId,
-            recommendation_option_id: optionIds[selectedIndex] ?? null,
-            chosen_option: chosen.player_name,
-            hours_before_deadline: deadlineTime
-              ? (new Date(deadlineTime).getTime() - Date.now()) / 3600000
-              : null,
-          }),
-        });
-      } catch {
-        // silent
-      }
     }
   };
 
@@ -258,7 +200,7 @@ export default function CaptainPickerScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 100 },
+          { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 32 },
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -312,59 +254,31 @@ export default function CaptainPickerScreen() {
         )}
 
         {recommendations && (
-          <View style={styles.cardsContainer}>
-            {recommendations.map((rec, i) => (
-              <ChoiceCard
-                key={rec.player_name}
-                recommendation={rec}
-                isSelected={selectedIndex === i}
-                onSelect={() => {
-                  if (!confirmed) setSelectedIndex(i);
-                }}
-              />
-            ))}
-          </View>
-        )}
+          <>
+            <View style={styles.cardsContainer}>
+              {recommendations.map((rec) => (
+                <ChoiceCard
+                  key={rec.player_name}
+                  recommendation={rec}
+                />
+              ))}
+            </View>
 
-        {confirmed && (
-          <View
-            style={[
-              styles.confirmationBanner,
-              { backgroundColor: colors.primary },
-            ]}
-          >
-            <Text
-              style={[styles.confirmationText, { color: colors.accent }]}
-            >
-              {confirmMessage}
+            <Text style={[styles.fplReminder, { color: colors.mutedForeground }]}>
+              Set your captain in the official FPL app before the deadline
             </Text>
-          </View>
+
+            <Pressable
+              onPress={requestPicks}
+              style={[styles.regenerateButton, { borderColor: colors.border }]}
+            >
+              <Text style={[styles.regenerateText, { color: colors.mutedForeground }]}>
+                Regenerate
+              </Text>
+            </Pressable>
+          </>
         )}
       </ScrollView>
-
-      {recommendations && selectedIndex !== null && !confirmed && (
-        <View
-          style={[
-            styles.bottomBar,
-            {
-              backgroundColor: colors.background,
-              paddingBottom: insets.bottom + 16,
-              borderTopColor: colors.border,
-            },
-          ]}
-        >
-          <Pressable
-            onPress={handleConfirm}
-            style={[styles.confirmButton, { backgroundColor: colors.accent }]}
-          >
-            <Text
-              style={[styles.confirmButtonText, { color: colors.primary }]}
-            >
-              Confirm Captain: {recommendations[selectedIndex].player_name}
-            </Text>
-          </Pressable>
-        </View>
-      )}
     </View>
   );
 }
@@ -401,7 +315,12 @@ VIBE: ${vibe}
 SQUAD (15 players with upcoming fixtures):
 ${squadSummary}
 
-You are generating captain recommendations for this FPL manager. Analyse their squad and upcoming fixtures. Return exactly 3 captain options. For each option provide: the player name, their team, the opponent and whether it is home or away, an expected points estimate (your best estimate based on form, fixtures, and historical data), a confidence level (one of: HIGH, MEDIUM, or SPECULATIVE), the player's ownership percentage, one clear upside sentence, one clear risk sentence, a persona-voiced one-liner making the case for this pick (this is where your personality shines — make it memorable), and whether this is the SuperScout Pick (exactly one option must be true).
+You are generating captain recommendations for this FPL manager. Analyse their squad and upcoming fixtures. Return exactly 3 captain options. For each option provide: the player name, their team, the opponent and whether it is home or away, an expected points estimate (your best estimate based on form, fixtures, and historical data), a confidence level (one of: BANKER, CALCULATED_RISK, or BOLD_PUNT), the player's ownership percentage, one clear upside sentence, one clear risk sentence, a persona-voiced one-liner making the case for this pick (this is where your personality shines — make it memorable), and whether this is the SuperScout Pick (exactly one option must be true).
+
+Confidence levels explained:
+- BANKER — the safe, obvious pick. The one you'd tell your nan to captain.
+- CALCULATED_RISK — good data supports it but not guaranteed. A smart pick with some variance.
+- BOLD_PUNT — high ceiling, real chance it blanks. The pick you make when chasing a gap.
 
 You MUST respond with valid JSON only — no markdown, no preamble, no backticks, no explanation. Just the JSON object.
 
@@ -414,7 +333,7 @@ Use this exact JSON structure:
       "team": "Team Short Name",
       "opponent": "OPP (H/A)",
       "expected_points": <number>,
-      "confidence": "HIGH|MEDIUM|SPECULATIVE",
+      "confidence": "BANKER|CALCULATED_RISK|BOLD_PUNT",
       "ownership_pct": <number>,
       "upside": "One sentence about the upside",
       "risk": "One sentence about the risk",
@@ -497,34 +416,22 @@ const styles = StyleSheet.create({
   cardsContainer: {
     marginTop: 16,
   },
-  confirmationBanner: {
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 16,
-    alignItems: "center",
-  },
-  confirmationText: {
-    fontSize: 15,
-    fontWeight: "600",
+  fplReminder: {
+    fontSize: 13,
     textAlign: "center",
-    lineHeight: 22,
+    marginTop: 8,
+    fontStyle: "italic",
   },
-  bottomBar: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    borderTopWidth: 1,
+  regenerateButton: {
+    alignSelf: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 16,
   },
-  confirmButton: {
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  confirmButtonText: {
-    fontSize: 16,
-    fontWeight: "700",
+  regenerateText: {
+    fontSize: 13,
+    fontWeight: "600",
   },
 });

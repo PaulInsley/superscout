@@ -134,7 +134,7 @@ router.post("/captain-picks", async (req: Request, res: Response) => {
       return;
     }
 
-    const systemPrompt = `${vibePrompt}\n\nIMPORTANT: You MUST respond with valid JSON only. No markdown, no backticks, no preamble. The "case" field for each recommendation MUST be written in the voice described above.`;
+    const systemPrompt = `${vibePrompt}\n\nIMPORTANT: You MUST respond with valid JSON only. No markdown, no backticks, no preamble. Follow the EXACT JSON structure specified in the user message — use the exact field names provided (player_name, team, opponent, expected_points, confidence, ownership_pct, upside, risk, case, is_superscout_pick). Do not add extra fields or rename fields.\n\nCRITICAL PERSONA REQUIREMENT: You MUST write the "case" field in your assigned persona voice. The Expert is calm and analytical — no emojis, no exclamation marks, references data. The Critic is sharp and sarcastic — dry wit, rhetorical questions, no emojis. The Fanboy uses CAPITALS for emphasis, slang like BRO and DUDE, 1-2 emojis (🔥🚀🚨), and extreme hype. If the case text could have been written by any of the three personas, you have failed the task.`;
 
     const client = getClient();
 

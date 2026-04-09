@@ -174,7 +174,7 @@ export interface CaptainRecommendation {
   team: string;
   opponent: string;
   expected_points: number;
-  confidence: "HIGH" | "MEDIUM" | "SPECULATIVE";
+  confidence: "BANKER" | "CALCULATED_RISK" | "BOLD_PUNT";
   ownership_pct: number;
   upside: string;
   risk: string;
