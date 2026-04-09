@@ -11,7 +11,6 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -68,8 +67,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
-          <GestureHandlerRootView>
-            <KeyboardProvider>
+          <GestureHandlerRootView style={{ flex: 1 }}>
               {showOnboarding ? (
                 <OnboardingFlow
                   onComplete={() => setShowOnboarding(false)}
@@ -77,7 +75,6 @@ export default function RootLayout() {
               ) : (
                 <RootLayoutNav />
               )}
-            </KeyboardProvider>
           </GestureHandlerRootView>
         </QueryClientProvider>
       </ErrorBoundary>
