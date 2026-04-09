@@ -92,7 +92,6 @@ export default function ChoosePersonaScreen({ onNext, onCancel, isSettings }: Pr
       <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
         How do you want your AI coach to sound?
       </Text>
-
       <Pressable
         onPress={() => setPreviewMode(true)}
         style={[
@@ -159,6 +158,33 @@ export default function ChoosePersonaScreen({ onNext, onCancel, isSettings }: Pr
           </Pressable>
         );
       })}
+
+      <Pressable
+        onPress={() => selected && onNext(selected)}
+        disabled={!selected}
+        style={({ pressed }) => [
+          styles.button,
+          {
+            backgroundColor: selected ? colors.primary : colors.muted,
+            opacity: pressed && selected ? 0.9 : 1,
+            marginTop: 8,
+            marginBottom: 16,
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.buttonText,
+            {
+              color: selected
+                ? colors.primaryForeground
+                : colors.mutedForeground,
+            },
+          ]}
+        >
+          {isSettings ? "Save vibe" : "This is my vibe"}
+        </Text>
+      </Pressable>
     </ScrollView>
   );
 
@@ -291,35 +317,6 @@ export default function ChoosePersonaScreen({ onNext, onCancel, isSettings }: Pr
       ]}
     >
       {previewMode ? renderCarouselView() : renderCardView()}
-
-      {!previewMode && (
-        <View style={styles.bottomArea}>
-          <Pressable
-            onPress={() => selected && onNext(selected)}
-            disabled={!selected}
-            style={({ pressed }) => [
-              styles.button,
-              {
-                backgroundColor: selected ? colors.primary : colors.muted,
-                opacity: pressed && selected ? 0.9 : 1,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.buttonText,
-                {
-                  color: selected
-                    ? colors.primaryForeground
-                    : colors.mutedForeground,
-                },
-              ]}
-            >
-              {isSettings ? "Save vibe" : "This is my vibe"}
-            </Text>
-          </Pressable>
-        </View>
-      )}
     </View>
   );
 }
@@ -389,9 +386,6 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     lineHeight: 19,
     fontStyle: "italic",
-  },
-  bottomArea: {
-    paddingBottom: 0,
   },
   button: {
     height: 56,
