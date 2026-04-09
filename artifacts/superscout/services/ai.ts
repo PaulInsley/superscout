@@ -33,8 +33,8 @@ export async function generateRecommendation(
   const client = getClient();
 
   const message = await client.messages.create({
-    model: "claude-sonnet-4-5",
-    max_tokens: 8192,
+    model: "claude-sonnet-4-6",
+    max_tokens: 1000,
     system: systemPrompt,
     messages: [
       {

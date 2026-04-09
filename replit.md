@@ -38,6 +38,11 @@ SuperScout is a fantasy sports AI coach mobile app built with Expo (React Native
 - All foreign keys use ON DELETE CASCADE for GDPR compliance
 - Required secrets: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_DB_PASSWORD
 
+### AI Service
+- `artifacts/superscout/services/ai.ts` — `generateRecommendation(persona, context)` function using Claude (claude-sonnet-4-6, max_tokens: 1000)
+- Persona prompts: `sharedSystemPrompt.ts`, `expertPrompt.ts`, `criticPrompt.ts`, `fanBoyPrompt.ts`
+- **Server-side only**: ai.ts is NOT imported from the React Native app bundle (app/ directory). It will be called via the API server to keep the Anthropic API key out of the app binary.
+
 ### API Proxy
 - `artifacts/api-server/src/routes/fpl.ts` — server-side proxy for FPL API to bypass CORS on web. Proxies: bootstrap-static, entry/{id}, entry/{id}/event/{gw}/picks, entry/{id}/transfers. Native mobile calls FPL directly.
 
