@@ -28,6 +28,15 @@ SuperScout is a fantasy sports AI coach mobile app built with Expo (React Native
   - `index.ts` — barrel export
 - To add a new sport: create `services/<sport>/` with the same pattern (types, api, index)
 
+### Supabase Database
+- `artifacts/superscout/services/supabase.ts` — shared Supabase client (reads EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY)
+- `scripts/supabase-migration.sql` — full schema (18 tables) with indexes and RLS
+- **18 tables**: users, recommendations, user_decisions, outcomes, source_tracking, structural_knowledge, player_continuity, streaks, manager_profiles, squad_cards, subscription_events, mini_league_context, challenges, challenge_entries, superscout_leagues, league_memberships, challenge_points_balance, reward_redemptions
+- Tables 13-18 (challenges, engagement, leagues) are empty by design until GW15
+- RLS enabled on all tables with permissive policies (to be tightened in Phase 1)
+- All foreign keys use ON DELETE CASCADE for GDPR compliance
+- Required secrets: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_DB_PASSWORD
+
 ### API Proxy
 - `artifacts/api-server/src/routes/fpl.ts` — server-side proxy for FPL API to bypass CORS on web. Proxies: bootstrap-static, entry/{id}, entry/{id}/event/{gw}/picks, entry/{id}/transfers. Native mobile calls FPL directly.
 
