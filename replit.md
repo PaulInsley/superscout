@@ -63,6 +63,14 @@ SuperScout is a fantasy sports AI coach mobile app built with Expo (React Native
   - Root layout (`_layout.tsx`) checks onboarding status on launch and shows flow before main tabs if not completed
   - `fetchTeamName()` in `services/fpl/teamLookup.ts` — lightweight FPL API lookup for onboarding
 
+### Vibe System (AI Personality Engine)
+- `config/vibes/vibePrompts.ts` — Three sport-agnostic AI system prompts (Expert, Critic, Fanboy) with shared rules
+- `config/vibes/fpl/banterSheet.ts` — Premier League team banter data (all 20 clubs + promoted template) with FPL API IDs
+- `config/vibes/fpl/rivalryMap.ts` — Rivalry pairs, banter rules, and `buildBanterContext()` helper
+- `config/vibes/index.ts` — Barrel export for all vibe config
+- Architecture: vibe prompts are sport-agnostic; banter sheet and rivalry map are in `fpl/` subfolder so F1 or other sports can add their own without touching prompts
+- Banter rules: only Critic and Fanboy use banter; Expert never does; suppressed after 3+ consecutive red arrows; rivalry matches protect user's team
+
 ### Settings Screen
 - `app/(tabs)/settings.tsx` — Settings tab with "Change your Vibe" option
 - Opens the same vibe picker used during onboarding (with `isSettings` prop)
