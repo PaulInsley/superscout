@@ -58,15 +58,16 @@ SuperScout is a fantasy sports AI coach mobile app built with Expo (React Native
 - `artifacts/superscout/app/onboarding/` — 5-screen onboarding flow shown on first launch
   - WelcomeScreen → ConnectFPLScreen → ChoosePersonaScreen → WhatWeDoScreen → YoureInScreen
   - FPL Manager ID entered during onboarding pre-populates the Squad screen (shared AsyncStorage key `superscout_manager_id`)
-  - Persona choice saved to AsyncStorage key `superscout_persona`
+  - Vibe choice saved to AsyncStorage key `superscout_persona` (internal key unchanged)
   - Completion stored in AsyncStorage key `superscout_onboarding_complete`
   - Root layout (`_layout.tsx`) checks onboarding status on launch and shows flow before main tabs if not completed
   - `fetchTeamName()` in `services/fpl/teamLookup.ts` — lightweight FPL API lookup for onboarding
 
 ### Settings Screen
-- `app/(tabs)/settings.tsx` — Settings tab with "Change persona" option
-- Opens the same persona picker used during onboarding (with `isSettings` prop)
-- Saves persona to AsyncStorage and Supabase `users.default_persona` when authenticated
+- `app/(tabs)/settings.tsx` — Settings tab with "Change your Vibe" option
+- Opens the same vibe picker used during onboarding (with `isSettings` prop)
+- User-facing terminology is "Vibe" everywhere; internal variable names and DB field (`default_persona`) remain unchanged
+- Saves vibe to AsyncStorage and Supabase `users.default_persona` when authenticated
 
 ### My Squad Screen
 - `app/(tabs)/squad.tsx` — Manager squad screen with three sub-tabs (Squad, Transfers, Leagues)
