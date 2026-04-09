@@ -1,14 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { SHARED_SYSTEM_PROMPT } from "./sharedSystemPrompt";
-import { EXPERT_PROMPT } from "./expertPrompt";
-import { CRITIC_PROMPT } from "./criticPrompt";
-import { FANBOY_PROMPT } from "./fanBoyPrompt";
-
-const personaPrompts: Record<string, string> = {
-  expert: EXPERT_PROMPT,
-  critic: CRITIC_PROMPT,
-  fanboy: FANBOY_PROMPT,
-};
+import { VIBE_PROMPTS } from "@/config/vibes/vibePrompts";
 
 function getClient(): Anthropic {
   return new Anthropic({
@@ -21,14 +13,14 @@ export async function generateRecommendation(
   persona: "expert" | "critic" | "fanboy",
   context: string,
 ): Promise<string> {
-  const personaPrompt = personaPrompts[persona];
-  if (!personaPrompt) {
+  const vibe = VIBE_PROMPTS[persona];
+  if (!vibe) {
     throw new Error(
       `Unknown persona: ${persona}. Must be one of: expert, critic, fanboy`,
     );
   }
 
-  const systemPrompt = `${SHARED_SYSTEM_PROMPT}\n\n---\n\n${personaPrompt}`;
+  const systemPrompt = `${SHARED_SYSTEM_PROMPT}\n\n---\n\n${vibe.systemPrompt}`;
 
   const client = getClient();
 

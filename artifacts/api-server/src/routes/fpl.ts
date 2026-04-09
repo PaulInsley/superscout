@@ -4,6 +4,16 @@ const router = Router();
 
 const FPL_BASE_URL = "https://fantasy.premierleague.com/api";
 
+function isValidManagerId(id: string): boolean {
+  return /^\d+$/.test(id);
+}
+
+function isValidEvent(event: string): boolean {
+  if (!/^\d+$/.test(event)) return false;
+  const n = parseInt(event, 10);
+  return n >= 1 && n <= 50;
+}
+
 async function proxyFplRequest(
   req: Request,
   res: Response,
@@ -31,6 +41,10 @@ router.get("/fpl/bootstrap-static", (req: Request, res: Response) => {
 
 router.get("/fpl/entry/:managerId", (req: Request, res: Response) => {
   const { managerId } = req.params;
+  if (!isValidManagerId(managerId)) {
+    res.status(400).json({ error: "Invalid manager ID" });
+    return;
+  }
   proxyFplRequest(req, res, `/entry/${managerId}/`);
 });
 
@@ -38,6 +52,14 @@ router.get(
   "/fpl/entry/:managerId/event/:event/picks",
   (req: Request, res: Response) => {
     const { managerId, event } = req.params;
+    if (!isValidManagerId(managerId)) {
+      res.status(400).json({ error: "Invalid manager ID" });
+      return;
+    }
+    if (!isValidEvent(event)) {
+      res.status(400).json({ error: "Invalid gameweek number" });
+      return;
+    }
     proxyFplRequest(req, res, `/entry/${managerId}/event/${event}/picks/`);
   }
 );
@@ -46,6 +68,10 @@ router.get(
   "/fpl/entry/:managerId/transfers",
   (req: Request, res: Response) => {
     const { managerId } = req.params;
+    if (!isValidManagerId(managerId)) {
+      res.status(400).json({ error: "Invalid manager ID" });
+      return;
+    }
     proxyFplRequest(req, res, `/entry/${managerId}/transfers/`);
   }
 );

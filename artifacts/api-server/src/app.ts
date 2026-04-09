@@ -25,7 +25,12 @@ app.use(
     },
   }),
 );
-app.use(cors());
+app.use(cors({
+  origin: [
+    'https://superscout.pro',
+    process.env.CORS_ALLOWED_ORIGIN || 'http://localhost:3000'
+  ]
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

@@ -1,0 +1,39 @@
+REPLIT AGENT PROMPT — SuperScout: BROADSPEC Phase 0 Fixes (3 items)
+Three fixes from the Phase 0 code review. All are quick. Do them in order.
+Before you start: Do not run any destructive git operations (git reset --hard, force pushes, orphan commits) at any point during this task. If you encounter a git problem, stop and explain it to me before doing anything.
+
+FIX 1 — Duplicate persona prompts (most important)
+The AI service (artifacts/superscout/services/ai.ts) currently imports persona prompts from three old files: services/expertPrompt.ts, services/criticPrompt.ts, and services/fanBoyPrompt.ts. These are outdated. The correct, current prompts live in config/vibes/vibePrompts.ts.
+Do the following:
+
+Update artifacts/superscout/services/ai.ts to import from @/config/vibes/vibePrompts instead of the three old files. Use the getVibePrompt function or import VIBE_PROMPTS directly — whichever is cleaner. The system prompt should be built by combining SHARED_SYSTEM_PROMPT from services/sharedSystemPrompt.ts with the systemPrompt field from the matching vibe in VIBE_PROMPTS.
+Delete the three old files:
+
+artifacts/superscout/services/expertPrompt.ts
+artifacts/superscout/services/criticPrompt.ts
+artifacts/superscout/services/fanBoyPrompt.ts
+
+
+Search the entire codebase for any other imports referencing expertPrompt, criticPrompt, or fanBoyPrompt. If any exist, update them to use config/vibes/vibePrompts.ts instead.
+Verify there are no broken imports or references after the deletion.
+
+
+FIX 2 — Restrict CORS on the API server
+In artifacts/api-server/src/app.ts, the line app.use(cors()) allows requests from any website. Replace it with a restricted version:
+app.use(cors({
+  origin: [
+    'https://superscout.pro',
+    process.env.CORS_ALLOWED_ORIGIN || 'http://localhost:3000'
+  ]
+}));
+This limits API access to the SuperScout domain and the local development server. The CORS_ALLOWED_ORIGIN environment variable lets Replit's preview URL be added without hardcoding it.
+
+FIX 3 — Add input validation to FPL proxy routes
+In artifacts/api-server/src/routes/fpl.ts, the route parameters managerId and event are passed directly into URLs without validation. Add basic validation to each route that uses these parameters:
+
+Check that managerId is a numeric string (digits only). If not, return a 400 response with { error: "Invalid manager ID" }.
+Check that event (gameweek number) is a numeric string between 1 and 50. If not, return a 400 response with { error: "Invalid gameweek number" }.
+
+Apply the validation before calling proxyFplRequest. Do not change the proxyFplRequest function itself — just add the checks in each route handler before it is called.
+
+Once all three are done, confirm each fix and push to GitHub. Show me the updated ai.ts file so I can verify the prompt import is correct.

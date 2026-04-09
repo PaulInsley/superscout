@@ -41,7 +41,7 @@ SuperScout is a fantasy sports AI coach mobile app built with Expo (React Native
 
 ### AI Service
 - `artifacts/superscout/services/ai.ts` — `generateRecommendation(persona, context)` function using Claude (claude-sonnet-4-6, max_tokens: 1000)
-- Persona prompts: `sharedSystemPrompt.ts`, `expertPrompt.ts`, `criticPrompt.ts`, `fanBoyPrompt.ts`
+- Shared system prompt: `sharedSystemPrompt.ts`; vibe-specific prompts in `config/vibes/vibePrompts.ts`
 - **Server-side only**: ai.ts is NOT imported from the React Native app bundle (app/ directory). It will be called via the API server to keep the Anthropic API key out of the app binary.
 
 ### Decision Log
