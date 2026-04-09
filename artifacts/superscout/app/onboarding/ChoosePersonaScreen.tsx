@@ -1,10 +1,19 @@
-import React, { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useRef, useState } from "react";
+import {
+  Dimensions,
+  FlatList,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 
-type Persona = "expert" | "critic" | "fanboy";
+export type Persona = "expert" | "critic" | "fanboy";
 
 interface PersonaCard {
   key: Persona;
@@ -13,38 +22,255 @@ interface PersonaCard {
   example: string;
 }
 
-const PERSONAS: PersonaCard[] = [
+export const PERSONAS: PersonaCard[] = [
   {
     key: "expert",
     name: "The Expert",
     description: "Measured, data-driven, always weighing the probabilities.",
     example:
-      "Haaland carries the highest floor this week. City's xG against this defence averages 2.1 over the last four meetings. The ownership risk of not captaining him is as real as the risk of a blank.",
+      "Haaland at home. City\u2019s expected goals against this defence averages 2.1 over the last four meetings. If he hauls and you\u2019ve captained someone else, that\u2019s your mini-league gone in a week.",
   },
   {
     key: "critic",
-    name: "The Critic",
+    name: "The Sarcastic Critic",
     description: "Sharp, honest, not afraid to tell you when you're wrong.",
     example:
-      "City at home against that defence. If you don't captain Haaland here I genuinely cannot help you. This is the least interesting captain decision of the gameweek.",
+      "City at home against that defence. You could captain Haaland, or you could pick someone else and spend the week explaining yourself in the group chat. Entirely your call.",
   },
   {
     key: "fanboy",
-    name: "The Fanboy",
+    name: "The OTT Fanboy",
     description: "Passionate, excitable, lives for the big differential pick.",
     example:
-      "HAALAND. HOME. AGAINST THAT DEFENCE. The xG numbers are basically a cheat code right now and I need you to be excited about this because I absolutely am. This is the pick!!",
+      "HAALAND. HOME. BRO. The numbers are literally a cheat code right now \u2014 this fixture is COOKED for defenders. If you\u2019re not doubling up on this I don\u2019t know what to tell you. Main character energy only!! \uD83D\uDD25",
   },
 ];
 
 interface Props {
   onNext: (persona: Persona) => void;
+  isSettings?: boolean;
 }
 
-export default function ChoosePersonaScreen({ onNext }: Props) {
+const SCREEN_WIDTH = Dimensions.get("window").width;
+const CAROUSEL_ITEM_WIDTH = SCREEN_WIDTH - 48;
+
+export default function ChoosePersonaScreen({ onNext, isSettings }: Props) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [selected, setSelected] = useState<Persona | null>(null);
+  const [previewMode, setPreviewMode] = useState(false);
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const flatListRef = useRef<FlatList>(null);
+
+  const handleCarouselScroll = (e: { nativeEvent: { contentOffset: { x: number } } }) => {
+    const idx = Math.round(e.nativeEvent.contentOffset.x / CAROUSEL_ITEM_WIDTH);
+    if (idx >= 0 && idx < PERSONAS.length) {
+      setCarouselIndex(idx);
+    }
+  };
+
+  const goToSlide = (idx: number) => {
+    flatListRef.current?.scrollToIndex({ index: idx, animated: true });
+    setCarouselIndex(idx);
+  };
+
+  const renderCardView = () => (
+    <ScrollView
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      <Text style={[styles.title, { color: colors.foreground }]}>
+        Choose Your Persona
+      </Text>
+      <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+        How do you want your AI coach to talk to you?
+      </Text>
+
+      <Pressable
+        onPress={() => setPreviewMode(true)}
+        style={[
+          styles.tryAllButton,
+          {
+            borderColor: colors.primary,
+            borderRadius: colors.radius,
+          },
+        ]}
+      >
+        <Feather name="repeat" size={16} color={colors.primary} />
+        <Text style={[styles.tryAllText, { color: colors.primary }]}>
+          Try all three
+        </Text>
+      </Pressable>
+
+      {PERSONAS.map((p) => {
+        const isSelected = selected === p.key;
+        return (
+          <Pressable
+            key={p.key}
+            onPress={() => setSelected(p.key)}
+            style={[
+              styles.card,
+              {
+                backgroundColor: isSelected ? colors.secondary : colors.card,
+                borderColor: isSelected ? colors.primary : colors.border,
+                borderRadius: colors.radius,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.personaName,
+                {
+                  color: isSelected ? colors.primary : colors.foreground,
+                },
+              ]}
+            >
+              {p.name}
+            </Text>
+            <Text
+              style={[styles.personaDesc, { color: colors.mutedForeground }]}
+            >
+              {p.description}
+            </Text>
+            <View
+              style={[
+                styles.exampleBox,
+                {
+                  backgroundColor: isSelected
+                    ? colors.background
+                    : colors.muted,
+                  borderRadius: colors.radius - 2,
+                },
+              ]}
+            >
+              <Text
+                style={[styles.exampleText, { color: colors.foreground }]}
+              >
+                "{p.example}"
+              </Text>
+            </View>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+
+  const renderCarouselView = () => {
+    const current = PERSONAS[carouselIndex];
+    return (
+      <View style={styles.carouselContainer}>
+        <View style={styles.carouselHeader}>
+          <Pressable onPress={() => setPreviewMode(false)}>
+            <Feather name="arrow-left" size={24} color={colors.foreground} />
+          </Pressable>
+          <Text style={[styles.title, { color: colors.foreground, flex: 1, textAlign: "center" }]}>
+            Compare Voices
+          </Text>
+          <View style={{ width: 24 }} />
+        </View>
+
+        <Text style={[styles.scenarioLabel, { color: colors.mutedForeground }]}>
+          Scenario: "Who should I captain this week?"
+        </Text>
+
+        <FlatList
+          ref={flatListRef}
+          data={PERSONAS}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={handleCarouselScroll}
+          keyExtractor={(item) => item.key}
+          getItemLayout={(_data, index) => ({
+            length: CAROUSEL_ITEM_WIDTH,
+            offset: CAROUSEL_ITEM_WIDTH * index,
+            index,
+          })}
+          renderItem={({ item }) => (
+            <View style={[styles.carouselSlide, { width: CAROUSEL_ITEM_WIDTH }]}>
+              <View
+                style={[
+                  styles.carouselCard,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    borderRadius: colors.radius,
+                  },
+                ]}
+              >
+                <Text
+                  style={[styles.carouselPersonaName, { color: colors.primary }]}
+                >
+                  {item.name}
+                </Text>
+                <Text
+                  style={[
+                    styles.carouselPersonaDesc,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  {item.description}
+                </Text>
+                <View
+                  style={[
+                    styles.carouselExampleBox,
+                    {
+                      backgroundColor: colors.muted,
+                      borderRadius: colors.radius - 2,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.carouselExampleText,
+                      { color: colors.foreground },
+                    ]}
+                  >
+                    "{item.example}"
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+        />
+
+        <View style={styles.dots}>
+          {PERSONAS.map((p, i) => (
+            <Pressable key={p.key} onPress={() => goToSlide(i)}>
+              <View
+                style={[
+                  styles.dot,
+                  {
+                    backgroundColor:
+                      i === carouselIndex ? colors.primary : colors.border,
+                  },
+                ]}
+              />
+            </Pressable>
+          ))}
+        </View>
+
+        <View style={styles.carouselBottom}>
+          <Pressable
+            onPress={() => onNext(current.key)}
+            style={({ pressed }) => [
+              styles.button,
+              {
+                backgroundColor: colors.primary,
+                opacity: pressed ? 0.9 : 1,
+              },
+            ]}
+          >
+            <Text
+              style={[styles.buttonText, { color: colors.primaryForeground }]}
+            >
+              Choose this one
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <View
@@ -53,106 +279,40 @@ export default function ChoosePersonaScreen({ onNext }: Props) {
         {
           backgroundColor: colors.background,
           paddingBottom: insets.bottom + 32,
+          paddingTop: isSettings ? 20 : 80,
         },
       ]}
     >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={[styles.title, { color: colors.foreground }]}>
-          Choose Your Persona
-        </Text>
-        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-          How do you want your AI coach to talk to you?
-        </Text>
+      {previewMode ? renderCarouselView() : renderCardView()}
 
-        {PERSONAS.map((p) => {
-          const isSelected = selected === p.key;
-          return (
-            <Pressable
-              key={p.key}
-              onPress={() => setSelected(p.key)}
-              style={[
-                styles.card,
-                {
-                  backgroundColor: isSelected ? colors.secondary : colors.card,
-                  borderColor: isSelected ? colors.primary : colors.border,
-                  borderRadius: colors.radius,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.personaName,
-                  {
-                    color: isSelected
-                      ? colors.primary
-                      : colors.foreground,
-                  },
-                ]}
-              >
-                {p.name}
-              </Text>
-              <Text
-                style={[
-                  styles.personaDesc,
-                  { color: colors.mutedForeground },
-                ]}
-              >
-                {p.description}
-              </Text>
-              <View
-                style={[
-                  styles.exampleBox,
-                  {
-                    backgroundColor: isSelected
-                      ? colors.background
-                      : colors.muted,
-                    borderRadius: colors.radius - 2,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.exampleText,
-                    { color: colors.foreground },
-                  ]}
-                >
-                  "{p.example}"
-                </Text>
-              </View>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-
-      <View style={styles.bottomArea}>
-        <Pressable
-          onPress={() => selected && onNext(selected)}
-          disabled={!selected}
-          style={({ pressed }) => [
-            styles.button,
-            {
-              backgroundColor: selected ? colors.primary : colors.muted,
-              opacity: pressed && selected ? 0.9 : 1,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.buttonText,
+      {!previewMode && (
+        <View style={styles.bottomArea}>
+          <Pressable
+            onPress={() => selected && onNext(selected)}
+            disabled={!selected}
+            style={({ pressed }) => [
+              styles.button,
               {
-                color: selected
-                  ? colors.primaryForeground
-                  : colors.mutedForeground,
+                backgroundColor: selected ? colors.primary : colors.muted,
+                opacity: pressed && selected ? 0.9 : 1,
               },
             ]}
           >
-            This is my vibe
-          </Text>
-        </Pressable>
-      </View>
+            <Text
+              style={[
+                styles.buttonText,
+                {
+                  color: selected
+                    ? colors.primaryForeground
+                    : colors.mutedForeground,
+                },
+              ]}
+            >
+              {isSettings ? "Save persona" : "This is my vibe"}
+            </Text>
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 }
@@ -161,7 +321,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 80,
   },
   scrollContent: {
     paddingBottom: 24,
@@ -174,7 +333,20 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 15,
     fontFamily: "Inter_400Regular",
-    marginBottom: 20,
+    marginBottom: 12,
+  },
+  tryAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    borderWidth: 1.5,
+    marginBottom: 16,
+  },
+  tryAllText: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
   },
   card: {
     padding: 16,
@@ -212,5 +384,62 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 18,
     fontFamily: "Inter_700Bold",
+  },
+  carouselContainer: {
+    flex: 1,
+  },
+  carouselHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  scenarioLabel: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+    fontStyle: "italic",
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  carouselSlide: {
+    justifyContent: "center",
+  },
+  carouselCard: {
+    padding: 20,
+    borderWidth: 1,
+    marginHorizontal: 0,
+  },
+  carouselPersonaName: {
+    fontSize: 22,
+    fontFamily: "Inter_700Bold",
+    marginBottom: 6,
+  },
+  carouselPersonaDesc: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    marginBottom: 16,
+  },
+  carouselExampleBox: {
+    padding: 16,
+  },
+  carouselExampleText: {
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 22,
+    fontStyle: "italic",
+  },
+  dots: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  carouselBottom: {
+    marginTop: "auto",
   },
 });

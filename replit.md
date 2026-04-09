@@ -63,6 +63,11 @@ SuperScout is a fantasy sports AI coach mobile app built with Expo (React Native
   - Root layout (`_layout.tsx`) checks onboarding status on launch and shows flow before main tabs if not completed
   - `fetchTeamName()` in `services/fpl/teamLookup.ts` — lightweight FPL API lookup for onboarding
 
+### Settings Screen
+- `app/(tabs)/settings.tsx` — Settings tab with "Change persona" option
+- Opens the same persona picker used during onboarding (with `isSettings` prop)
+- Saves persona to AsyncStorage and Supabase `users.default_persona` when authenticated
+
 ### My Squad Screen
 - `app/(tabs)/squad.tsx` — Manager squad screen with three sub-tabs (Squad, Transfers, Leagues)
 - Manager ID stored locally via AsyncStorage for persistence across sessions

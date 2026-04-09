@@ -1,0 +1,21 @@
+REPLIT AGENT PROMPT — SuperScout: Vibe Voice Update + Vibe Preview on Onboarding
+Two changes in this prompt. Both relate to the onboarding screen where users pick their default vibe.
+Before you start: Do not run any destructive git operations (git reset --hard, force pushes, orphan commits) at any point during this task. If you encounter a git problem, stop and explain it to me before doing anything.
+Terminology change: Everywhere in the app that currently says "persona" — screen titles, labels, buttons, database comments, variable names, config values — change it to "vibe". The user-facing word is "Vibe" (capitalised on headings, lowercase in running text). The stored values in the database default_persona column stay as they are for now (expert, critic, fanboy) — we're only changing what the user sees, not the backend field names. Add "vibe" as the user-facing label in the constants/config file so it's easy to swap later.
+
+CHANGE 1 — Update the example lines on the vibe selection cards
+On the onboarding screen where the user picks their vibe (Screen 3), each card has an example of how that vibe talks. Replace the current example lines with these:
+The Expert:
+"Haaland at home. City's expected goals against this defence averages 2.1 over the last four meetings. If he hauls and you've captained someone else, that's your mini-league gone in a week."
+The Sarcastic Critic:
+"City at home against that defence. You could captain Haaland, or you could pick someone else and spend the week explaining yourself in the group chat. Entirely your call."
+The OTT Fanboy:
+"HAALAND. HOME. BRO. The numbers are literally a cheat code right now — this fixture is COOKED for defenders. If you're not doubling up on this I don't know what to tell you. Main character energy only!! 🔥"
+These are the only lines that need changing. Don't modify the card layout, icons, names, or anything else on this screen.
+
+CHANGE 2 — Add a "Try all three" preview mode on Screen 3
+Right now the user has to pick a vibe just by reading one static example on each card. I want them to be able to preview all three before committing.
+Add a toggle or tab at the top of Screen 3 that says "Try all three". When tapped, it should show a single scenario (the captain pick example above) and let the user swipe or tap between the three vibe versions of the same advice. Think of it like a carousel — same question, three different voices.
+Once they've seen all three, they tap "Choose this one" on whichever card they're currently viewing — that sets their default vibe and moves them to the next screen.
+The default view (before tapping "Try all three") should still show the three separate cards side by side or stacked, exactly as it works now. The preview mode is an optional extra for users who want to compare.
+Important: The vibe the user selects here gets saved to the default_persona field in the users table (the value will be one of: expert, critic, fanboy). Make sure the selection writes to that field on confirmation. Also make sure users can change their vibe later from settings — add a "Change your Vibe" option in the settings screen that reopens the same selection flow. If the settings screen doesn't exist yet, create a basic one with just this option for now.
