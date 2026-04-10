@@ -125,6 +125,23 @@ SuperScout is a fantasy sports AI coach mobile app built with Expo (React Native
 - Two variants: `transfer` (6 stages) and `captain` (5 stages)
 - Replaces the previous `AILoadingIndicator` (spinning wheel + cycling messages)
 
+### Squad Card Generator
+- `artifacts/api-server/src/routes/squadCard.ts` — POST `/api/squad-card` endpoint for generating shareable gameweek squad cards
+- Fetches: manager info, picks, live points, history (for rank movement) from FPL API via rate limiter + cache
+- Generates AI quip via Claude (max_tokens: 200) using the user's chosen vibe voice — one shareable sentence about their gameweek
+- Logs every card generation to `squad_cards` table in Supabase
+- POST `/api/squad-card/share` — updates `was_shared` and `share_platform` when user taps Share
+- Returns: team name, formation string, starters with points, bench with points, total points, rank/rank change, GW average, quip text
+- `artifacts/superscout/components/SquadCard.tsx` — Premium dark card component (1080x1350, 4:5 ratio for Instagram/Twitter)
+  - Dark background (#0f1923), formation layout (FWD top, GK bottom), captain gold highlight
+  - Points per player, total points (large), rank movement (green up/red down), bench section with auto-sub markers
+  - AI quip in styled speech area, SuperScout branding, "superscout.pro" CTA footer
+- `artifacts/superscout/app/(tabs)/card.tsx` — Card tab screen with generate/share/save flow
+  - Uses `react-native-view-shot` for image capture, `expo-sharing` for share sheet, `expo-media-library` for save to photos
+  - Edge cases: unfinished gameweek, no picks, no finished GWs, AI quip failure (uses fallback)
+  - Optimistic loading stages via ProgressLoadingIndicator
+- Tab position: between Transfers and My Squad in the tab bar
+
 ### API Proxy
 - `artifacts/api-server/src/routes/fpl.ts` — server-side proxy for FPL API (now cached). Proxies: bootstrap-static, entry/{id}, entry/{id}/event/{gw}/picks, entry/{id}/transfers, entry/{id}/history, fixtures, event/{event}/live. Native mobile calls FPL directly.
 - `artifacts/api-server/src/routes/captain.ts` — POST `/api/captain-picks` endpoint for AI captain recommendations using Claude, with robust JSON extraction (balanced-brace parser)
