@@ -465,28 +465,41 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
 The manager has a ${isWildcardActive ? "Wildcard" : "Free Hit"} chip available. Recommend comprehensive squad restructure packages.
 Each recommendation should be a PACKAGE of 3-6 coordinated transfers that work together as a strategy.
 Every package needs a creative package_name (e.g. "The Premium Triple-Up", "Fixture Swing", "Template Reset").
-Show how the transfers combine for maximum impact. Budget constraint applies across ALL transfers in the package.`;
-      recommendationCount = "Return 3 to 4 restructure packages";
+Show how the transfers combine for maximum impact. Budget constraint applies across ALL transfers in the package.
+Each package MUST have a DIFFERENT strategic focus — e.g. one premium-heavy, one differential, one fixture-based rotation.`;
+      recommendationCount = "Return exactly 3 to 4 restructure packages, each with a distinctly different strategy";
     } else if (freeTransfers >= 4) {
       modeInstructions = `MODE: RESTRUCTURE (${freeTransfers} free transfers banked)
-The manager has ${freeTransfers} free transfers — this is a restructure opportunity. LEAD with packages of 2-4 coordinated transfers.
-Each package needs a creative package_name (e.g. "The Fixture Swing", "Defence Overhaul", "Midfield Reset").
-You may also include 1-2 individual swap options, but packages should come first.
-Packages use multiple free transfers — show how the moves work together.`;
-      recommendationCount = "Return 3 to 5 recommendations (at least 2 must be packages)";
+The manager has ${freeTransfers} free transfers — this is a major restructure opportunity.
+
+You MUST return ALL of the following:
+1. TWO OR THREE different restructure PACKAGES (each using 2-${Math.min(freeTransfers, 4)} free transfers). Each package MUST have a different strategic theme — for example:
+   - A defensive overhaul (upgrading defence or rotating out tough fixtures)
+   - An attacking upgrade (bringing in premium or in-form attackers)
+   - A fixture swing (targeting teams with easy upcoming runs)
+   - A budget rebalance (freeing funds for future moves)
+   Each package needs a creative package_name.
+2. ONE best individual swap — the single most impactful one-for-one transfer.
+3. ONE hold option — explaining why banking transfers could be the smart play.
+
+Packages should use multiple free transfers and show how the moves work together as a coordinated strategy. Do NOT just offer one package and a hold — the user needs genuine strategic choices.`;
+      recommendationCount = "Return exactly 4 to 5 recommendations: 2-3 packages + 1 individual swap + 1 hold option";
     } else if (freeTransfers >= 2) {
       modeInstructions = `MODE: MIXED (${freeTransfers} free transfers available)
-The manager has ${freeTransfers} free transfers. Include a MIX of individual swaps AND multi-transfer packages (2-3 transfers grouped together).
-Packages need a creative package_name (e.g. "The Double Switch", "Attack Refresh").
-Individual transfers do not need a package_name.
-At least one recommendation should be a package using 2+ free transfers.`;
-      recommendationCount = "Return 3 to 5 recommendations (at least 1 must be a package)";
+The manager has ${freeTransfers} free transfers. You MUST return ALL of the following:
+1. ONE OR TWO multi-transfer packages (using 2+ free transfers). Each package needs a creative package_name (e.g. "The Double Switch", "Attack Refresh") and a different strategic angle.
+2. ONE OR TWO individual swap options — single player-for-player trades.
+3. ONE hold option if holding transfers makes strategic sense.
+
+Packages should show how the moves work together. Individual swaps should each target a different problem in the squad.`;
+      recommendationCount = "Return exactly 4 to 5 recommendations: 1-2 packages + 1-2 individual swaps + 1 hold option";
     } else {
       modeInstructions = `MODE: INDIVIDUAL SWAPS (${freeTransfers} free transfer${freeTransfers === 1 ? "" : "s"})
 The manager has ${freeTransfers} free transfer${freeTransfers === 1 ? "" : "s"}. Recommend individual player swaps only.
 Each recommendation is a single player OUT / player IN swap.
-If the user has 0 free transfers, every suggestion costs a 4-point hit.`;
-      recommendationCount = "Return 3 to 5 transfer options";
+If the user has 0 free transfers, every suggestion costs a 4-point hit.
+Include 1 hold option if holding transfers makes strategic sense.`;
+      recommendationCount = "Return 3 to 4 transfer options + 1 hold option";
     }
 
     const transferInstructions = `You are generating transfer recommendations for this FPL manager. Analyse their squad, upcoming fixtures, budget, and available free transfers.
