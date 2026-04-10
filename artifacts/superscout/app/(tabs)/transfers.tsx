@@ -75,11 +75,12 @@ export default function TransferAdvisorScreen() {
 
     try {
       const apiBase = getApiBaseUrl();
+      const supportsStreaming = typeof ReadableStream !== "undefined" && Platform.OS === "web";
       const response = await fetch(`${apiBase}/transfer-advice`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Accept: "text/event-stream",
+          ...(supportsStreaming ? { Accept: "text/event-stream" } : {}),
         },
         body: JSON.stringify({
           manager_id: managerId,
@@ -175,11 +176,10 @@ export default function TransferAdvisorScreen() {
         aiTimerRef.current = setTimeout(() => {
           setLoadingStage("ai_deep");
         }, 15000);
-        const text = await response.text();
+        const json = await response.json() as TransferAdviceResponse;
         if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
-        if (parseSSELines(text) === "error") {
-          setAiLoading(false);
-          return;
+        if (json.recommendations) {
+          resultData = json;
         }
       }
 
