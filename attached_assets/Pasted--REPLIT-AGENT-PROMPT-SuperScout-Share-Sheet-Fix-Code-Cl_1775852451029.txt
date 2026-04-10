@@ -1,0 +1,97 @@
+# REPLIT AGENT PROMPT — SuperScout: Share Sheet Fix + Code Cleanup
+
+Two fixes. The first is important — it’s blocking social media sharing. The second is a code cleanup to prevent future bugs.
+
+**Before you start:** Do not run any destructive git operations (git reset –hard, force pushes, orphan commits) at any point during this task. If you encounter a git problem, stop and explain it to me before doing anything.
+
+-----
+
+## FIX 1: Social media apps not appearing in iOS share sheet — HIGH PRIORITY
+
+**The problem:** When a user taps Share on a Squad Card, Twitter/X, Instagram, and Facebook do not appear as options in the share sheet — even though they are installed on the device. Only WhatsApp and system apps (Messages, Mail) appear.
+
+**The cause:** In `app/(tabs)/card.tsx`, line 168, the iOS share path uses:
+
+```
+const result = await Share.share({ url: uri });
+```
+
+This passes a file URL to the native iOS share sheet. Many social media apps (Twitter/X, Instagram, Facebook) do not register as share targets for file URLs — they only appear when image data or specific content types are shared.
+
+**What needs to change:**
+
+1. On iOS, instead of using React Native’s `Share.share({ url: uri })`, use `expo-sharing`’s `Sharing.shareAsync()` — which is already used for Android (line 176). This passes the file with an explicit MIME type, which causes more apps to appear in the share sheet.
+1. The updated share logic for BOTH platforms should be:
+
+```typescript
+const canShare = await Sharing.isAvailableAsync();
+if (canShare) {
+  await Sharing.shareAsync(uri, {
+    mimeType: "image/png",
+    UTI: "public.png",
+    dialogTitle: "Share your Squad Card",
+  });
+  didShare = true;
+  // Note: expo-sharing doesn't return activity type, so platform detection
+  // won't work as precisely. Set platform to "unknown" when using expo-sharing.
+}
+```
+
+1. **Platform detection trade-off:** React Native’s `Share.share()` returns `activityType` which lets us detect WhatsApp vs Twitter. `Sharing.shareAsync()` does NOT return this. The trade-off is: better app availability (social media apps appear) vs less precise platform tracking. This is the right trade-off — having users able to share to Twitter/X matters more than knowing they shared to Twitter/X.
+1. However, keep the `Share.share()` path as a fallback. Try `Sharing.shareAsync()` first. If `expo-sharing` is not available (unlikely but possible), fall back to `Share.share({ url: uri })`.
+1. After this change, when sharing via `Sharing.shareAsync()`, set the platform to “shared” (since we can’t detect the specific app). When sharing via the fallback `Share.share()`, continue using the `mapActivityTypeToPlatform` function for detection.
+
+**How to test:** Generate a Squad Card and tap Share. The share sheet should now show Twitter/X, Instagram, and Facebook alongside WhatsApp and system apps. Share to Twitter/X and confirm the image appears correctly in the compose screen.
+
+-----
+
+## FIX 2: Share tracking updating ALL rows instead of the specific card
+
+**The problem:** In `api-server/src/routes/squadCard.ts`, lines 353-359, the share tracking update targets rows by `user_id` and `gameweek`:
+
+```typescript
+.eq("user_id", "00000000-0000-0000-0000-000000000000")
+.eq("gameweek", gameweek)
+```
+
+This updates ALL squad cards for that gameweek, not just the one that was shared. If a user generates 3 cards for the same gameweek and shares only the last one, all 3 get marked as shared.
+
+**What needs to change:**
+
+1. When the squad card is generated (the POST `/squad-card` route), return the squad card’s database ID (`id` field from the insert) in the response JSON alongside the existing data.
+1. When the client calls POST `/squad-card/share`, send that specific card ID instead of (or in addition to) the gameweek.
+1. The share update should target by card ID:
+
+```typescript
+.eq("id", cardId)
+```
+
+1. Update the client code in `card.tsx` to store the card ID from the generation response and pass it in the share call.
+
+-----
+
+## FIX 3: Stale TypeScript type definition
+
+**The problem:** In `artifacts/superscout/services/decisionLog.ts`, line 9, the `confidence_label` type is still defined as:
+
+```typescript
+confidence_label: "HIGH" | "MEDIUM" | "SPECULATIVE";
+```
+
+But the database constraint was changed to accept `BANKER`, `CALCULATED_RISK`, and `BOLD_PUNT`. The old values no longer exist anywhere in the system. This type definition is stale and will confuse anyone reading the code.
+
+**What needs to change:**
+
+Update line 9 to:
+
+```typescript
+confidence_label: "BANKER" | "CALCULATED_RISK" | "BOLD_PUNT";
+```
+
+Search the entire codebase for any other references to “HIGH”, “MEDIUM”, or “SPECULATIVE” as confidence labels and update them if found. The only valid confidence labels are BANKER, CALCULATED_RISK, and BOLD_PUNT.
+
+-----
+
+## After all three fixes
+
+Push to GitHub. Test the share sheet on a real iOS device with Twitter/X and Instagram installed — confirm they now appear as share destinations.
