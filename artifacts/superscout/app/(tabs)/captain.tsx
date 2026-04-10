@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import { useFocusEffect } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 import { useManagerId } from "@/hooks/useManagerId";
 import ChoiceCard from "@/components/ChoiceCard";
-import AILoadingIndicator from "@/components/AILoadingIndicator";
+import ProgressLoadingIndicator from "@/components/ProgressLoadingIndicator";
 import { fetchCaptainCandidates } from "@/services/fpl/api";
 import type {
   CaptainRecommendation,
@@ -39,10 +39,12 @@ export default function CaptainPickerScreen() {
   >(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [loadingStage, setLoadingStage] = useState<string>("squad");
   const [gameweek, setGameweek] = useState<number>(0);
   const [deadlineTime, setDeadlineTime] = useState<string>("");
   const [isMockData, setIsMockData] = useState(false);
   const [vibe, setVibe] = useState<"expert" | "critic" | "fanboy">("expert");
+  const stageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -76,15 +78,39 @@ export default function CaptainPickerScreen() {
     enabled: managerId !== null && !managerLoading,
   });
 
+  const clearStageTimers = useCallback(() => {
+    if (stageTimerRef.current) {
+      clearTimeout(stageTimerRef.current);
+      stageTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => clearStageTimers();
+  }, [clearStageTimers]);
+
   const requestPicks = useCallback(async () => {
     if (!candidateData) return;
 
     setAiLoading(true);
     setAiError(null);
     setRecommendations(null);
+    setLoadingStage("squad");
     setGameweek(candidateData.gameweek);
     setDeadlineTime(candidateData.deadlineTime);
     setIsMockData(candidateData.isMockData);
+
+    clearStageTimers();
+
+    stageTimerRef.current = setTimeout(() => {
+      setLoadingStage("rules");
+      stageTimerRef.current = setTimeout(() => {
+        setLoadingStage("ai");
+        stageTimerRef.current = setTimeout(() => {
+          setLoadingStage("ai_deep");
+        }, 8000);
+      }, 1500);
+    }, 1000);
 
     try {
       const apiBase = getApiBaseUrl();
@@ -106,7 +132,13 @@ export default function CaptainPickerScreen() {
         throw new Error(`API error: ${response.status}`);
       }
 
+      clearStageTimers();
+      setLoadingStage("validating");
+
       const data: CaptainPicksResponse = await response.json();
+
+      setLoadingStage("done");
+      await new Promise((r) => setTimeout(r, 400));
       setRecommendations(data.recommendations);
 
       logRecommendationSilently(data, candidateData.gameweek);
@@ -116,9 +148,10 @@ export default function CaptainPickerScreen() {
         "SuperScout is thinking too hard — try again in a moment.",
       );
     } finally {
+      clearStageTimers();
       setAiLoading(false);
     }
-  }, [candidateData, vibe]);
+  }, [candidateData, vibe, clearStageTimers]);
 
   const logRecommendationSilently = async (
     data: CaptainPicksResponse,
@@ -269,9 +302,10 @@ export default function CaptainPickerScreen() {
         )}
 
         {aiLoading && (
-          <AILoadingIndicator
+          <ProgressLoadingIndicator
             vibe={vibe}
-            label="Analysing your squad..."
+            currentStage={loadingStage}
+            variant="captain"
           />
         )}
 
