@@ -19,6 +19,7 @@ import ChoosePersonaScreen, {
   PERSONAS,
 } from "@/app/onboarding/ChoosePersonaScreen";
 import ConnectFPLScreen from "@/app/onboarding/ConnectFPLScreen";
+import { ONBOARDING_COMPLETE_KEY } from "@/app/onboarding/OnboardingFlow";
 import type { Persona } from "@/app/onboarding/ChoosePersonaScreen";
 
 const PERSONA_KEY = "superscout_persona";
@@ -256,6 +257,58 @@ export default function SettingsScreen() {
             </Text>
           </View>
         </View>
+
+        {__DEV__ && (
+          <View
+            style={[
+              styles.section,
+              {
+                backgroundColor: colors.card,
+                borderRadius: colors.radius,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <Text
+              style={[styles.sectionTitle, { color: colors.mutedForeground }]}
+            >
+              Developer
+            </Text>
+            <Pressable
+              style={styles.settingRow}
+              onPress={async () => {
+                await AsyncStorage.multiRemove([
+                  ONBOARDING_COMPLETE_KEY,
+                  "superscout_manager_id",
+                  "superscout_team_name",
+                  PERSONA_KEY,
+                ]);
+                if (Platform.OS === "web") {
+                  window.location.reload();
+                }
+              }}
+            >
+              <View style={styles.settingRowInner}>
+                <Feather
+                  name="refresh-cw"
+                  size={18}
+                  color={colors.mutedForeground}
+                  style={styles.settingIcon}
+                />
+                <Text
+                  style={[styles.settingLabel, { color: colors.foreground }]}
+                >
+                  Reset Onboarding
+                </Text>
+              </View>
+              <Feather
+                name="chevron-right"
+                size={18}
+                color={colors.mutedForeground}
+              />
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
