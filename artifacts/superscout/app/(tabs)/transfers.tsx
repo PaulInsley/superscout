@@ -87,7 +87,7 @@ export default function TransferAdvisorScreen() {
         }),
       });
 
-      if (!response.ok || !response.body) {
+      if (!response.ok) {
         const errorBody = await response.json().catch(() => null);
         if (errorBody?.error === "new_manager") {
           setAiError("Your FPL team hasn't played any gameweeks yet. Transfer advice will be available once you've entered a gameweek.");
@@ -100,45 +100,14 @@ export default function TransferAdvisorScreen() {
         return;
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
       let resultData: TransferAdviceResponse | null = null;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          buffer += decoder.decode();
-          const remaining = buffer.split("\n");
-          for (const line of remaining) {
-            if (!line.startsWith("data: ")) continue;
-            const jsonStr = line.slice(6).trim();
-            if (!jsonStr) continue;
-            try {
-              const event = JSON.parse(jsonStr);
-              if (event.stage === "result") {
-                if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
-                resultData = {
-                  gameweek: event.gameweek,
-                  free_transfers: event.free_transfers,
-                  budget_remaining: event.budget_remaining,
-                  recommendations: event.recommendations,
-                };
-              }
-            } catch {}
-          }
-          break;
-        }
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
+      const parseSSELines = (text: string) => {
+        const lines = text.split("\n");
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
           const jsonStr = line.slice(6).trim();
           if (!jsonStr) continue;
-
           try {
             const event = JSON.parse(jsonStr);
 
@@ -150,15 +119,16 @@ export default function TransferAdvisorScreen() {
               } else {
                 setAiError(event.message || "Something went wrong. Try again.");
               }
-              setAiLoading(false);
-              return;
+              return "error";
             }
 
             if (event.stage === "ai") {
               setLoadingStage("ai");
-              aiTimerRef.current = setTimeout(() => {
-                setLoadingStage("ai_deep");
-              }, 15000);
+              if (!aiTimerRef.current) {
+                aiTimerRef.current = setTimeout(() => {
+                  setLoadingStage("ai_deep");
+                }, 15000);
+              }
             } else if (event.stage === "result") {
               if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
               resultData = {
@@ -168,16 +138,53 @@ export default function TransferAdvisorScreen() {
                 recommendations: event.recommendations,
               };
             } else if (event.stage) {
-              if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
               setLoadingStage(event.stage);
             }
-          } catch {
-            // ignore parse errors for partial chunks
+          } catch {}
+        }
+        return "ok";
+      };
+
+      if (response.body) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            buffer += decoder.decode();
+            if (parseSSELines(buffer) === "error") {
+              setAiLoading(false);
+              return;
+            }
+            break;
           }
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          if (parseSSELines(lines.join("\n")) === "error") {
+            setAiLoading(false);
+            return;
+          }
+        }
+      } else {
+        setLoadingStage("ai");
+        aiTimerRef.current = setTimeout(() => {
+          setLoadingStage("ai_deep");
+        }, 15000);
+        const text = await response.text();
+        if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
+        if (parseSSELines(text) === "error") {
+          setAiLoading(false);
+          return;
         }
       }
 
       if (resultData) {
+        setLoadingStage("done");
         setRecommendations(resultData.recommendations);
         setGameweek(resultData.gameweek);
         setFreeTransfers(resultData.free_transfers);
