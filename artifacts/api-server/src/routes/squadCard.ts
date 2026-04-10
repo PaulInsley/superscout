@@ -188,7 +188,7 @@ router.post("/squad-card", async (req: Request, res: Response) => {
       const points = liveMap.get(pick.element) ?? 0;
       return {
         id: pick.element,
-        name: player ? `${player.first_name} ${player.second_name}` : `Player ${pick.element}`,
+        name: player?.second_name ?? `Player ${pick.element}`,
         webName: player?.web_name ?? `P${pick.element}`,
         position: player ? POSITION_MAP[player.element_type] ?? "MID" : "MID",
         points: points * pick.multiplier,

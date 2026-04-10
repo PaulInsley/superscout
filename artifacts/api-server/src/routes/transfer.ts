@@ -437,7 +437,7 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
 
       return {
         id: pick.element,
-        name: player ? `${player.first_name} ${player.second_name}` : `Player ${pick.element}`,
+        name: player?.second_name ?? `Player ${pick.element}`,
         position: player ? POSITION_MAP[player.element_type] ?? "UNK" : "UNK",
         team: team?.short_name ?? "UNK",
         teamId: player?.team ?? 0,
@@ -475,7 +475,7 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
 
     const candidatesSummary = candidates.slice(0, 50).map((c) => {
       const pos = POSITION_MAP[c.player.element_type] ?? "UNK";
-      return `- ${c.player.first_name} ${c.player.second_name} (${pos}, ${c.team.short_name}) | Price: £${(c.player.now_cost / 10).toFixed(1)}m | Form: ${c.player.form} | Total: ${c.player.total_points} | Own: ${c.player.selected_by_percent}% | Status: ${c.player.status} | FDR: ${c.upcomingFdr.join(",")}`;
+      return `- ${c.player.second_name} (${pos}, ${c.team.short_name}) | Price: £${(c.player.now_cost / 10).toFixed(1)}m | Form: ${c.player.form} | Total: ${c.player.total_points} | Own: ${c.player.selected_by_percent}% | Status: ${c.player.status} | FDR: ${c.upcomingFdr.join(",")}`;
     }).join("\n");
 
     const squadSummary = squadWithDetails.map((p) =>
@@ -690,7 +690,8 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
       }
 
       const playerIn = bootstrap.elements.find(
-        (p) => `${p.first_name} ${p.second_name}`.toLowerCase() === playerInName.toLowerCase()
+        (p) => p.second_name.toLowerCase() === playerInName.toLowerCase()
+          || `${p.first_name} ${p.second_name}`.toLowerCase() === playerInName.toLowerCase()
           || p.web_name?.toLowerCase() === playerInName.toLowerCase()
       );
       if (!playerIn && playerInName) {
@@ -751,7 +752,8 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
 
         const playerOut = simSquad.find((p) => p.name.toLowerCase() === outName.toLowerCase());
         const playerIn = bootstrap.elements.find(
-          (p) => `${p.first_name} ${p.second_name}`.toLowerCase() === inName.toLowerCase()
+          (p) => p.second_name.toLowerCase() === inName.toLowerCase()
+            || `${p.first_name} ${p.second_name}`.toLowerCase() === inName.toLowerCase()
             || p.web_name?.toLowerCase() === inName.toLowerCase()
         );
 
@@ -762,7 +764,7 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
             simSquad[idx] = {
               ...simSquad[idx],
               id: playerIn.id,
-              name: `${playerIn.first_name} ${playerIn.second_name}`,
+              name: playerIn.second_name,
               teamId: playerIn.team,
               position: POSITION_MAP[playerIn.element_type] ?? "UNK",
               price: playerIn.now_cost / 10,
