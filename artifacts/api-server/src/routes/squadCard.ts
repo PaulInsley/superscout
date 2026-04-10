@@ -350,26 +350,37 @@ router.post("/squad-card/share", async (req: Request, res: Response) => {
       return;
     }
 
-    const dbPlatforms = ["twitter", "whatsapp", "imessage", "instagram", "clipboard", "other", "unknown"];
+    const dbPlatforms = ["twitter", "whatsapp", "imessage", "instagram", "clipboard"];
     const sharePlatform = dbPlatforms.includes(platform) ? platform : null;
 
+    let updateResult;
     if (card_id) {
-      await supabase
+      updateResult = await supabase
         .from("squad_cards")
         .update({ was_shared: true, share_platform: sharePlatform })
         .eq("id", card_id)
-        .eq("user_id", "00000000-0000-0000-0000-000000000000");
+        .eq("user_id", "00000000-0000-0000-0000-000000000000")
+        .select("id, was_shared, share_platform");
     } else {
-      await supabase
+      updateResult = await supabase
         .from("squad_cards")
         .update({ was_shared: true, share_platform: sharePlatform })
         .eq("user_id", "00000000-0000-0000-0000-000000000000")
         .eq("gameweek", gameweek)
         .order("created_at", { ascending: false })
-        .limit(1);
+        .limit(1)
+        .select("id, was_shared, share_platform");
     }
 
-    res.json({ success: true });
+    if (updateResult.error) {
+      req.log.error({ err: updateResult.error, card_id, gameweek }, "Supabase share update failed");
+      res.status(500).json({ error: "Failed to update share status" });
+      return;
+    }
+
+    req.log.info({ card_id, gameweek, platform: sharePlatform, rowsUpdated: updateResult.data?.length ?? 0, data: updateResult.data }, "Share update result");
+
+    res.json({ success: true, updated: updateResult.data?.length ?? 0 });
   } catch (err) {
     req.log.error({ err }, "Failed to update share status");
     res.status(500).json({ error: "internal" });
