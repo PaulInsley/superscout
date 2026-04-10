@@ -350,7 +350,7 @@ router.post("/squad-card/share", async (req: Request, res: Response) => {
       return;
     }
 
-    const dbPlatforms = ["twitter", "whatsapp", "imessage", "instagram", "clipboard"];
+    const dbPlatforms = ["twitter", "whatsapp", "imessage", "instagram", "clipboard", "facebook", "other"];
     const sharePlatform = dbPlatforms.includes(platform) ? platform : null;
 
     let updateResult;

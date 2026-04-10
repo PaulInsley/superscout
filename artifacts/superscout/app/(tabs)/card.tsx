@@ -50,13 +50,15 @@ interface SquadCardData {
 }
 
 function mapActivityTypeToPlatform(activityType?: string | null): string {
-  if (!activityType) return "unknown";
+  if (!activityType) return "other";
   const at = activityType.toLowerCase();
+  console.log("[SuperScout] Share activityType:", activityType);
+  if (at.includes("com.apple.uikit.activity.message") || at === "com.apple.uikit.activity.message") return "imessage";
   if (at.includes("whatsapp")) return "whatsapp";
-  if (at.includes("twitter") || at.includes("com.atebits")) return "twitter";
-  if (at.includes("message") || at.includes("com.apple.uikit.activity.message")) return "imessage";
+  if (at.includes("twitter") || at.includes("com.atebits") || at.includes("x.com")) return "twitter";
   if (at.includes("instagram")) return "instagram";
-  if (at.includes("copytopasteboard") || at.includes("clipboard")) return "clipboard";
+  if (at.includes("facebook")) return "facebook";
+  if (at.includes("copytopasteboard") || at.includes("com.apple.uikit.activity.copytopasteboard")) return "clipboard";
   return "other";
 }
 
@@ -162,7 +164,7 @@ export default function CardScreen() {
     }
 
     let didShare = false;
-    let platform = "unknown";
+    let platform = "other";
 
     try {
       const canShare = await Sharing.isAvailableAsync();
@@ -173,7 +175,7 @@ export default function CardScreen() {
           dialogTitle: "Share your Squad Card",
         });
         didShare = true;
-        platform = "unknown";
+        platform = "other";
       } else if (Platform.OS === "ios") {
         const result = await Share.share({ url: uri });
         if (result.action === Share.sharedAction) {
