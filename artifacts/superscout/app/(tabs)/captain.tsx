@@ -16,6 +16,7 @@ import { useFocusEffect } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 import { useManagerId } from "@/hooks/useManagerId";
 import ChoiceCard from "@/components/ChoiceCard";
+import AILoadingIndicator from "@/components/AILoadingIndicator";
 import { fetchCaptainCandidates } from "@/services/fpl/api";
 import type {
   CaptainRecommendation,
@@ -268,14 +269,10 @@ export default function CaptainPickerScreen() {
         )}
 
         {aiLoading && (
-          <View style={styles.aiLoadingContainer}>
-            <ActivityIndicator size="large" color={colors.accent} />
-            <Text
-              style={[styles.loadingText, { color: colors.mutedForeground }]}
-            >
-              SuperScout is analysing your squad...
-            </Text>
-          </View>
+          <AILoadingIndicator
+            vibe={vibe}
+            label="Analysing your squad..."
+          />
         )}
 
         {aiError && (

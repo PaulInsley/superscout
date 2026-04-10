@@ -15,6 +15,7 @@ import { useFocusEffect } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 import { useManagerId } from "@/hooks/useManagerId";
 import TransferCard from "@/components/TransferCard";
+import AILoadingIndicator from "@/components/AILoadingIndicator";
 import type { TransferRecommendation } from "@/components/TransferCard";
 
 const PERSONA_KEY = "superscout_persona";
@@ -172,20 +173,26 @@ export default function TransferAdvisorScreen() {
           Transfer Advisor
         </Text>
 
-        {recommendations ? (
-          <View style={[styles.summaryBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.summaryText, { color: colors.foreground }]}>
-              GW{gameweek}
+        {recommendations || aiLoading ? (
+          gameweek > 0 ? (
+            <View style={[styles.summaryBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.summaryText, { color: colors.foreground }]}>
+                GW{gameweek}
+              </Text>
+              <View style={[styles.summaryDot, { backgroundColor: colors.mutedForeground }]} />
+              <Text style={[styles.summaryText, { color: colors.foreground }]}>
+                {freeTransfers} free transfer{freeTransfers !== 1 ? "s" : ""}
+              </Text>
+              <View style={[styles.summaryDot, { backgroundColor: colors.mutedForeground }]} />
+              <Text style={[styles.summaryText, { color: colors.foreground }]}>
+                £{budget.toFixed(1)}m in bank
+              </Text>
+            </View>
+          ) : (
+            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+              Scanning the transfer market...
             </Text>
-            <View style={[styles.summaryDot, { backgroundColor: colors.mutedForeground }]} />
-            <Text style={[styles.summaryText, { color: colors.foreground }]}>
-              {freeTransfers} free transfer{freeTransfers !== 1 ? "s" : ""}
-            </Text>
-            <View style={[styles.summaryDot, { backgroundColor: colors.mutedForeground }]} />
-            <Text style={[styles.summaryText, { color: colors.foreground }]}>
-              £{budget.toFixed(1)}m in bank
-            </Text>
-          </View>
+          )
         ) : (
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
             AI-powered transfer recommendations for your squad
@@ -204,12 +211,10 @@ export default function TransferAdvisorScreen() {
         )}
 
         {aiLoading && (
-          <View style={styles.aiLoadingContainer}>
-            <ActivityIndicator size="large" color={colors.accent} />
-            <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
-              SuperScout is analysing your squad and the transfer market...
-            </Text>
-          </View>
+          <AILoadingIndicator
+            vibe={vibe}
+            label="Scanning the transfer market..."
+          />
         )}
 
         {aiError && (
