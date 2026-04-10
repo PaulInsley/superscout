@@ -32,6 +32,7 @@ interface SquadCardProps {
   quipText: string;
   vibe: string;
   captureMode?: boolean;
+  isDemo?: boolean;
 }
 
 const POSITION_ORDER = ["GKP", "DEF", "MID", "FWD"];
@@ -99,6 +100,7 @@ export default function SquadCard({
   quipText,
   vibe,
   captureMode,
+  isDemo,
 }: SquadCardProps) {
   const s = captureMode ? 1 : SCALE;
   const rows = groupByPosition(starters);
@@ -187,6 +189,12 @@ export default function SquadCard({
         <View style={styles.footer}>
           <Text style={styles.footerText}>superscout.pro</Text>
         </View>
+
+        {isDemo && (
+          <View style={styles.demoWatermark}>
+            <Text style={styles.demoWatermarkText}>DEMO</Text>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -430,5 +438,22 @@ const styles = StyleSheet.create({
     color: "#475569",
     fontWeight: "600",
     letterSpacing: 2,
+  },
+  demoWatermark: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    pointerEvents: "none",
+  },
+  demoWatermarkText: {
+    fontSize: 200,
+    fontWeight: "900",
+    color: "rgba(255,255,255,0.06)",
+    letterSpacing: 30,
+    transform: [{ rotate: "-30deg" }],
   },
 });

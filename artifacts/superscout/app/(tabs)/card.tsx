@@ -47,6 +47,39 @@ interface SquadCardData {
   vibe: string;
 }
 
+const DEMO_CARD_DATA: SquadCardData = {
+  teamName: "Demo FC",
+  gameweek: 30,
+  formation: "3-5-2",
+  starters: [
+    { id: 1, webName: "Raya", position: "GKP", points: 6 },
+    { id: 2, webName: "Alexander-Arnold", position: "DEF", points: 9, isCaptain: true },
+    { id: 3, webName: "Saliba", position: "DEF", points: 6 },
+    { id: 4, webName: "Gabriel", position: "DEF", points: 2 },
+    { id: 5, webName: "Saka", position: "MID", points: 12 },
+    { id: 6, webName: "Palmer", position: "MID", points: 8 },
+    { id: 7, webName: "M.Salah", position: "MID", points: 7 },
+    { id: 8, webName: "Son", position: "MID", points: 5 },
+    { id: 9, webName: "Gordon", position: "MID", points: 3 },
+    { id: 10, webName: "Haaland", position: "FWD", points: 10 },
+    { id: 11, webName: "Watkins", position: "FWD", points: 6 },
+  ],
+  bench: [
+    { id: 12, webName: "Henderson", position: "GKP", points: 1 },
+    { id: 13, webName: "Mykolenko", position: "DEF", points: 2 },
+    { id: 14, webName: "Eze", position: "MID", points: 5, isAutoSubIn: true },
+    { id: 15, webName: "Solanke", position: "FWD", points: 2 },
+  ],
+  totalPoints: 74,
+  benchPoints: 10,
+  overallRank: 142857,
+  rankChange: 23400,
+  rankDirection: "up",
+  gwAverage: 52,
+  quipText: "Trent as captain? Bold. Brilliant. Borderline genius. The 74-point haul has your rank climbing faster than Haaland's goal tally.",
+  vibe: "expert",
+};
+
 function getApiBaseUrl(): string {
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
   return `https://${domain}/api`;
@@ -57,6 +90,7 @@ export default function CardScreen() {
   const { managerId, teamName, loading: managerLoading } = useManagerId();
   const [vibe, setVibe] = useState<"expert" | "critic" | "fanboy">("expert");
   const [cardData, setCardData] = useState<SquadCardData | null>(null);
+  const [isDemo, setIsDemo] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState<string>("squad");
   const [error, setError] = useState<string | null>(null);
@@ -99,14 +133,19 @@ export default function CardScreen() {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        if (data.error === "gameweek_not_finished") {
-          setError("This gameweek isn't finished yet. Come back after the last match to see your full results.");
-        } else if (data.error === "no_picks") {
-          setError("No squad data found for this gameweek. Did you forget to set your team?");
-        } else if (data.error === "no_finished_gameweek") {
-          setError("The season hasn't started yet — no finished gameweeks to build a card from.");
+        const knownErrors = ["gameweek_not_finished", "no_picks", "no_finished_gameweek"];
+        if (knownErrors.includes(data.error)) {
+          if (data.error === "gameweek_not_finished") {
+            setError("This gameweek isn't finished yet. Come back after the last match to see your full results.");
+          } else if (data.error === "no_picks") {
+            setError("No squad data found for this gameweek. Did you forget to set your team?");
+          } else {
+            setError("The season hasn't started yet — no finished gameweeks to build a card from.");
+          }
         } else {
-          setError(data.message || "Something went wrong. Try again.");
+          setCardData({ ...DEMO_CARD_DATA, vibe });
+          setIsDemo(true);
+          setError(null);
         }
         setLoading(false);
         return;
@@ -119,13 +158,16 @@ export default function CardScreen() {
         setLoadingStage("done");
         setTimeout(() => {
           setCardData(data);
+          setIsDemo(false);
           setLoading(false);
         }, 400);
       }, 300);
     } catch (err) {
       stageTimers.forEach(clearTimeout);
       console.error("[SuperScout] Squad card error:", err);
-      setError("Could not generate your card. Check your connection and try again.");
+      setCardData({ ...DEMO_CARD_DATA, vibe });
+      setIsDemo(true);
+      setError(null);
       setLoading(false);
     }
   }, [managerId, vibe]);
@@ -208,6 +250,12 @@ export default function CardScreen() {
     setSaving(false);
   }, [captureCard, cardData]);
 
+  const loadDemoCard = useCallback(() => {
+    setCardData({ ...DEMO_CARD_DATA, vibe });
+    setIsDemo(true);
+    setError(null);
+  }, [vibe]);
+
   const noManager = !managerLoading && !managerId;
 
   return (
@@ -222,13 +270,19 @@ export default function CardScreen() {
         </Text>
       </View>
 
-      {noManager && (
+      {noManager && !cardData && (
         <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.emptyIcon, { color: colors.mutedForeground }]}>📋</Text>
           <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Connect your FPL account</Text>
           <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
             Set up your Manager ID in Settings to generate your squad card.
           </Text>
+          <Pressable
+            style={[styles.demoButton, { backgroundColor: "rgba(0,255,135,0.1)", borderColor: "rgba(0,255,135,0.3)" }]}
+            onPress={loadDemoCard}
+          >
+            <Text style={[styles.demoButtonText, { color: "#00ff87" }]}>Preview Demo Card</Text>
+          </Pressable>
         </View>
       )}
 
@@ -260,11 +314,26 @@ export default function CardScreen() {
           >
             <Text style={[styles.retryText, { color: colors.foreground }]}>Try Again</Text>
           </Pressable>
+          <Pressable
+            style={[styles.demoButton, { backgroundColor: "rgba(0,255,135,0.1)", borderColor: "rgba(0,255,135,0.3)" }]}
+            onPress={loadDemoCard}
+          >
+            <Text style={[styles.demoButtonText, { color: "#00ff87" }]}>Preview Demo Card</Text>
+          </Pressable>
         </View>
       )}
 
       {cardData && (
         <>
+          {isDemo && (
+            <View style={styles.demoBanner}>
+              <Text style={styles.demoBannerText}>DEMO PREVIEW</Text>
+              <Text style={styles.demoBannerSub}>
+                FPL API is currently unavailable. This is sample data.
+              </Text>
+            </View>
+          )}
+
           <View style={styles.offscreen}>
             <ViewShot
               ref={viewShotRef}
@@ -273,40 +342,42 @@ export default function CardScreen() {
                 quality: 1,
               }}
             >
-              <SquadCard {...cardData} captureMode={true} />
+              <SquadCard {...cardData} captureMode={true} isDemo={isDemo} />
             </ViewShot>
           </View>
 
           <View style={styles.cardPreview}>
-            <SquadCard {...cardData} captureMode={false} />
+            <SquadCard {...cardData} captureMode={false} isDemo={isDemo} />
           </View>
 
-          <View style={styles.actions}>
-            <Pressable
-              style={[styles.shareButton, { backgroundColor: "#00ff87" }]}
-              onPress={handleShare}
-            >
-              <Text style={styles.shareButtonText}>Share</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.saveButton, { borderColor: colors.border }]}
-              onPress={handleSave}
-              disabled={saving}
-            >
-              {saving ? (
-                <ActivityIndicator size="small" color={colors.foreground} />
-              ) : (
-                <Text style={[styles.saveButtonText, { color: colors.foreground }]}>Save to Photos</Text>
-              )}
-            </Pressable>
-          </View>
+          {!isDemo && (
+            <View style={styles.actions}>
+              <Pressable
+                style={[styles.shareButton, { backgroundColor: "#00ff87" }]}
+                onPress={handleShare}
+              >
+                <Text style={styles.shareButtonText}>Share</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.saveButton, { borderColor: colors.border }]}
+                onPress={handleSave}
+                disabled={saving}
+              >
+                {saving ? (
+                  <ActivityIndicator size="small" color={colors.foreground} />
+                ) : (
+                  <Text style={[styles.saveButtonText, { color: colors.foreground }]}>Save to Photos</Text>
+                )}
+              </Pressable>
+            </View>
+          )}
 
           <Pressable
-            style={[styles.regenerateButton, { borderColor: colors.border }]}
+            style={[styles.generateRealButton, { backgroundColor: colors.primary }]}
             onPress={generateCard}
           >
-            <Text style={[styles.regenerateText, { color: colors.mutedForeground }]}>
-              Regenerate Card
+            <Text style={[styles.generateButtonText, { color: colors.primaryForeground }]}>
+              {isDemo ? "Generate Real Card" : "Regenerate Card"}
             </Text>
           </Pressable>
         </>
@@ -422,14 +493,40 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "700",
   },
-  regenerateButton: {
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingVertical: 12,
+  generateRealButton: {
+    borderRadius: 14,
+    paddingVertical: 16,
     alignItems: "center",
   },
-  regenerateText: {
-    fontSize: 14,
-    fontWeight: "600",
+  demoBanner: {
+    backgroundColor: "rgba(0,255,135,0.08)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(0,255,135,0.25)",
+    padding: 16,
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  demoBannerText: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#00ff87",
+    letterSpacing: 3,
+  },
+  demoBannerSub: {
+    fontSize: 13,
+    color: "#94a3b8",
+    marginTop: 4,
+    textAlign: "center",
+  },
+  demoButton: {
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+  },
+  demoButtonText: {
+    fontSize: 15,
+    fontWeight: "700",
   },
 });
