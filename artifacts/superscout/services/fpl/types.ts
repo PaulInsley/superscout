@@ -155,6 +155,7 @@ export interface FPLLiveResponse {
 export interface CaptainCandidate {
   id: number;
   name: string;
+  firstName?: string;
   team: string;
   teamId: number;
   position: string;

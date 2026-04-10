@@ -1,0 +1,71 @@
+# REPLIT AGENT PROMPT — SuperScout: Three Bug Fixes
+
+Three fixes in this prompt. All are small. Do them in order, test each one, then push everything to GitHub in one commit.
+
+**Before you start:** Do not run any destructive git operations (git reset –hard, force pushes, orphan commits) at any point during this task. If you encounter a git problem, stop and explain it to me before doing anything.
+
+-----
+
+## FIX 1: Squad Card share tracking not updating the database
+
+**The problem:** When a user generates a Squad Card and taps Share, the row is created in the `squad_cards` table in Supabase — but the `shared` field stays false and the `share_platform` field stays NULL, even after the user successfully shares to an app like WhatsApp.
+
+**What needs to happen:**
+
+1. When the user taps the Share button and the native share sheet opens, wait for the share to complete.
+1. If the share completes successfully (the user picked an app and shared), update the existing `squad_cards` row in Supabase: set `shared` to `true`.
+1. Read the activity type returned by the share sheet callback. On iOS, this returns values like:
+- `net.whatsapp.WhatsApp.ShareExtension` → store as “whatsapp”
+- `com.apple.UIKit.activity.PostToTwitter` or any Twitter/X activity → store as “twitter”
+- `com.apple.UIKit.activity.Message` → store as “imessage”
+- `com.burbn.instagram.shareextension` or any Instagram activity → store as “instagram”
+- `com.apple.UIKit.activity.CopyToPasteboard` → store as “clipboard”
+- Any other recognised activity → store as “other”
+- If the activity type is not available (some platforms don’t report it) → store as “unknown”
+1. Write this mapped value to the `share_platform` field on the same row.
+1. If the user opens the share sheet but then dismisses it without sharing (cancels), do NOT update `shared` or `share_platform`. Leave them as they were.
+
+**How to test:** Generate a Squad Card, tap Share, share it to WhatsApp (or any app). Then check the `squad_cards` table in Supabase. The row should now show `shared = true` and `share_platform = "whatsapp"` (or whatever app was used). Generate another card but dismiss the share sheet without sharing — that row should still show `shared = false` and `share_platform = NULL`.
+
+-----
+
+## FIX 2: Player name truncation — use surnames only
+
+**The problem:** On the Transfer Advisor cards and the Squad Card, player names are truncating with “…” because full names are too long for the available space. Examples: “Matheus Santos C…”, “Norberto Berciqu…”, “Marcos Senesi Ba…”
+
+**What needs to happen:**
+
+1. Everywhere the app displays a player name — on Squad Cards, Transfer Advisor recommendation cards, and Captain Picker cards — use the player’s **surname only**, not their full name.
+1. The FPL API provides a field called `second_name` on each player element (from the `/bootstrap-static/` endpoint). Use this field instead of combining `first_name` and `second_name`.
+1. FPL players know players by surname. Nobody says “Matheus Santos Cunha” — they say “Cunha”. Nobody says “Norberto Murara Neto” — they say “Neto”. Surnames are how the FPL app itself displays players in most views.
+1. If a surname alone is still too long to fit (rare, but possible), truncate with “…” as a last resort — but this should almost never happen with surnames only.
+1. The one exception: if two players in the same squad have the same surname (e.g. two players called “Williams”), add the first initial to distinguish them: “N. Williams” and “J. Williams”. Check for surname collisions within the displayed squad/recommendation and add initials only when needed.
+
+**How to test:** Open the Transfer Advisor and Squad Card. All player names should show as surnames (e.g. “Cunha”, “Milenković”, “Williams”). No “…” truncation on any name. If two players share a surname, initials should distinguish them.
+
+-----
+
+## FIX 3: Remove all mock/demo data and demo mode
+
+**The problem:** When the FPL API was down earlier, a demo mode was added that shows sample data with a “DEMO PREVIEW” banner and a “DEMO” watermark. Now that the API is back up, this demo mode and all associated mock data need to be fully removed — from the codebase AND from the database.
+
+**What needs to happen:**
+
+1. Remove all mock/demo player data, demo squad configurations, and sample gameweek data from the codebase. Delete any files, constants, or functions that exist solely to provide demo data.
+1. Remove the “DEMO PREVIEW” banner and “DEMO” watermark logic from the Squad Card component.
+1. Remove the “Preview Demo Card” button if it still exists.
+1. If the demo mode wrote any rows to Supabase tables (squad_cards, recommendations, or any other table), delete those rows. Check all tables for any rows that contain demo/sample data and remove them.
+1. The app should now show a clear, helpful error message if the FPL API is unavailable — something like “FPL data is temporarily unavailable. Try again in a few minutes.” Do NOT show a demo card or fake data. The user should never see data that isn’t real.
+1. Make sure the 3-tier API caching layer is being used as the fallback when the API is down — if there’s cached data available, show that instead of an error. The error message is only for when there’s no cached data AND the API is down.
+
+**How to test:**
+
+- Open the Squad Card screen. It should show real data with no “DEMO” anything visible.
+- Check all Supabase tables for any remaining demo data rows. There should be none.
+- Search the codebase for “demo”, “mock”, “sample”, “DEMO_”, “Demo FC” — there should be no references to demo data remaining in production code. (Test utilities or comments explaining the removal are fine.)
+
+-----
+
+## After all three fixes
+
+Push everything to GitHub in one commit. Confirm in the commit message: “Fix squad card share tracking, switch to surnames, remove demo mode.”

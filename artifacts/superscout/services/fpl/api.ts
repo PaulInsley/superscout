@@ -60,7 +60,7 @@ export async function fetchPlayers(): Promise<NormalizedPlayer[]> {
 
   const players: NormalizedPlayer[] = data.elements.map((element) => ({
     id: element.id,
-    name: `${element.first_name} ${element.second_name}`,
+    name: element.second_name,
     price: element.now_cost / 10,
     form: element.form,
   }));
@@ -228,14 +228,13 @@ export async function fetchCaptainCandidates(
   candidates: CaptainCandidate[];
   gameweek: number;
   deadlineTime: string;
-  isMockData: boolean;
   noSquadData?: boolean;
 }> {
   const bootstrapData = await getBootstrapData();
   const { gameweek, deadlineTime, isActive } = getActiveGameweek(bootstrapData);
 
   if (!isActive) {
-    return getMockCaptainData();
+    return { candidates: [], gameweek, deadlineTime, noSquadData: true };
   }
 
   const playerMap = buildPlayerMap(bootstrapData.elements);
@@ -245,7 +244,7 @@ export async function fetchCaptainCandidates(
   try {
     fixtures = await fetchFixtures();
   } catch {
-    return getMockCaptainData();
+    return { candidates: [], gameweek, deadlineTime, noSquadData: true };
   }
 
   const gwFixtures = fixtures.filter((f) => f.event === gameweek);
@@ -256,7 +255,6 @@ export async function fetchCaptainCandidates(
       candidates: [],
       gameweek,
       deadlineTime,
-      isMockData: false,
       noSquadData: true,
     };
   }
@@ -281,7 +279,8 @@ export async function fetchCaptainCandidates(
 
     candidates.push({
       id: player.id,
-      name: `${player.first_name} ${player.second_name}`,
+      name: player.second_name,
+      firstName: player.first_name,
       team: team?.short_name ?? "UNK",
       teamId: player.team,
       position: POSITION_MAP[player.element_type] ?? "UNK",
@@ -297,38 +296,17 @@ export async function fetchCaptainCandidates(
     });
   }
 
-  return { candidates, gameweek, deadlineTime, isMockData: false };
-}
+  const surnameCounts = new Map<string, number>();
+  for (const c of candidates) {
+    surnameCounts.set(c.name, (surnameCounts.get(c.name) ?? 0) + 1);
+  }
+  for (const c of candidates) {
+    if ((surnameCounts.get(c.name) ?? 0) > 1 && c.firstName) {
+      c.name = `${c.firstName.charAt(0)}. ${c.name}`;
+    }
+  }
 
-function getMockCaptainData(): {
-  candidates: CaptainCandidate[];
-  gameweek: number;
-  deadlineTime: string;
-  isMockData: boolean;
-} {
-  const mockDeadline = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
-  return {
-    gameweek: 18,
-    deadlineTime: mockDeadline,
-    isMockData: true,
-    candidates: [
-      { id: 1, name: "Erling Haaland", team: "MCI", teamId: 12, position: "FWD", form: "8.2", totalPoints: 142, ownershipPct: 68.4, price: 14.2, opponent: "CHE (H)", isHome: true, fixtureDifficulty: 2, status: "a", chanceOfPlaying: 100 },
-      { id: 2, name: "Mohamed Salah", team: "LIV", teamId: 11, position: "MID", form: "7.8", totalPoints: 138, ownershipPct: 52.1, price: 13.5, opponent: "BOU (H)", isHome: true, fixtureDifficulty: 2, status: "a", chanceOfPlaying: 100 },
-      { id: 3, name: "Cole Palmer", team: "CHE", teamId: 4, position: "MID", form: "9.1", totalPoints: 129, ownershipPct: 44.3, price: 11.0, opponent: "MCI (A)", isHome: false, fixtureDifficulty: 5, status: "a", chanceOfPlaying: 100 },
-      { id: 4, name: "Alexander Isak", team: "NEW", teamId: 14, position: "FWD", form: "6.5", totalPoints: 108, ownershipPct: 28.7, price: 9.8, opponent: "EVE (H)", isHome: true, fixtureDifficulty: 2, status: "a", chanceOfPlaying: 100 },
-      { id: 5, name: "Bukayo Saka", team: "ARS", teamId: 1, position: "MID", form: "5.9", totalPoints: 115, ownershipPct: 38.2, price: 10.5, opponent: "TOT (A)", isHome: false, fixtureDifficulty: 4, status: "d", chanceOfPlaying: 75 },
-      { id: 6, name: "Bruno Fernandes", team: "MUN", teamId: 13, position: "MID", form: "5.1", totalPoints: 95, ownershipPct: 15.6, price: 8.8, opponent: "FUL (H)", isHome: true, fixtureDifficulty: 2, status: "a", chanceOfPlaying: 100 },
-      { id: 7, name: "Ollie Watkins", team: "AVL", teamId: 2, position: "FWD", form: "4.8", totalPoints: 88, ownershipPct: 12.3, price: 8.5, opponent: "WOL (A)", isHome: false, fixtureDifficulty: 3, status: "a", chanceOfPlaying: 100 },
-      { id: 8, name: "William Saliba", team: "ARS", teamId: 1, position: "DEF", form: "5.4", totalPoints: 102, ownershipPct: 30.1, price: 6.2, opponent: "TOT (A)", isHome: false, fixtureDifficulty: 4, status: "a", chanceOfPlaying: 100 },
-      { id: 9, name: "Trent Alexander-Arnold", team: "LIV", teamId: 11, position: "DEF", form: "4.2", totalPoints: 85, ownershipPct: 22.5, price: 7.0, opponent: "BOU (H)", isHome: true, fixtureDifficulty: 2, status: "a", chanceOfPlaying: 100 },
-      { id: 10, name: "David Raya", team: "ARS", teamId: 1, position: "GKP", form: "4.0", totalPoints: 78, ownershipPct: 18.9, price: 5.5, opponent: "TOT (A)", isHome: false, fixtureDifficulty: 4, status: "a", chanceOfPlaying: 100 },
-      { id: 11, name: "Pedro Porro", team: "TOT", teamId: 17, position: "DEF", form: "3.8", totalPoints: 72, ownershipPct: 10.5, price: 5.8, opponent: "ARS (H)", isHome: true, fixtureDifficulty: 4, status: "a", chanceOfPlaying: 100 },
-      { id: 12, name: "Antonee Robinson", team: "FUL", teamId: 8, position: "DEF", form: "4.1", totalPoints: 80, ownershipPct: 14.2, price: 5.2, opponent: "MUN (A)", isHome: false, fixtureDifficulty: 3, status: "a", chanceOfPlaying: 100 },
-      { id: 13, name: "Mark Flekken", team: "BRE", teamId: 5, position: "GKP", form: "3.5", totalPoints: 65, ownershipPct: 5.4, price: 4.5, opponent: "SOU (H)", isHome: true, fixtureDifficulty: 2, status: "a", chanceOfPlaying: 100 },
-      { id: 14, name: "Morgan Rogers", team: "AVL", teamId: 2, position: "MID", form: "6.0", totalPoints: 90, ownershipPct: 8.1, price: 5.5, opponent: "WOL (A)", isHome: false, fixtureDifficulty: 3, status: "a", chanceOfPlaying: 100 },
-      { id: 15, name: "Noni Madueke", team: "CHE", teamId: 4, position: "MID", form: "5.5", totalPoints: 82, ownershipPct: 9.7, price: 7.2, opponent: "MCI (A)", isHome: false, fixtureDifficulty: 5, status: "a", chanceOfPlaying: 100 },
-    ],
-  };
+  return { candidates, gameweek, deadlineTime };
 }
 
 export async function fetchManagerData(
@@ -389,7 +367,7 @@ export async function fetchManagerData(
       return {
         id: pick.element,
         name: player
-          ? `${player.first_name} ${player.second_name}`
+          ? player.second_name
           : `Player ${pick.element}`,
         position: player
           ? (POSITION_MAP[player.element_type] ?? "UNK")
@@ -415,11 +393,11 @@ export async function fetchManagerData(
     return {
       event: t.event,
       playerIn: playerIn
-        ? `${playerIn.first_name} ${playerIn.second_name}`
+        ? playerIn.second_name
         : `Player ${t.element_in}`,
       playerInCost: t.element_in_cost / 10,
       playerOut: playerOut
-        ? `${playerOut.first_name} ${playerOut.second_name}`
+        ? playerOut.second_name
         : `Player ${t.element_out}`,
       playerOutCost: t.element_out_cost / 10,
       time: t.time,

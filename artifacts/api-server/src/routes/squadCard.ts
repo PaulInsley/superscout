@@ -189,7 +189,7 @@ router.post("/squad-card", async (req: Request, res: Response) => {
       return {
         id: pick.element,
         name: player?.second_name ?? `Player ${pick.element}`,
-        webName: player?.web_name ?? `P${pick.element}`,
+        webName: player?.second_name ?? `P${pick.element}`,
         position: player ? POSITION_MAP[player.element_type] ?? "MID" : "MID",
         points: points * pick.multiplier,
         isCaptain: pick.is_captain,
@@ -201,6 +201,19 @@ router.post("/squad-card", async (req: Request, res: Response) => {
         multiplier: pick.multiplier,
       };
     });
+
+    const webNameCounts = new Map<string, number>();
+    for (const p of squadPlayers) {
+      webNameCounts.set(p.webName, (webNameCounts.get(p.webName) ?? 0) + 1);
+    }
+    for (const p of squadPlayers) {
+      if ((webNameCounts.get(p.webName) ?? 0) > 1) {
+        const player = playerMap.get(p.id);
+        if (player?.first_name) {
+          p.webName = `${player.first_name.charAt(0)}. ${p.webName}`;
+        }
+      }
+    }
 
     const starters = squadPlayers.filter(p => !p.isBench);
     const bench = squadPlayers.filter(p => p.isBench).sort((a, b) => a.pickPosition - b.pickPosition);
@@ -334,7 +347,7 @@ router.post("/squad-card/share", async (req: Request, res: Response) => {
       return;
     }
 
-    const dbPlatforms = ["twitter", "whatsapp", "imessage", "instagram", "clipboard"];
+    const dbPlatforms = ["twitter", "whatsapp", "imessage", "instagram", "clipboard", "other", "unknown"];
     const sharePlatform = dbPlatforms.includes(platform) ? platform : null;
 
     await supabase
