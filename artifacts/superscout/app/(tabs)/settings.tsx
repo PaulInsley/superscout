@@ -258,57 +258,58 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {__DEV__ && (
-          <View
-            style={[
-              styles.section,
-              {
-                backgroundColor: colors.card,
-                borderRadius: colors.radius,
-                borderColor: colors.border,
-              },
+        <View
+          style={[
+            styles.section,
+            {
+              backgroundColor: colors.card,
+              borderRadius: colors.radius,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <Text
+            style={[styles.sectionTitle, { color: colors.mutedForeground }]}
+          >
+            Developer
+          </Text>
+          <Pressable
+            onPress={async () => {
+              await AsyncStorage.multiRemove([
+                ONBOARDING_COMPLETE_KEY,
+                "superscout_manager_id",
+                "superscout_team_name",
+                PERSONA_KEY,
+              ]);
+              if (Platform.OS === "web") {
+                window.location.reload();
+              }
+            }}
+            style={({ pressed }) => [
+              styles.settingRow,
+              { opacity: pressed ? 0.5 : 1 },
             ]}
           >
-            <Text
-              style={[styles.sectionTitle, { color: colors.mutedForeground }]}
-            >
-              Developer
-            </Text>
-            <Pressable
-              style={styles.settingRow}
-              onPress={async () => {
-                await AsyncStorage.multiRemove([
-                  ONBOARDING_COMPLETE_KEY,
-                  "superscout_manager_id",
-                  "superscout_team_name",
-                  PERSONA_KEY,
-                ]);
-                if (Platform.OS === "web") {
-                  window.location.reload();
-                }
-              }}
-            >
-              <View style={styles.settingRowInner}>
-                <Feather
-                  name="refresh-cw"
-                  size={18}
-                  color={colors.mutedForeground}
-                  style={styles.settingIcon}
-                />
-                <Text
-                  style={[styles.settingLabel, { color: colors.foreground }]}
-                >
-                  Reset Onboarding
-                </Text>
-              </View>
+            <View style={styles.settingRowInner}>
               <Feather
-                name="chevron-right"
+                name="refresh-cw"
                 size={18}
                 color={colors.mutedForeground}
+                style={styles.settingIcon}
               />
-            </Pressable>
-          </View>
-        )}
+              <Text
+                style={[styles.settingLabel, { color: colors.foreground }]}
+              >
+                Reset Onboarding
+              </Text>
+            </View>
+            <Feather
+              name="chevron-right"
+              size={18}
+              color={colors.mutedForeground}
+            />
+          </Pressable>
+        </View>
       </ScrollView>
     </View>
   );
@@ -343,6 +344,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    minHeight: 48,
+    paddingVertical: 8,
   },
   settingLeft: {
     flexDirection: "row",
