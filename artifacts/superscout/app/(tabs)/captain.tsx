@@ -25,11 +25,8 @@ import type {
 const PERSONA_KEY = "superscout_persona";
 
 function getApiBaseUrl(): string {
-  if (Platform.OS === "web") {
-    const domain = process.env.EXPO_PUBLIC_DOMAIN;
-    return `https://${domain}/api`;
-  }
-  return "https://superscout.pro/api";
+  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+  return `https://${domain}/api`;
 }
 
 export default function CaptainPickerScreen() {
@@ -112,7 +109,8 @@ export default function CaptainPickerScreen() {
       setRecommendations(data.recommendations);
 
       logRecommendationSilently(data, candidateData.gameweek);
-    } catch {
+    } catch (err) {
+      console.error("[SuperScout] Captain picks error:", err);
       setAiError(
         "SuperScout is thinking too hard — try again in a moment.",
       );

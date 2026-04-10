@@ -20,11 +20,8 @@ import type { TransferRecommendation } from "@/components/TransferCard";
 const PERSONA_KEY = "superscout_persona";
 
 function getApiBaseUrl(): string {
-  if (Platform.OS === "web") {
-    const domain = process.env.EXPO_PUBLIC_DOMAIN;
-    return `https://${domain}/api`;
-  }
-  return "https://superscout.pro/api";
+  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+  return `https://${domain}/api`;
 }
 
 interface TransferAdviceResponse {
