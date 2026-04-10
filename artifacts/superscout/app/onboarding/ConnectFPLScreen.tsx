@@ -1,7 +1,9 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
   ActivityIndicator,
+  Keyboard,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -26,6 +28,7 @@ export default function ConnectFPLScreen({ onNext }: Props) {
   const [teamName, setTeamName] = useState<string | null>(null);
   const [validatedId, setValidatedId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<TextInput>(null);
 
   const handleLookup = useCallback(async () => {
     const id = Number(input.trim());
@@ -34,6 +37,7 @@ export default function ConnectFPLScreen({ onNext }: Props) {
       return;
     }
 
+    Keyboard.dismiss();
     setLoading(true);
     setError(null);
     setTeamName(null);
@@ -71,6 +75,7 @@ export default function ConnectFPLScreen({ onNext }: Props) {
 
         <View style={styles.inputRow}>
           <TextInput
+            ref={inputRef}
             style={[
               styles.textInput,
               {
