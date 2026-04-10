@@ -6,7 +6,7 @@ export interface RecommendationOption {
   option_type?: string;
   expected_points?: number | null;
   confidence_score?: number | null;
-  confidence_label: "HIGH" | "MEDIUM" | "SPECULATIVE";
+  confidence_label: "BANKER" | "CALCULATED_RISK" | "BOLD_PUNT";
   upside_text?: string;
   risk_text?: string;
   is_superscout_pick: boolean;
