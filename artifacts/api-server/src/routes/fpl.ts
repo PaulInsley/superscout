@@ -182,7 +182,7 @@ router.get("/fpl/search", async (req: Request, res: Response) => {
       };
     }>(`/leagues-classic/${leagueId}/standings/?page_standings=1&searching=true&search=${encodeURIComponent(q)}`);
 
-    const results = (data.standings?.results ?? []).slice(0, 20).map((r) => ({
+    const results = (data.standings?.results ?? []).slice(0, 25).map((r) => ({
       manager_id: r.entry,
       team_name: r.entry_name,
       manager_name: r.player_name,

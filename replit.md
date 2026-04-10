@@ -128,11 +128,11 @@ SuperScout is a fantasy sports AI coach mobile app built with Expo (React Native
   - Root layout (`_layout.tsx`) checks onboarding status on launch and shows flow before main tabs if not completed
   - `fetchTeamName()` in `services/fpl/teamLookup.ts` — lightweight FPL API lookup for onboarding
   - **Manager ID Search**: ConnectFPLScreen has two modes (toggle buttons):
-    - "Search by name" mode: enter a mini-league ID + team name to search within that league via FPL API's `searching=true&search=` parameter. Mini-league field shown prominently with helper text. 300ms debounce on team name input. Results show team name, manager name, rank, points. Tap to select fills manager ID automatically. If no league ID provided, `needs_league: true` response prompts user to enter one. Numeric queries (e.g. "13042160") bypass league search and do direct entry lookup.
-    - "Enter ID" mode: original manual ID entry with Find button
-  - `searchTeams()` in `services/fpl/teamLookup.ts` — always routes through server proxy (`/api/fpl/search`) on both web and native
-  - Server endpoint: GET `/api/fpl/search?q=<query>&league=<leagueId>` — numeric queries do direct entry lookup via `/entry/{id}/`; name queries use FPL's `/leagues-classic/{league}/standings/?searching=true&search={q}` (requires league ID; overall league 314 does not support text search)
-  - **FPL API limitation**: The overall league (314) ignores the `search` parameter. Name search only works within user-managed mini-leagues. This is a hard FPL API constraint — not a SuperScout limitation.
+    - "Search by name" mode: single clean text input ("Enter your team name or manager name"). Numeric queries do instant direct ID lookup. Text queries trigger `needs_league` response, showing an inline card explaining the FPL API limitation with an "Add mini-league ID" link to reveal the league field. Mini-league field is the advanced/secondary option, not shown by default. "Search within a mini-league instead" link also appears below results. 300ms debounce on input. Results show team name, manager name, rank, points. Tap to select captures manager ID.
+    - "Enter ID" mode: manual ID entry with Find button
+  - `searchTeams()` in `services/fpl/teamLookup.ts` returns `SearchResponse { results, needs_league? }` — always routes through server proxy (`/api/fpl/search`)
+  - Server endpoint: GET `/api/fpl/search?q=<query>&league=<leagueId>` — numeric queries do direct entry lookup via `/entry/{id}/`; text queries without league return `needs_league: true`; text queries with league use FPL's `/leagues-classic/{league}/standings/?searching=true&search={q}`
+  - **FPL API limitation**: The overall league (314) ignores the `search` parameter — name search only works within user-managed mini-leagues. This is a hard FPL API constraint.
 
 ### Vibe System (AI Personality Engine)
 - `artifacts/api-server/src/lib/vibes.ts` — Server-side shared VIBE_PROMPTS used by both captain.ts and transfer.ts (single source of truth for AI persona prompts)
