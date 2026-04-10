@@ -37,6 +37,7 @@ export default function ConnectFPLScreen({ onNext }: Props) {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [needsLeague, setNeedsLeague] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resetState = useCallback(() => {
@@ -45,8 +46,10 @@ export default function ConnectFPLScreen({ onNext }: Props) {
     setError(null);
     setSearchResults([]);
     setHasSearched(false);
+    setNeedsLeague(false);
     setSearchQuery("");
     setInput("");
+    setLeagueId("");
   }, []);
 
   const handleModeToggle = useCallback((newMode: Mode) => {
@@ -77,6 +80,19 @@ export default function ConnectFPLScreen({ onNext }: Props) {
     }
   };
 
+  const doSearch = useCallback(async (q: string, league: string) => {
+    setSearching(true);
+    setHasSearched(true);
+    setNeedsLeague(false);
+    setTeamName(null);
+    setValidatedId(null);
+
+    const response = await searchTeams(q, league || undefined);
+    setSearchResults(response.results);
+    setNeedsLeague(response.needs_league ?? false);
+    setSearching(false);
+  }, []);
+
   useEffect(() => {
     if (mode !== "search") return;
 
@@ -84,33 +100,25 @@ export default function ConnectFPLScreen({ onNext }: Props) {
     if (q.length < 2) {
       setSearchResults([]);
       setHasSearched(false);
+      setNeedsLeague(false);
       return;
     }
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
-    debounceRef.current = setTimeout(async () => {
-      setSearching(true);
-      setHasSearched(true);
-      setTeamName(null);
-      setValidatedId(null);
-
-      const isNumeric = /^\d+$/.test(q);
-      const results = await searchTeams(q, isNumeric ? undefined : leagueId || undefined);
-      setSearchResults(results);
-      setSearching(false);
+    debounceRef.current = setTimeout(() => {
+      doSearch(q, leagueId.trim());
     }, 300);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [searchQuery, mode, leagueId]);
+  }, [searchQuery, mode, leagueId, doSearch]);
 
   const handleSelectResult = useCallback((result: SearchResult) => {
     setValidatedId(result.manager_id);
     setTeamName(result.team_name);
     setSearchResults([]);
-    setSearchQuery("");
   }, []);
 
   const renderSearchResult = useCallback(({ item }: { item: SearchResult }) => (
@@ -175,7 +183,7 @@ export default function ConnectFPLScreen({ onNext }: Props) {
           >
             <Feather name="search" size={14} color={mode === "search" ? colors.accent : colors.mutedForeground} />
             <Text style={[styles.modeButtonText, { color: mode === "search" ? colors.accent : colors.mutedForeground }]}>
-              Search
+              Search by name
             </Text>
           </Pressable>
           <Pressable
@@ -260,51 +268,65 @@ export default function ConnectFPLScreen({ onNext }: Props) {
         ) : (
           <>
             <Text style={[styles.hint, { color: colors.mutedForeground }]}>
-              Enter your Manager ID or search within a mini-league
+              Enter a mini-league ID and your team name to find your account
             </Text>
-            <TextInput
-              style={[
-                styles.searchInput,
-                {
-                  backgroundColor: colors.card,
-                  borderColor: colors.input,
-                  borderRadius: colors.radius,
-                  color: colors.foreground,
-                },
-              ]}
-              value={searchQuery}
-              onChangeText={(t) => {
-                setSearchQuery(t);
-                setTeamName(null);
-                setValidatedId(null);
-                setError(null);
-              }}
-              placeholder="Manager ID or team name"
-              placeholderTextColor={colors.mutedForeground}
-              autoCapitalize="none"
-              returnKeyType="search"
-            />
 
-            {!/^\d+$/.test(searchQuery.trim()) && searchQuery.trim().length >= 2 && (
-              <View style={styles.leagueRow}>
-                <TextInput
-                  style={[
-                    styles.leagueInput,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.input,
-                      borderRadius: colors.radius,
-                      color: colors.foreground,
-                    },
-                  ]}
-                  value={leagueId}
-                  onChangeText={setLeagueId}
-                  placeholder="Mini-league ID (optional)"
-                  placeholderTextColor={colors.mutedForeground}
-                  keyboardType="number-pad"
-                />
-              </View>
-            )}
+            <View style={styles.leagueRow}>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>
+                Mini-league ID
+              </Text>
+              <TextInput
+                style={[
+                  styles.leagueInput,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: needsLeague && !leagueId ? colors.accent : colors.input,
+                    borderRadius: colors.radius,
+                    color: colors.foreground,
+                    borderWidth: needsLeague && !leagueId ? 1.5 : 1,
+                  },
+                ]}
+                value={leagueId}
+                onChangeText={(t) => {
+                  setLeagueId(t);
+                  setNeedsLeague(false);
+                }}
+                placeholder="e.g. 620"
+                placeholderTextColor={colors.mutedForeground}
+                keyboardType="number-pad"
+              />
+              <Text style={[styles.leagueHint, { color: colors.mutedForeground }]}>
+                Find it in the FPL app under Leagues {'>'} tap your league {'>'} the number in the URL
+              </Text>
+            </View>
+
+            <View>
+              <Text style={[styles.fieldLabel, { color: colors.foreground }]}>
+                Team name
+              </Text>
+              <TextInput
+                style={[
+                  styles.searchInput,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.input,
+                    borderRadius: colors.radius,
+                    color: colors.foreground,
+                  },
+                ]}
+                value={searchQuery}
+                onChangeText={(t) => {
+                  setSearchQuery(t);
+                  setTeamName(null);
+                  setValidatedId(null);
+                  setError(null);
+                }}
+                placeholder="e.g. Superscouters"
+                placeholderTextColor={colors.mutedForeground}
+                autoCapitalize="none"
+                returnKeyType="search"
+              />
+            </View>
 
             {searching && (
               <View style={styles.searchingRow}>
@@ -315,19 +337,24 @@ export default function ConnectFPLScreen({ onNext }: Props) {
               </View>
             )}
 
-            {!searching && hasSearched && searchResults.length === 0 && !validatedId && (
-              <View style={styles.noResults}>
-                <Text style={[styles.noResultsText, { color: colors.mutedForeground }]}>
-                  {/^\d+$/.test(searchQuery.trim())
-                    ? "No manager found with that ID."
-                    : leagueId
-                      ? "No matches in that league. Check the league ID."
-                      : "Enter a mini-league ID to search by name, or type your Manager ID directly."}
+            {!searching && needsLeague && !leagueId && searchQuery.trim().length >= 2 && (
+              <View style={[styles.needsLeagueCard, { backgroundColor: colors.accent + "10", borderColor: colors.accent + "30" }]}>
+                <Feather name="info" size={16} color={colors.accent} />
+                <Text style={[styles.needsLeagueText, { color: colors.foreground }]}>
+                  Enter a mini-league ID above to search by team name. You can find it in the FPL app under Leagues.
                 </Text>
               </View>
             )}
 
-            {searchResults.length > 0 && (
+            {!searching && hasSearched && !needsLeague && searchResults.length === 0 && !validatedId && (
+              <View style={styles.noResults}>
+                <Text style={[styles.noResultsText, { color: colors.mutedForeground }]}>
+                  No teams found in that league. Check the league ID and team name, or switch to Enter ID.
+                </Text>
+              </View>
+            )}
+
+            {searchResults.length > 0 && !validatedId && (
               <FlatList
                 data={searchResults}
                 keyExtractor={(item) => String(item.manager_id)}
@@ -460,15 +487,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: "Inter_400Regular",
   },
+  fieldLabel: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    marginBottom: 4,
+  },
   leagueRow: {
-    marginTop: -4,
+    gap: 4,
   },
   leagueInput: {
-    height: 40,
+    height: 44,
     borderWidth: 1,
     paddingHorizontal: 14,
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: "Inter_400Regular",
+  },
+  leagueHint: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 16,
+    marginTop: 4,
   },
   lookupButton: {
     height: 48,
@@ -490,6 +528,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_400Regular",
   },
+  needsLeagueCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  needsLeagueText: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 18,
+    flex: 1,
+  },
   noResults: {
     paddingVertical: 12,
   },
@@ -500,7 +552,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   resultsList: {
-    maxHeight: 240,
+    maxHeight: 200,
   },
   resultItem: {
     flexDirection: "row",

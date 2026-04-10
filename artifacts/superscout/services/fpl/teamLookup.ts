@@ -46,10 +46,15 @@ export interface SearchResult {
   total_points: number;
 }
 
+export interface SearchResponse {
+  results: SearchResult[];
+  needs_league?: boolean;
+}
+
 export async function searchTeams(
   query: string,
   leagueId?: string,
-): Promise<SearchResult[]> {
+): Promise<SearchResponse> {
   try {
     const base = getServerBaseUrl();
     let url = `${base}/search?q=${encodeURIComponent(query)}`;
@@ -58,11 +63,14 @@ export async function searchTeams(
     }
 
     const response = await fetch(url);
-    if (!response.ok) return [];
+    if (!response.ok) return { results: [] };
 
     const data = await response.json();
-    return data.results ?? [];
+    return {
+      results: data.results ?? [],
+      needs_league: data.needs_league ?? false,
+    };
   } catch {
-    return [];
+    return { results: [] };
   }
 }
