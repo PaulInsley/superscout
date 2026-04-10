@@ -25,11 +25,27 @@ app.use(
     },
   }),
 );
+const allowedOrigins = new Set([
+  'https://superscout.pro',
+  process.env.CORS_ALLOWED_ORIGIN || 'http://localhost:3000',
+]);
+if (process.env.REPLIT_DEV_DOMAIN) {
+  allowedOrigins.add(`https://${process.env.REPLIT_DEV_DOMAIN}`);
+}
+if (process.env.REPLIT_EXPO_DEV_DOMAIN) {
+  allowedOrigins.add(`https://${process.env.REPLIT_EXPO_DEV_DOMAIN}`);
+}
+const isDev = process.env.NODE_ENV !== 'production';
 app.use(cors({
-  origin: [
-    'https://superscout.pro',
-    process.env.CORS_ALLOWED_ORIGIN || 'http://localhost:3000'
-  ]
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.has(origin)) {
+      callback(null, true);
+    } else if (isDev && /^https:\/\/[a-z0-9-]+\.(?:worf\.)?replit\.dev$/.test(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  }
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

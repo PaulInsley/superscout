@@ -48,13 +48,14 @@ export const PERSONAS: PersonaCard[] = [
 
 interface Props {
   onNext: (persona: Persona) => void;
+  onCancel?: () => void;
   isSettings?: boolean;
 }
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CAROUSEL_ITEM_WIDTH = SCREEN_WIDTH - 48;
 
-export default function ChoosePersonaScreen({ onNext, isSettings }: Props) {
+export default function ChoosePersonaScreen({ onNext, onCancel, isSettings }: Props) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [selected, setSelected] = useState<Persona | null>(null);
@@ -75,84 +76,126 @@ export default function ChoosePersonaScreen({ onNext, isSettings }: Props) {
   };
 
   const renderCardView = () => (
-    <ScrollView
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-    >
-      <Text style={[styles.title, { color: colors.foreground }]}>
-        Choose Your Vibe
-      </Text>
-      <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-        How do you want your AI coach to sound?
-      </Text>
-
-      <Pressable
-        onPress={() => setPreviewMode(true)}
-        style={[
-          styles.tryAllButton,
-          {
-            borderColor: colors.primary,
-            borderRadius: colors.radius,
-          },
-        ]}
+    <View style={styles.cardViewContainer}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
-        <Feather name="repeat" size={16} color={colors.primary} />
-        <Text style={[styles.tryAllText, { color: colors.primary }]}>
-          Try all three
+        {isSettings && onCancel && (
+          <Pressable onPress={onCancel} style={styles.backButton}>
+            <Feather name="arrow-left" size={22} color={colors.foreground} />
+            <Text style={[styles.backText, { color: colors.foreground }]}>Back</Text>
+          </Pressable>
+        )}
+        <Text style={[styles.title, { color: colors.foreground }]}>
+          Choose Your Vibe
         </Text>
-      </Pressable>
+        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+          How do you want your AI coach to sound?
+        </Text>
+        <Pressable
+          onPress={() => setPreviewMode(true)}
+          style={[
+            styles.tryAllButton,
+            {
+              borderColor: colors.primary,
+              borderRadius: colors.radius,
+            },
+          ]}
+        >
+          <Feather name="repeat" size={16} color={colors.primary} />
+          <Text style={[styles.tryAllText, { color: colors.primary }]}>
+            Try all three
+          </Text>
+        </Pressable>
 
-      {PERSONAS.map((p) => {
-        const isSelected = selected === p.key;
-        return (
-          <Pressable
-            key={p.key}
-            onPress={() => setSelected(p.key)}
-            style={[
-              styles.card,
-              {
-                backgroundColor: isSelected ? colors.secondary : colors.card,
-                borderColor: isSelected ? colors.primary : colors.border,
-                borderRadius: colors.radius,
-              },
-            ]}
-          >
-            <Text
+        {PERSONAS.map((p) => {
+          const isSelected = selected === p.key;
+          return (
+            <Pressable
+              key={p.key}
+              onPress={() => setSelected(p.key)}
               style={[
-                styles.personaName,
+                styles.card,
                 {
-                  color: isSelected ? colors.primary : colors.foreground,
-                },
-              ]}
-            >
-              {p.name}
-            </Text>
-            <Text
-              style={[styles.personaDesc, { color: colors.mutedForeground }]}
-            >
-              {p.description}
-            </Text>
-            <View
-              style={[
-                styles.exampleBox,
-                {
-                  backgroundColor: isSelected
-                    ? colors.background
-                    : colors.muted,
-                  borderRadius: colors.radius - 2,
+                  backgroundColor: isSelected ? colors.secondary : colors.card,
+                  borderColor: isSelected ? colors.primary : colors.border,
+                  borderRadius: colors.radius,
                 },
               ]}
             >
               <Text
-                style={[styles.exampleText, { color: colors.foreground }]}
+                style={[
+                  styles.personaName,
+                  {
+                    color: isSelected ? colors.primary : colors.foreground,
+                  },
+                ]}
               >
-                "{p.example}"
+                {p.name}
               </Text>
-            </View>
-          </Pressable>
-        );
-      })}
-    </ScrollView>
+              <Text
+                style={[styles.personaDesc, { color: colors.mutedForeground }]}
+              >
+                {p.description}
+              </Text>
+              <View
+                style={[
+                  styles.exampleBox,
+                  {
+                    backgroundColor: isSelected
+                      ? colors.background
+                      : colors.muted,
+                    borderRadius: colors.radius - 2,
+                  },
+                ]}
+              >
+                <Text
+                  style={[styles.exampleText, { color: colors.foreground }]}
+                >
+                  "{p.example}"
+                </Text>
+              </View>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      <View
+        style={[
+          styles.floatingButtonContainer,
+          {
+            backgroundColor: colors.background,
+            paddingBottom: insets.bottom + 16,
+          },
+        ]}
+      >
+        <Pressable
+          onPress={() => selected && onNext(selected)}
+          disabled={!selected}
+          style={({ pressed }) => [
+            styles.button,
+            {
+              backgroundColor: selected ? colors.primary : colors.muted,
+              opacity: pressed && selected ? 0.9 : 1,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.buttonText,
+              {
+                color: selected
+                  ? colors.primaryForeground
+                  : colors.mutedForeground,
+              },
+            ]}
+          >
+            {isSettings ? "Save vibe" : "This is my vibe"}
+          </Text>
+        </Pressable>
+      </View>
+    </View>
   );
 
   const renderCarouselView = () => {
@@ -278,41 +321,12 @@ export default function ChoosePersonaScreen({ onNext, isSettings }: Props) {
         styles.container,
         {
           backgroundColor: colors.background,
-          paddingBottom: insets.bottom + 32,
+          paddingBottom: 0,
           paddingTop: isSettings ? 20 : 80,
         },
       ]}
     >
       {previewMode ? renderCarouselView() : renderCardView()}
-
-      {!previewMode && (
-        <View style={styles.bottomArea}>
-          <Pressable
-            onPress={() => selected && onNext(selected)}
-            disabled={!selected}
-            style={({ pressed }) => [
-              styles.button,
-              {
-                backgroundColor: selected ? colors.primary : colors.muted,
-                opacity: pressed && selected ? 0.9 : 1,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.buttonText,
-                {
-                  color: selected
-                    ? colors.primaryForeground
-                    : colors.mutedForeground,
-                },
-              ]}
-            >
-              {isSettings ? "Save vibe" : "This is my vibe"}
-            </Text>
-          </Pressable>
-        </View>
-      )}
     </View>
   );
 }
@@ -322,8 +336,26 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
   },
+  backButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 12,
+    paddingVertical: 4,
+  },
+  backText: {
+    fontSize: 16,
+    fontFamily: "Inter_500Medium",
+  },
+  cardViewContainer: {
+    flex: 1,
+  },
   scrollContent: {
     paddingBottom: 24,
+  },
+  floatingButtonContainer: {
+    paddingTop: 12,
+    paddingHorizontal: 0,
   },
   title: {
     fontSize: 26,
@@ -371,9 +403,6 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     lineHeight: 19,
     fontStyle: "italic",
-  },
-  bottomArea: {
-    paddingBottom: 0,
   },
   button: {
     height: 56,
@@ -441,5 +470,6 @@ const styles = StyleSheet.create({
   },
   carouselBottom: {
     marginTop: "auto",
+    paddingTop: 12,
   },
 });

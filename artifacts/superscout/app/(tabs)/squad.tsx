@@ -1,7 +1,6 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Feather } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -9,34 +8,29 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useFocusEffect } from "expo-router";
 
 import { useColors } from "@/hooks/useColors";
+import { useManagerId } from "@/hooks/useManagerId";
 import { fetchManagerData } from "@/services/fpl";
 import type { SquadPlayer, NormalizedTransfer, FPLLeague } from "@/services/fpl";
-
-const MANAGER_ID_KEY = "superscout_manager_id";
 
 type ActiveTab = "squad" | "transfers" | "leagues";
 
 export default function SquadScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const [managerId, setManagerId] = useState("");
-  const [submittedId, setSubmittedId] = useState<number | null>(null);
+  const { managerId, loading: managerLoading, refresh: refreshManagerId } = useManagerId();
   const [activeTab, setActiveTab] = useState<ActiveTab>("squad");
 
-  useEffect(() => {
-    AsyncStorage.getItem(MANAGER_ID_KEY).then((stored) => {
-      if (stored) {
-        setManagerId(stored);
-        setSubmittedId(Number(stored));
-      }
-    });
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      refreshManagerId();
+    }, [refreshManagerId]),
+  );
 
   const {
     data: managerData,
@@ -44,19 +38,11 @@ export default function SquadScreen() {
     isError,
     error,
     refetch,
-    isRefetching,
   } = useQuery({
-    queryKey: ["fpl", "manager", submittedId],
-    queryFn: () => fetchManagerData(submittedId!),
-    enabled: submittedId !== null,
+    queryKey: ["fpl", "manager", managerId],
+    queryFn: () => fetchManagerData(managerId!),
+    enabled: managerId !== null,
   });
-
-  const handleLoadSquad = useCallback(() => {
-    const id = Number(managerId.trim());
-    if (!id || isNaN(id)) return;
-    setSubmittedId(id);
-    AsyncStorage.setItem(MANAGER_ID_KEY, String(id));
-  }, [managerId]);
 
   const isNotFound = isError && error?.message === "MANAGER_NOT_FOUND";
 
@@ -64,69 +50,39 @@ export default function SquadScreen() {
     return rank.toLocaleString();
   };
 
-  const renderIdInput = () => (
-    <View
-      style={[
-        styles.inputSection,
-        {
-          backgroundColor: colors.card,
-          borderRadius: colors.radius,
-          borderColor: colors.border,
-        },
-      ]}
-    >
-      <Text style={[styles.inputLabel, { color: colors.foreground }]}>
-        Enter your FPL Manager ID
-      </Text>
-      <View style={styles.inputRow}>
-        <TextInput
+  if (managerLoading) {
+    return (
+      <View
+        style={[
+          styles.center,
+          { backgroundColor: colors.background, paddingTop: insets.top },
+        ]}
+      >
+        <ActivityIndicator size="large" color={colors.accent} />
+      </View>
+    );
+  }
+
+  if (!managerId) {
+    return (
+      <View
+        style={[
+          styles.center,
+          { backgroundColor: colors.background, paddingTop: insets.top },
+        ]}
+      >
+        <Feather name="link" size={40} color={colors.mutedForeground} />
+        <Text
           style={[
-            styles.textInput,
-            {
-              backgroundColor: colors.background,
-              borderColor: colors.input,
-              borderRadius: colors.radius,
-              color: colors.foreground,
-            },
-          ]}
-          value={managerId}
-          onChangeText={setManagerId}
-          placeholder="e.g. 13042160"
-          placeholderTextColor={colors.mutedForeground}
-          keyboardType="number-pad"
-          returnKeyType="go"
-          onSubmitEditing={handleLoadSquad}
-        />
-        <Pressable
-          onPress={handleLoadSquad}
-          disabled={!managerId.trim()}
-          style={({ pressed }) => [
-            styles.loadButton,
-            {
-              backgroundColor: managerId.trim()
-                ? colors.primary
-                : colors.muted,
-              borderRadius: colors.radius,
-              opacity: pressed ? 0.8 : 1,
-            },
+            styles.connectPrompt,
+            { color: colors.foreground },
           ]}
         >
-          <Text
-            style={[
-              styles.loadButtonText,
-              {
-                color: managerId.trim()
-                  ? colors.primaryForeground
-                  : colors.mutedForeground,
-              },
-            ]}
-          >
-            Load Squad
-          </Text>
-        </Pressable>
+          Connect your FPL account in Settings to view your squad.
+        </Text>
       </View>
-    </View>
-  );
+    );
+  }
 
   const renderManagerHeader = () => {
     if (!managerData) return null;
@@ -520,7 +476,7 @@ export default function SquadScreen() {
         contentContainerStyle={[
           styles.scrollContent,
           {
-            paddingTop: Platform.OS === "web" ? 67 + 16 : 16,
+            paddingTop: Platform.OS === "web" ? 67 + 16 : insets.top + 8,
             paddingBottom:
               Platform.OS === "web" ? 34 + 84 : insets.bottom + 84,
           },
@@ -530,8 +486,6 @@ export default function SquadScreen() {
         <Text style={[styles.screenTitle, { color: colors.foreground }]}>
           My Squad
         </Text>
-
-        {renderIdInput()}
 
         {isLoading && (
           <View style={styles.loadingContainer}>
@@ -557,8 +511,8 @@ export default function SquadScreen() {
             <Text
               style={[styles.errorMessage, { color: colors.mutedForeground }]}
             >
-              Couldn't find that manager ID — double-check the number and try
-              again.
+              Couldn't find that manager ID — check your FPL connection in
+              Settings.
             </Text>
           </View>
         )}
@@ -619,6 +573,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+    gap: 16,
+  },
+  connectPrompt: {
+    fontSize: 16,
+    fontFamily: "Inter_500Medium",
+    textAlign: "center",
+    lineHeight: 22,
+  },
   scrollContent: {
     paddingHorizontal: 16,
   },
@@ -627,38 +594,6 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     marginBottom: 16,
     paddingHorizontal: 4,
-  },
-  inputSection: {
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-  },
-  inputLabel: {
-    fontSize: 15,
-    fontFamily: "Inter_600SemiBold",
-    marginBottom: 10,
-  },
-  inputRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  textInput: {
-    flex: 1,
-    height: 44,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    fontSize: 16,
-    fontFamily: "Inter_400Regular",
-  },
-  loadButton: {
-    height: 44,
-    paddingHorizontal: 18,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadButtonText: {
-    fontSize: 15,
-    fontFamily: "Inter_600SemiBold",
   },
   loadingContainer: {
     alignItems: "center",
@@ -757,6 +692,12 @@ const styles = StyleSheet.create({
     marginTop: 4,
     paddingHorizontal: 4,
   },
+  gwIndicator: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
+    textAlign: "center",
+    marginBottom: 8,
+  },
   benchDivider: {
     height: 1,
     marginVertical: 12,
@@ -842,6 +783,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter_400Regular",
   },
+  emptyState: {
+    alignItems: "center",
+    paddingVertical: 40,
+    gap: 12,
+  },
+  emptyText: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    lineHeight: 20,
+    paddingHorizontal: 16,
+  },
   leagueCard: {
     padding: 14,
     borderWidth: 1,
@@ -855,32 +808,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   rankBadge: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: 4,
   },
   rankText: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-  },
-  emptyState: {
-    alignItems: "center",
-    paddingVertical: 40,
-    gap: 8,
-  },
-  emptyText: {
-    fontSize: 15,
-    fontFamily: "Inter_500Medium",
-    textAlign: "center",
-    paddingHorizontal: 16,
-    lineHeight: 22,
-  },
-  gwIndicator: {
     fontSize: 12,
-    fontFamily: "Inter_600SemiBold",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 8,
-    paddingHorizontal: 4,
+    fontFamily: "Inter_500Medium",
   },
 });

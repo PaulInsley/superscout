@@ -9,8 +9,9 @@ import ChoosePersonaScreen from "./ChoosePersonaScreen";
 import WhatWeDoScreen from "./WhatWeDoScreen";
 import YoureInScreen from "./YoureInScreen";
 
+import { MANAGER_ID_KEY, TEAM_NAME_KEY } from "@/hooks/useManagerId";
+
 const ONBOARDING_COMPLETE_KEY = "superscout_onboarding_complete";
-const MANAGER_ID_KEY = "superscout_manager_id";
 const PERSONA_KEY = "superscout_persona";
 
 interface Props {
@@ -28,6 +29,7 @@ export default function OnboardingFlow({ onComplete }: Props) {
       setTeamName(name);
       setManagerId(id);
       AsyncStorage.setItem(MANAGER_ID_KEY, String(id)).catch(() => {});
+      AsyncStorage.setItem(TEAM_NAME_KEY, name).catch(() => {});
     }
     setStep(2);
   };
