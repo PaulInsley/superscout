@@ -1,7 +1,6 @@
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useCallback } from "react";
 import {
   ActivityIndicator,
-  FlatList,
   Pressable,
   StyleSheet,
   Text,
@@ -12,19 +11,15 @@ import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
-import { fetchTeamName, searchTeams } from "@/services/fpl";
-import type { SearchResult } from "@/services/fpl";
+import { fetchTeamName } from "@/services/fpl";
 
 interface Props {
   onNext: (managerId: number | null, teamName: string | null) => void;
 }
 
-type Mode = "search" | "id";
-
 export default function ConnectFPLScreen({ onNext }: Props) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const [mode, setMode] = useState<Mode>("search");
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -32,37 +27,7 @@ export default function ConnectFPLScreen({ onNext }: Props) {
   const [validatedId, setValidatedId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [leagueId, setLeagueId] = useState("");
-  const [showLeagueField, setShowLeagueField] = useState(false);
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [needsLeague, setNeedsLeague] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const resetState = useCallback(() => {
-    setTeamName(null);
-    setValidatedId(null);
-    setError(null);
-    setSearchResults([]);
-    setHasSearched(false);
-    setNeedsLeague(false);
-    setSearchQuery("");
-    setInput("");
-    setLeagueId("");
-    setShowLeagueField(false);
-  }, []);
-
-  const handleModeToggle = useCallback(
-    (newMode: Mode) => {
-      resetState();
-      setMode(newMode);
-    },
-    [resetState],
-  );
-
-  const handleLookup = async () => {
+  const handleLookup = useCallback(async () => {
     const id = Number(input.trim());
     if (!id || isNaN(id)) {
       setError("Please enter a valid number");
@@ -81,96 +46,9 @@ export default function ConnectFPLScreen({ onNext }: Props) {
       setTeamName(name);
       setValidatedId(id);
     } else {
-      setError("Couldn't find that manager ID — double-check the number");
+      setError("Couldn't find that Manager ID — double-check the number");
     }
-  };
-
-  const doSearch = useCallback(
-    async (q: string, league: string) => {
-      setSearching(true);
-      setHasSearched(true);
-      setNeedsLeague(false);
-      setTeamName(null);
-      setValidatedId(null);
-
-      const response = await searchTeams(q, league || undefined);
-      setSearchResults(response.results);
-      setNeedsLeague(response.needs_league ?? false);
-      setSearching(false);
-    },
-    [],
-  );
-
-  useEffect(() => {
-    if (mode !== "search") return;
-
-    const q = searchQuery.trim();
-    if (q.length < 2) {
-      setSearchResults([]);
-      setHasSearched(false);
-      setNeedsLeague(false);
-      return;
-    }
-
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    debounceRef.current = setTimeout(() => {
-      doSearch(q, leagueId.trim());
-    }, 300);
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [searchQuery, mode, leagueId, doSearch]);
-
-  const handleSelectResult = useCallback((result: SearchResult) => {
-    setValidatedId(result.manager_id);
-    setTeamName(result.team_name);
-    setSearchResults([]);
-  }, []);
-
-  const renderSearchResult = useCallback(
-    ({ item }: { item: SearchResult }) => (
-      <Pressable
-        onPress={() => handleSelectResult(item)}
-        style={({ pressed }) => [
-          styles.resultItem,
-          {
-            backgroundColor: pressed ? colors.secondary : colors.card,
-            borderColor: colors.border,
-          },
-        ]}
-      >
-        <View style={{ flex: 1 }}>
-          <Text
-            style={[styles.resultTeamName, { color: colors.foreground }]}
-            numberOfLines={1}
-          >
-            {item.team_name}
-          </Text>
-          <Text
-            style={[styles.resultManagerName, { color: colors.mutedForeground }]}
-            numberOfLines={1}
-          >
-            {item.manager_name}
-          </Text>
-        </View>
-        <View style={styles.resultMeta}>
-          {item.rank > 0 && (
-            <Text style={[styles.resultRank, { color: colors.mutedForeground }]}>
-              #{item.rank.toLocaleString()}
-            </Text>
-          )}
-          {item.total_points > 0 && (
-            <Text style={[styles.resultPoints, { color: colors.accent }]}>
-              {item.total_points.toLocaleString()} pts
-            </Text>
-          )}
-        </View>
-      </Pressable>
-    ),
-    [colors, handleSelectResult],
-  );
+  }, [input]);
 
   return (
     <View
@@ -187,296 +65,69 @@ export default function ConnectFPLScreen({ onNext }: Props) {
           Connect Your FPL Team
         </Text>
 
-        <View style={styles.modeToggle}>
-          <Pressable
-            onPress={() => handleModeToggle("search")}
-            style={[
-              styles.modeButton,
-              {
-                backgroundColor:
-                  mode === "search" ? colors.accent + "20" : "transparent",
-                borderColor: mode === "search" ? colors.accent : colors.border,
-              },
-            ]}
-          >
-            <Feather
-              name="search"
-              size={14}
-              color={mode === "search" ? colors.accent : colors.mutedForeground}
-            />
-            <Text
-              style={[
-                styles.modeButtonText,
-                {
-                  color:
-                    mode === "search" ? colors.accent : colors.mutedForeground,
-                },
-              ]}
-            >
-              Search by name
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => handleModeToggle("id")}
-            style={[
-              styles.modeButton,
-              {
-                backgroundColor:
-                  mode === "id" ? colors.accent + "20" : "transparent",
-                borderColor: mode === "id" ? colors.accent : colors.border,
-              },
-            ]}
-          >
-            <Feather
-              name="hash"
-              size={14}
-              color={mode === "id" ? colors.accent : colors.mutedForeground}
-            />
-            <Text
-              style={[
-                styles.modeButtonText,
-                {
-                  color:
-                    mode === "id" ? colors.accent : colors.mutedForeground,
-                },
-              ]}
-            >
-              Enter ID
-            </Text>
-          </Pressable>
-        </View>
+        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+          Enter your FPL Manager ID to get started
+        </Text>
 
-        {mode === "id" ? (
-          <>
-            <Text style={[styles.hint, { color: colors.mutedForeground }]}>
-              Find it in the FPL app under Points {'>'} your name
-            </Text>
-            <View style={styles.inputRow}>
-              <TextInput
-                style={[
-                  styles.textInput,
-                  {
-                    backgroundColor: colors.card,
-                    borderColor: colors.input,
-                    borderRadius: colors.radius,
-                    color: colors.foreground,
-                  },
-                ]}
-                value={input}
-                onChangeText={(t) => {
-                  setInput(t);
-                  setTeamName(null);
-                  setValidatedId(null);
-                  setError(null);
-                }}
-                placeholder="e.g. 13042160"
-                placeholderTextColor={colors.mutedForeground}
-                keyboardType="number-pad"
-                returnKeyType="go"
-                onSubmitEditing={handleLookup}
+        <View style={styles.inputRow}>
+          <TextInput
+            style={[
+              styles.textInput,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.input,
+                borderRadius: colors.radius,
+                color: colors.foreground,
+              },
+            ]}
+            value={input}
+            onChangeText={(t) => {
+              setInput(t);
+              setTeamName(null);
+              setValidatedId(null);
+              setError(null);
+            }}
+            placeholder="e.g. 13042160"
+            placeholderTextColor={colors.mutedForeground}
+            keyboardType="number-pad"
+            returnKeyType="go"
+            onSubmitEditing={handleLookup}
+          />
+          <Pressable
+            onPress={handleLookup}
+            disabled={!input.trim() || loading}
+            style={({ pressed }) => [
+              styles.lookupButton,
+              {
+                backgroundColor: input.trim()
+                  ? colors.primary
+                  : colors.muted,
+                borderRadius: colors.radius,
+                opacity: pressed ? 0.8 : 1,
+              },
+            ]}
+          >
+            {loading ? (
+              <ActivityIndicator
+                size="small"
+                color={colors.primaryForeground}
               />
-              <Pressable
-                onPress={handleLookup}
-                disabled={!input.trim() || loading}
-                style={({ pressed }) => [
-                  styles.lookupButton,
+            ) : (
+              <Text
+                style={[
+                  styles.lookupText,
                   {
-                    backgroundColor: input.trim()
-                      ? colors.primary
-                      : colors.muted,
-                    borderRadius: colors.radius,
-                    opacity: pressed ? 0.8 : 1,
+                    color: input.trim()
+                      ? colors.primaryForeground
+                      : colors.mutedForeground,
                   },
                 ]}
               >
-                {loading ? (
-                  <ActivityIndicator
-                    size="small"
-                    color={colors.primaryForeground}
-                  />
-                ) : (
-                  <Text
-                    style={[
-                      styles.lookupText,
-                      {
-                        color: input.trim()
-                          ? colors.primaryForeground
-                          : colors.mutedForeground,
-                      },
-                    ]}
-                  >
-                    Find
-                  </Text>
-                )}
-              </Pressable>
-            </View>
-          </>
-        ) : (
-          <>
-            <Text style={[styles.hint, { color: colors.mutedForeground }]}>
-              Enter your team name or manager name
-            </Text>
-
-            <TextInput
-              style={[
-                styles.searchInput,
-                {
-                  backgroundColor: colors.card,
-                  borderColor: colors.input,
-                  borderRadius: colors.radius,
-                  color: colors.foreground,
-                },
-              ]}
-              value={searchQuery}
-              onChangeText={(t) => {
-                setSearchQuery(t);
-                setTeamName(null);
-                setValidatedId(null);
-                setError(null);
-              }}
-              placeholder="e.g. Superscouters or Paul Insley"
-              placeholderTextColor={colors.mutedForeground}
-              autoCapitalize="none"
-              returnKeyType="search"
-            />
-
-            {showLeagueField && (
-              <View style={styles.leagueRow}>
-                <Text style={[styles.fieldLabel, { color: colors.foreground }]}>
-                  Mini-league ID
-                </Text>
-                <TextInput
-                  style={[
-                    styles.leagueInput,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.input,
-                      borderRadius: colors.radius,
-                      color: colors.foreground,
-                    },
-                  ]}
-                  value={leagueId}
-                  onChangeText={(t) => {
-                    setLeagueId(t);
-                    setNeedsLeague(false);
-                  }}
-                  placeholder="e.g. 620"
-                  placeholderTextColor={colors.mutedForeground}
-                  keyboardType="number-pad"
-                />
-                <Text
-                  style={[
-                    styles.leagueHint,
-                    { color: colors.mutedForeground },
-                  ]}
-                >
-                  Find it in the FPL app under Leagues {'>'} tap your league
-                </Text>
-              </View>
+                Find
+              </Text>
             )}
-
-            {searching && (
-              <View style={styles.searchingRow}>
-                <ActivityIndicator size="small" color={colors.accent} />
-                <Text
-                  style={[
-                    styles.searchingText,
-                    { color: colors.mutedForeground },
-                  ]}
-                >
-                  Searching...
-                </Text>
-              </View>
-            )}
-
-            {!searching &&
-              needsLeague &&
-              !showLeagueField &&
-              searchQuery.trim().length >= 2 && (
-                <View
-                  style={[
-                    styles.needsLeagueCard,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                >
-                  <Feather name="info" size={16} color={colors.accent} />
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={[
-                        styles.needsLeagueText,
-                        { color: colors.foreground },
-                      ]}
-                    >
-                      The FPL API requires a mini-league to search by name.
-                      Enter a league ID to find your team, or switch to Enter ID
-                      if you know your manager number.
-                    </Text>
-                    <Pressable
-                      onPress={() => setShowLeagueField(true)}
-                      style={styles.addLeagueLink}
-                    >
-                      <Text
-                        style={[
-                          styles.addLeagueLinkText,
-                          { color: colors.accent },
-                        ]}
-                      >
-                        Add mini-league ID
-                      </Text>
-                    </Pressable>
-                  </View>
-                </View>
-              )}
-
-            {!searching &&
-              hasSearched &&
-              !needsLeague &&
-              searchResults.length === 0 &&
-              !validatedId && (
-                <View style={styles.noResults}>
-                  <Text
-                    style={[
-                      styles.noResultsText,
-                      { color: colors.mutedForeground },
-                    ]}
-                  >
-                    No teams found. Check the spelling, or try switching to
-                    Enter ID.
-                  </Text>
-                </View>
-              )}
-
-            {searchResults.length > 0 && !validatedId && (
-              <>
-                <FlatList
-                  data={searchResults}
-                  keyExtractor={(item) => String(item.manager_id)}
-                  renderItem={renderSearchResult}
-                  style={styles.resultsList}
-                  keyboardShouldPersistTaps="handled"
-                />
-                {!showLeagueField && (
-                  <Pressable
-                    onPress={() => setShowLeagueField(true)}
-                    style={styles.narrowLink}
-                  >
-                    <Text
-                      style={[
-                        styles.narrowLinkText,
-                        { color: colors.mutedForeground },
-                      ]}
-                    >
-                      Search within a mini-league instead
-                    </Text>
-                  </Pressable>
-                )}
-              </>
-            )}
-          </>
-        )}
+          </Pressable>
+        </View>
 
         {error && (
           <Text style={[styles.errorText, { color: colors.destructive }]}>
@@ -512,6 +163,81 @@ export default function ConnectFPLScreen({ onNext }: Props) {
             </View>
           </View>
         )}
+
+        <View
+          style={[
+            styles.helpCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              borderRadius: colors.radius,
+            },
+          ]}
+        >
+          <Text style={[styles.helpTitle, { color: colors.foreground }]}>
+            How to find your Manager ID
+          </Text>
+          <View style={styles.helpSteps}>
+            <View style={styles.helpStep}>
+              <View
+                style={[
+                  styles.stepNumber,
+                  { backgroundColor: colors.accent + "20" },
+                ]}
+              >
+                <Text style={[styles.stepNumberText, { color: colors.accent }]}>
+                  1
+                </Text>
+              </View>
+              <Text
+                style={[styles.helpStepText, { color: colors.mutedForeground }]}
+              >
+                Open the FPL website or app
+              </Text>
+            </View>
+            <View style={styles.helpStep}>
+              <View
+                style={[
+                  styles.stepNumber,
+                  { backgroundColor: colors.accent + "20" },
+                ]}
+              >
+                <Text style={[styles.stepNumberText, { color: colors.accent }]}>
+                  2
+                </Text>
+              </View>
+              <Text
+                style={[styles.helpStepText, { color: colors.mutedForeground }]}
+              >
+                Go to the Points tab and tap your team name
+              </Text>
+            </View>
+            <View style={styles.helpStep}>
+              <View
+                style={[
+                  styles.stepNumber,
+                  { backgroundColor: colors.accent + "20" },
+                ]}
+              >
+                <Text style={[styles.stepNumberText, { color: colors.accent }]}>
+                  3
+                </Text>
+              </View>
+              <Text
+                style={[styles.helpStepText, { color: colors.mutedForeground }]}
+              >
+                The number in the URL is your Manager ID
+              </Text>
+            </View>
+          </View>
+          <Text style={[styles.helpExample, { color: colors.mutedForeground }]}>
+            fantasy.premierleague.com/entry/
+            <Text style={{ color: colors.accent, fontFamily: "Inter_700Bold" }}>
+              13042160
+            </Text>
+            /event/1
+          </Text>
+        </View>
       </View>
 
       <View style={styles.bottomButtons}>
@@ -558,26 +284,7 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontFamily: "Inter_700Bold",
   },
-  modeToggle: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 4,
-  },
-  modeButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  modeButtonText: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-  },
-  hint: {
+  subtitle: {
     fontSize: 14,
     fontFamily: "Inter_400Regular",
     lineHeight: 20,
@@ -594,34 +301,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: "Inter_400Regular",
   },
-  searchInput: {
-    height: 48,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    fontSize: 16,
-    fontFamily: "Inter_400Regular",
-  },
-  fieldLabel: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-    marginBottom: 4,
-  },
-  leagueRow: {
-    gap: 4,
-  },
-  leagueInput: {
-    height: 44,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    fontSize: 15,
-    fontFamily: "Inter_400Regular",
-  },
-  leagueHint: {
-    fontSize: 11,
-    fontFamily: "Inter_400Regular",
-    lineHeight: 16,
-    marginTop: 4,
-  },
   lookupButton: {
     height: 48,
     paddingHorizontal: 20,
@@ -631,88 +310,6 @@ const styles = StyleSheet.create({
   lookupText: {
     fontSize: 15,
     fontFamily: "Inter_600SemiBold",
-  },
-  searchingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingVertical: 8,
-  },
-  searchingText: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-  },
-  needsLeagueCard: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 10,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  needsLeagueText: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    lineHeight: 18,
-  },
-  addLeagueLink: {
-    marginTop: 8,
-  },
-  addLeagueLinkText: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-  },
-  noResults: {
-    paddingVertical: 12,
-  },
-  noResultsText: {
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-    textAlign: "center",
-    lineHeight: 20,
-  },
-  resultsList: {
-    maxHeight: 200,
-  },
-  resultItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderRadius: 8,
-    marginBottom: 6,
-  },
-  resultTeamName: {
-    fontSize: 15,
-    fontFamily: "Inter_600SemiBold",
-    marginBottom: 2,
-  },
-  resultManagerName: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-  },
-  resultMeta: {
-    alignItems: "flex-end",
-    marginLeft: 12,
-  },
-  resultRank: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    marginBottom: 2,
-  },
-  resultPoints: {
-    fontSize: 13,
-    fontFamily: "Inter_700Bold",
-  },
-  narrowLink: {
-    alignItems: "center",
-    paddingVertical: 4,
-  },
-  narrowLinkText: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    textDecorationLine: "underline",
   },
   errorText: {
     fontSize: 14,
@@ -732,6 +329,50 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: "Inter_400Regular",
     marginTop: 2,
+  },
+  helpCard: {
+    padding: 16,
+    borderWidth: 1,
+    marginTop: 4,
+  },
+  helpTitle: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+    marginBottom: 12,
+  },
+  helpSteps: {
+    gap: 10,
+    marginBottom: 12,
+  },
+  helpStep: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  stepNumber: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepNumberText: {
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+  },
+  helpStepText: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    flex: 1,
+    lineHeight: 20,
+  },
+  helpExample: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(255,255,255,0.1)",
   },
   bottomButtons: {
     gap: 16,
