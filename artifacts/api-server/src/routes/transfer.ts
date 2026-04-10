@@ -320,15 +320,55 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
     const currentGw = activeEvent.id;
     const deadline = activeEvent.deadline_time;
 
-    const picksGw = currentEvent && !currentEvent.finished ? currentEvent.id : (currentGw > 1 ? currentGw - 1 : 1);
+    const managerInfo = await fetchCachedData<{
+      started_event: number;
+      entered_events?: number[];
+    }>(
+      cacheKey("entry", managerId),
+      `/entry/${managerId}/`,
+      TTL.USER,
+    );
 
-    const [fixtures, picksData, transferHistory, historyData] = await Promise.all([
+    const enteredEvents = managerInfo.entered_events ?? [];
+    const hasPlayedGameweeks = enteredEvents.length > 0;
+
+    if (!hasPlayedGameweeks) {
+      res.status(400).json({
+        error: "new_manager",
+        message: "Your FPL team hasn't played any gameweeks yet. Transfer advice will be available once you've entered a gameweek.",
+      });
+      return;
+    }
+
+    const picksGw = currentEvent && !currentEvent.finished ? currentEvent.id : (currentGw > 1 ? currentGw - 1 : 1);
+    const gwsToTry = [picksGw];
+    if (picksGw > 1) gwsToTry.push(picksGw - 1);
+    if (picksGw > 2) gwsToTry.push(picksGw - 2);
+
+    let picksData: FPLPicksResponse | null = null;
+    for (const gw of gwsToTry) {
+      try {
+        picksData = await fetchCachedData<FPLPicksResponse>(
+          cacheKey("picks", managerId, String(gw)),
+          `/entry/${managerId}/event/${gw}/picks/`,
+          TTL.USER,
+        );
+        break;
+      } catch {
+        req.log.warn({ managerId, gw }, "No picks for gameweek, trying previous");
+      }
+    }
+
+    if (!picksData) {
+      res.status(400).json({
+        error: "no_picks",
+        message: "Could not find your squad picks. Make sure you have an active FPL team.",
+      });
+      return;
+    }
+
+    const [fixtures, transferHistory, historyData] = await Promise.all([
       fetchCachedData<FPLFixture[]>(cacheKey("fixtures"), "/fixtures/", TTL.STATIC),
-      fetchCachedData<FPLPicksResponse>(
-        cacheKey("picks", managerId, String(picksGw)),
-        `/entry/${managerId}/event/${picksGw}/picks/`,
-        TTL.USER,
-      ),
       fetchCachedData<FPLTransfer[]>(
         cacheKey("transfers", managerId),
         `/entry/${managerId}/transfers/`,

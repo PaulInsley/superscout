@@ -79,7 +79,15 @@ export default function TransferAdvisorScreen() {
       });
 
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+        const errorBody = await response.json().catch(() => null);
+        if (errorBody?.error === "new_manager") {
+          setAiError("Your FPL team hasn't played any gameweeks yet. Transfer advice will be available once you've entered a gameweek.");
+        } else if (errorBody?.error === "no_picks") {
+          setAiError("Could not find your squad picks. Make sure you have an active FPL team.");
+        } else {
+          throw new Error(`API error: ${response.status}`);
+        }
+        return;
       }
 
       const data: TransferAdviceResponse = await response.json();
@@ -89,7 +97,8 @@ export default function TransferAdvisorScreen() {
       setBudget(data.budget_remaining);
 
       logRecommendationSilently(data);
-    } catch {
+    } catch (err) {
+      console.error("[SuperScout] Transfer advice error:", err);
       setAiError("SuperScout is thinking too hard — try again in a moment.");
     } finally {
       setAiLoading(false);
