@@ -229,6 +229,7 @@ export async function fetchCaptainCandidates(
   gameweek: number;
   deadlineTime: string;
   isMockData: boolean;
+  noSquadData?: boolean;
 }> {
   const bootstrapData = await getBootstrapData();
   const { gameweek, deadlineTime, isActive } = getActiveGameweek(bootstrapData);
@@ -251,7 +252,13 @@ export async function fetchCaptainCandidates(
 
   const picksResult = await tryFetchPicks(managerId, [gameweek, gameweek - 1]);
   if (!picksResult) {
-    return getMockCaptainData();
+    return {
+      candidates: [],
+      gameweek,
+      deadlineTime,
+      isMockData: false,
+      noSquadData: true,
+    };
   }
 
   const candidates: CaptainCandidate[] = [];

@@ -220,6 +220,22 @@ export default function CaptainPickerScreen() {
     );
   }
 
+  if (candidateData?.noSquadData || (candidateData && candidateData.candidates.length === 0 && !candidateData.isMockData)) {
+    return (
+      <View
+        style={[
+          styles.center,
+          { backgroundColor: colors.background, paddingTop: insets.top },
+        ]}
+      >
+        <Feather name="alert-circle" size={40} color={colors.mutedForeground} />
+        <Text style={[styles.connectPrompt, { color: colors.foreground }]}>
+          No squad data found for this season. Make sure you've entered your current FPL Manager ID in Settings.
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView
