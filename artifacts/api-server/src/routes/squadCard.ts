@@ -282,23 +282,26 @@ IMPORTANT: Return ONLY the quip text. No quotes, no preamble, no explanation. Ju
       req.log.error({ err }, "Quip generation failed, using fallback");
     }
 
+    let cardId: string | null = null;
     try {
       const supabase = getSupabase();
       if (supabase) {
-        await supabase.from("squad_cards").insert({
+        const { data: cardRow } = await supabase.from("squad_cards").insert({
           user_id: "00000000-0000-0000-0000-000000000000",
           season: "2026-27",
           gameweek: targetGw,
           skin_name: "default",
           was_shared: false,
           quip_text: quipText,
-        });
+        }).select("id").single();
+        cardId = cardRow?.id ?? null;
       }
     } catch (err) {
       req.log.warn({ err }, "Failed to log squad card to DB");
     }
 
     res.json({
+      cardId,
       teamName: managerInfo.name,
       gameweek: targetGw,
       formation,
@@ -341,22 +344,30 @@ router.post("/squad-card/share", async (req: Request, res: Response) => {
       return;
     }
 
-    const { gameweek, platform } = req.body;
-    if (!gameweek) {
-      res.status(400).json({ error: "Missing gameweek" });
+    const { card_id, gameweek, platform } = req.body;
+    if (!card_id && !gameweek) {
+      res.status(400).json({ error: "Missing card_id or gameweek" });
       return;
     }
 
     const dbPlatforms = ["twitter", "whatsapp", "imessage", "instagram", "clipboard", "other", "unknown"];
     const sharePlatform = dbPlatforms.includes(platform) ? platform : null;
 
-    await supabase
-      .from("squad_cards")
-      .update({ was_shared: true, share_platform: sharePlatform })
-      .eq("user_id", "00000000-0000-0000-0000-000000000000")
-      .eq("gameweek", gameweek)
-      .order("created_at", { ascending: false })
-      .limit(1);
+    if (card_id) {
+      await supabase
+        .from("squad_cards")
+        .update({ was_shared: true, share_platform: sharePlatform })
+        .eq("id", card_id)
+        .eq("user_id", "00000000-0000-0000-0000-000000000000");
+    } else {
+      await supabase
+        .from("squad_cards")
+        .update({ was_shared: true, share_platform: sharePlatform })
+        .eq("user_id", "00000000-0000-0000-0000-000000000000")
+        .eq("gameweek", gameweek)
+        .order("created_at", { ascending: false })
+        .limit(1);
+    }
 
     res.json({ success: true });
   } catch (err) {

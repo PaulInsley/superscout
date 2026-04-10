@@ -33,6 +33,7 @@ interface CardPlayer {
 }
 
 interface SquadCardData {
+  cardId: string | null;
   teamName: string;
   gameweek: number;
   formation: string;
@@ -164,23 +165,23 @@ export default function CardScreen() {
     let platform = "unknown";
 
     try {
-      if (Platform.OS === "ios") {
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(uri, {
+          mimeType: "image/png",
+          UTI: "public.png",
+          dialogTitle: "Share your Squad Card",
+        });
+        didShare = true;
+        platform = "unknown";
+      } else if (Platform.OS === "ios") {
         const result = await Share.share({ url: uri });
         if (result.action === Share.sharedAction) {
           didShare = true;
           platform = mapActivityTypeToPlatform(result.activityType);
         }
       } else {
-        const canShare = await Sharing.isAvailableAsync();
-        if (canShare) {
-          await Sharing.shareAsync(uri, {
-            mimeType: "image/png",
-            UTI: "public.png",
-          });
-          didShare = true;
-        } else {
-          Alert.alert("Sharing not available", "Sharing is not supported on this device.");
-        }
+        Alert.alert("Sharing not available", "Sharing is not supported on this device.");
       }
     } catch (err) {
       console.error("[SuperScout] Share error:", err);
@@ -192,7 +193,11 @@ export default function CardScreen() {
         await fetch(`${baseUrl}/squad-card/share`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ gameweek: cardData.gameweek, platform }),
+          body: JSON.stringify({
+            card_id: cardData.cardId,
+            gameweek: cardData.gameweek,
+            platform,
+          }),
         });
       } catch {}
     }
