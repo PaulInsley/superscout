@@ -189,7 +189,7 @@ router.post("/squad-card", async (req: Request, res: Response) => {
       return {
         id: pick.element,
         name: player?.second_name ?? `Player ${pick.element}`,
-        webName: player?.web_name ?? `P${pick.element}`,
+        webName: player?.second_name ?? `P${pick.element}`,
         position: player ? POSITION_MAP[player.element_type] ?? "MID" : "MID",
         points: points * pick.multiplier,
         isCaptain: pick.is_captain,

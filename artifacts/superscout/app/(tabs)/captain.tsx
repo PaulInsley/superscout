@@ -42,7 +42,6 @@ export default function CaptainPickerScreen() {
   const [loadingStage, setLoadingStage] = useState<string>("squad");
   const [gameweek, setGameweek] = useState<number>(0);
   const [deadlineTime, setDeadlineTime] = useState<string>("");
-  const [isMockData, setIsMockData] = useState(false);
   const [vibe, setVibe] = useState<"expert" | "critic" | "fanboy">("expert");
   const stageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -98,8 +97,6 @@ export default function CaptainPickerScreen() {
     setLoadingStage("squad");
     setGameweek(candidateData.gameweek);
     setDeadlineTime(candidateData.deadlineTime);
-    setIsMockData(candidateData.isMockData);
-
     clearStageTimers();
 
     stageTimerRef.current = setTimeout(() => {
@@ -254,7 +251,7 @@ export default function CaptainPickerScreen() {
     );
   }
 
-  if (candidateData?.noSquadData || (candidateData && candidateData.candidates.length === 0 && !candidateData.isMockData)) {
+  if (candidateData?.noSquadData || (candidateData && candidateData.candidates.length === 0)) {
     return (
       <View
         style={[
@@ -285,7 +282,6 @@ export default function CaptainPickerScreen() {
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
           GW{candidateData?.gameweek ?? "?"} ·{" "}
           {candidateData?.candidates.length ?? 0} players
-          {isMockData ? " · TEST MODE" : ""}
         </Text>
 
         {!recommendations && !aiLoading && (
