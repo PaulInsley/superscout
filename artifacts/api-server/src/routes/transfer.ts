@@ -288,19 +288,47 @@ function preFilterCandidates(
 }
 
 router.post("/transfer-advice", async (req: Request, res: Response) => {
+  const isSSE = (req.headers.accept ?? "").includes("text/event-stream");
+
+  function sendStage(stage: string, data?: Record<string, unknown>) {
+    if (!isSSE) return;
+    const payload = JSON.stringify({ stage, ...data });
+    res.write(`data: ${payload}\n\n`);
+  }
+
+  function sendError(statusCode: number, body: Record<string, string>) {
+    if (isSSE) {
+      res.write(`data: ${JSON.stringify({ error: body.error, message: body.message })}\n\n`);
+      res.end();
+    } else {
+      res.status(statusCode).json(body);
+    }
+  }
+
   try {
     const { manager_id, vibe } = req.body;
 
     if (!manager_id || !vibe) {
-      res.status(400).json({ error: "Missing manager_id or vibe" });
+      sendError(400, { error: "Missing manager_id or vibe" });
       return;
     }
 
     const vibePrompt = VIBE_PROMPTS[vibe];
     if (!vibePrompt) {
-      res.status(400).json({ error: "Invalid vibe" });
+      sendError(400, { error: "Invalid vibe" });
       return;
     }
+
+    if (isSSE) {
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      });
+    }
+
+    sendStage("squad");
 
     const managerId = String(manager_id);
 
@@ -314,7 +342,7 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
     const nextEvent = bootstrap.events.find((e) => e.is_next);
     const activeEvent = nextEvent ?? currentEvent;
     if (!activeEvent) {
-      res.status(503).json({ error: "No active gameweek found" });
+      sendError(503, { error: "No active gameweek found" });
       return;
     }
     const currentGw = activeEvent.id;
@@ -333,7 +361,7 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
     const hasPlayedGameweeks = enteredEvents.length > 0;
 
     if (!hasPlayedGameweeks) {
-      res.status(400).json({
+      sendError(400, {
         error: "new_manager",
         message: "Your FPL team hasn't played any gameweeks yet. Transfer advice will be available once you've entered a gameweek.",
       });
@@ -360,12 +388,14 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
     }
 
     if (!picksData) {
-      res.status(400).json({
+      sendError(400, {
         error: "no_picks",
         message: "Could not find your squad picks. Make sure you have an active FPL team.",
       });
       return;
     }
+
+    sendStage("market");
 
     const [fixtures, transferHistory, historyData] = await Promise.all([
       fetchCachedData<FPLFixture[]>(cacheKey("fixtures"), "/fixtures/", TTL.STATIC),
@@ -423,6 +453,8 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
         isBench: pick.position >= 12,
       };
     });
+
+    sendStage("rules");
 
     const highestSellingByPos: Record<string, number> = {};
     for (const p of squadWithDetails) {
@@ -612,6 +644,8 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
       `CRITICAL PERSONA REQUIREMENT: Write the "case" field in your assigned persona voice.`,
     ].filter(Boolean).join("\n\n");
 
+    sendStage("ai");
+
     const client = getClient();
     const message = await client.messages.create({
       model: "claude-sonnet-4-6",
@@ -620,9 +654,11 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
       messages: [{ role: "user", content: context }],
     });
 
+    sendStage("validating");
+
     const block = message.content[0];
     if (block.type !== "text") {
-      res.status(500).json({ error: "Unexpected AI response format" });
+      sendError(500, { error: "Unexpected AI response format" });
       return;
     }
 
@@ -635,7 +671,7 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
 
     if (!parsed || !parsed.recommendations) {
       req.log.error({ rawText: block.text.substring(0, 1500), stopReason: message.stop_reason }, "Failed to parse transfer AI JSON");
-      res.status(500).json({ error: "Could not parse AI response" });
+      sendError(500, { error: "Could not parse AI response" });
       return;
     }
 
@@ -780,15 +816,28 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
 
     req.log.info({ validatedCount: validated.length }, "Recommendations after validation");
 
-    res.json({
+    const result = {
       gameweek: parsed.gameweek ?? currentGw,
       free_transfers: parsed.free_transfers ?? freeTransfers,
       budget_remaining: parsed.budget_remaining ?? bank,
       recommendations: validated,
-    });
+    };
+
+    if (isSSE) {
+      sendStage("done");
+      res.write(`data: ${JSON.stringify({ stage: "result", ...result })}\n\n`);
+      res.end();
+    } else {
+      res.json(result);
+    }
   } catch (error) {
     req.log.error({ err: error }, "Transfer advice generation failed");
-    res.status(500).json({ error: "Failed to generate transfer advice" });
+    if (isSSE) {
+      res.write(`data: ${JSON.stringify({ error: "Failed to generate transfer advice" })}\n\n`);
+      res.end();
+    } else {
+      res.status(500).json({ error: "Failed to generate transfer advice" });
+    }
   }
 });
 

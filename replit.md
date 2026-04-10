@@ -96,23 +96,34 @@ SuperScout is a fantasy sports AI coach mobile app built with Expo (React Native
 - Live match detection: checks fixture `started/finished` to toggle semi-live polling rate
 
 ### Transfer Advisor
-- `artifacts/api-server/src/routes/transfer.ts` — POST `/api/transfer-advice` endpoint
+- `artifacts/api-server/src/routes/transfer.ts` — POST `/api/transfer-advice` endpoint with **SSE streaming** (Accept: text/event-stream)
 - Pre-filters 500+ players to top 50 candidates by: form × fixture difficulty × points-per-million
 - Ensures minimum 5 players per position in candidate pool
 - Assembles context: squad with selling prices, free transfers, budget, chips remaining, filtered candidates
 - Server-side validation: budget check, club limit (R1.03), position count (R1.04), position match enforcement, player availability
-- AI returns 3-5 recommendations including optional "Hold your transfer" option
+- AI returns 4-5 recommendations: 2-3 packages + 1 individual swap + 1 hold option
+- **SSE Progress Stages**: Backend streams real-time stage events: `squad` → `market` → `rules` → `ai` → `validating` → `done` → `result`. Non-SSE clients still get standard JSON response (backward compatible).
 - **Restructure Mode**: Prompt and response shape adapt based on free transfer count:
-  - 0-1 FT: Individual swaps only (original behaviour)
-  - 2-3 FT: Mixed mode — individual swaps AND multi-transfer packages (at least 1 package)
-  - 4-5 FT: Restructure — lead with packages of 2-4 coordinated transfers
+  - 0-1 FT: Individual swaps only + hold option
+  - 2-3 FT: Mixed mode — 1-2 packages + 1-2 individual swaps + hold
+  - 4+ FT: Restructure — 2-3 packages with different strategic themes + 1 swap + hold
   - Wildcard/Free Hit active (current GW chip): Full squad overhaul packages (3-6 transfers each)
 - **Package format**: `is_package: true`, `package_name` (creative name), `transfers[]` array of individual swaps, `total_net_cost`, `total_hit_cost`, `uses_free_transfers`, `total_expected_points_gain_3gw`
 - **Package validation**: Validates entire package sequentially — simulates squad state after each swap, checks budget/club limits/position counts across all transfers combined
 - `artifacts/superscout/components/TransferCard.tsx` — Transfer-specific card with OUT→IN swap layout, net cost, hit/free indicator, 3GW impact. Package mode shows banner with package name, all swaps listed with dividers, combined impact stats
-- `artifacts/superscout/app/(tabs)/transfers.tsx` — Transfer Advisor tab with summary bar, card display, regenerate button
+- `artifacts/superscout/app/(tabs)/transfers.tsx` — Transfer Advisor tab with SSE streaming, summary bar, card display, regenerate button
 - Decision Log writes with `decision_type: "transfer"` (matches DB CHECK constraint); package options logged with `option_type: "package"`
 - processDecisions extended: also checks actual FPL transfers after deadline and matches against recommendations
+
+### Progress Loading Indicator
+- `artifacts/superscout/components/ProgressLoadingIndicator.tsx` — Shared staged progress bar component with vibe-voiced messages
+- Shows named stages with animated progress bar (not a spinner): "Loading your squad" → "Scanning the transfer market" → "Checking rules and budget" → "Your [vibe] is analysing options" → "Validating recommendations" → "Done!"
+- Each stage has unique messages per vibe (Expert/Critic/Fanboy)
+- Transfer Advisor: driven by real SSE stage events from the backend
+- Captain Picker: driven by optimistic timing (1s squad → 1.5s rules → ai → ai_deep after 8s → validating when response arrives)
+- AI stage animates bar slowly from 45% to 85% over 15 seconds, holds until response
+- Two variants: `transfer` (6 stages) and `captain` (5 stages)
+- Replaces the previous `AILoadingIndicator` (spinning wheel + cycling messages)
 
 ### API Proxy
 - `artifacts/api-server/src/routes/fpl.ts` — server-side proxy for FPL API (now cached). Proxies: bootstrap-static, entry/{id}, entry/{id}/event/{gw}/picks, entry/{id}/transfers, entry/{id}/history, fixtures, event/{event}/live. Native mobile calls FPL directly.

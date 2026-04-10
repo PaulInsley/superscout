@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import { useFocusEffect } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 import { useManagerId } from "@/hooks/useManagerId";
 import TransferCard from "@/components/TransferCard";
-import AILoadingIndicator from "@/components/AILoadingIndicator";
+import ProgressLoadingIndicator from "@/components/ProgressLoadingIndicator";
 import type { TransferRecommendation } from "@/components/TransferCard";
 
 const PERSONA_KEY = "superscout_persona";
@@ -39,10 +39,12 @@ export default function TransferAdvisorScreen() {
   const [recommendations, setRecommendations] = useState<TransferRecommendation[] | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [loadingStage, setLoadingStage] = useState<string>("squad");
   const [gameweek, setGameweek] = useState<number>(0);
   const [freeTransfers, setFreeTransfers] = useState<number>(0);
   const [budget, setBudget] = useState<number>(0);
   const [vibe, setVibe] = useState<"expert" | "critic" | "fanboy">("expert");
+  const aiTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -67,19 +69,25 @@ export default function TransferAdvisorScreen() {
     setAiLoading(true);
     setAiError(null);
     setRecommendations(null);
+    setLoadingStage("squad");
+
+    if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
 
     try {
       const apiBase = getApiBaseUrl();
       const response = await fetch(`${apiBase}/transfer-advice`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+        },
         body: JSON.stringify({
           manager_id: managerId,
           vibe,
         }),
       });
 
-      if (!response.ok) {
+      if (!response.ok || !response.body) {
         const errorBody = await response.json().catch(() => null);
         if (errorBody?.error === "new_manager") {
           setAiError("Your FPL team hasn't played any gameweeks yet. Transfer advice will be available once you've entered a gameweek.");
@@ -88,20 +96,101 @@ export default function TransferAdvisorScreen() {
         } else {
           throw new Error(`API error: ${response.status}`);
         }
+        setAiLoading(false);
         return;
       }
 
-      const data: TransferAdviceResponse = await response.json();
-      setRecommendations(data.recommendations);
-      setGameweek(data.gameweek);
-      setFreeTransfers(data.free_transfers);
-      setBudget(data.budget_remaining);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let resultData: TransferAdviceResponse | null = null;
 
-      logRecommendationSilently(data);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          buffer += decoder.decode();
+          const remaining = buffer.split("\n");
+          for (const line of remaining) {
+            if (!line.startsWith("data: ")) continue;
+            const jsonStr = line.slice(6).trim();
+            if (!jsonStr) continue;
+            try {
+              const event = JSON.parse(jsonStr);
+              if (event.stage === "result") {
+                if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
+                resultData = {
+                  gameweek: event.gameweek,
+                  free_transfers: event.free_transfers,
+                  budget_remaining: event.budget_remaining,
+                  recommendations: event.recommendations,
+                };
+              }
+            } catch {}
+          }
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const jsonStr = line.slice(6).trim();
+          if (!jsonStr) continue;
+
+          try {
+            const event = JSON.parse(jsonStr);
+
+            if (event.error) {
+              if (event.error === "new_manager") {
+                setAiError("Your FPL team hasn't played any gameweeks yet. Transfer advice will be available once you've entered a gameweek.");
+              } else if (event.error === "no_picks") {
+                setAiError("Could not find your squad picks. Make sure you have an active FPL team.");
+              } else {
+                setAiError(event.message || "Something went wrong. Try again.");
+              }
+              setAiLoading(false);
+              return;
+            }
+
+            if (event.stage === "ai") {
+              setLoadingStage("ai");
+              aiTimerRef.current = setTimeout(() => {
+                setLoadingStage("ai_deep");
+              }, 15000);
+            } else if (event.stage === "result") {
+              if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
+              resultData = {
+                gameweek: event.gameweek,
+                free_transfers: event.free_transfers,
+                budget_remaining: event.budget_remaining,
+                recommendations: event.recommendations,
+              };
+            } else if (event.stage) {
+              if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
+              setLoadingStage(event.stage);
+            }
+          } catch {
+            // ignore parse errors for partial chunks
+          }
+        }
+      }
+
+      if (resultData) {
+        setRecommendations(resultData.recommendations);
+        setGameweek(resultData.gameweek);
+        setFreeTransfers(resultData.free_transfers);
+        setBudget(resultData.budget_remaining);
+        logRecommendationSilently(resultData);
+      } else {
+        setAiError("SuperScout is thinking too hard — try again in a moment.");
+      }
     } catch (err) {
       console.error("[SuperScout] Transfer advice error:", err);
       setAiError("SuperScout is thinking too hard — try again in a moment.");
     } finally {
+      if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
       setAiLoading(false);
     }
   }, [managerId, vibe]);
@@ -211,9 +300,10 @@ export default function TransferAdvisorScreen() {
         )}
 
         {aiLoading && (
-          <AILoadingIndicator
+          <ProgressLoadingIndicator
             vibe={vibe}
-            label="Scanning the transfer market..."
+            currentStage={loadingStage}
+            variant="transfer"
           />
         )}
 
