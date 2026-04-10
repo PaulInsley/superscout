@@ -8,11 +8,13 @@ import {
   StyleSheet,
   Platform,
 } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery } from "@tanstack/react-query";
 import { useFocusEffect } from "expo-router";
 import { useColors } from "@/hooks/useColors";
+import { useManagerId } from "@/hooks/useManagerId";
 import ChoiceCard from "@/components/ChoiceCard";
 import { fetchCaptainCandidates } from "@/services/fpl/api";
 import type {
@@ -20,7 +22,6 @@ import type {
   CaptainPicksResponse,
 } from "@/services/fpl/types";
 
-const MANAGER_ID_KEY = "superscout_manager_id";
 const PERSONA_KEY = "superscout_persona";
 
 function getApiBaseUrl(): string {
@@ -34,6 +35,7 @@ function getApiBaseUrl(): string {
 export default function CaptainPickerScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { managerId, loading: managerLoading, refresh: refreshManagerId } = useManagerId();
   const [recommendations, setRecommendations] = useState<
     CaptainRecommendation[] | null
   >(null);
@@ -46,6 +48,7 @@ export default function CaptainPickerScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      refreshManagerId();
       AsyncStorage.getItem(PERSONA_KEY).then((persona) => {
         if (persona === "expert" || persona === "critic" || persona === "fanboy") {
           setVibe((prev) => {
@@ -65,14 +68,14 @@ export default function CaptainPickerScreen() {
     isLoading: candidatesLoading,
     error: candidatesError,
   } = useQuery({
-    queryKey: ["captainCandidates"],
+    queryKey: ["captainCandidates", managerId],
     queryFn: async () => {
-      const managerId = await AsyncStorage.getItem(MANAGER_ID_KEY);
       if (!managerId) {
         throw new Error("NO_MANAGER_ID");
       }
-      return fetchCaptainCandidates(parseInt(managerId, 10));
+      return fetchCaptainCandidates(managerId);
     },
+    enabled: managerId !== null && !managerLoading,
   });
 
   const requestPicks = useCallback(async () => {
@@ -156,8 +159,37 @@ export default function CaptainPickerScreen() {
     }
   };
 
-  const isLoading = candidatesLoading;
+  const isLoading = managerLoading || candidatesLoading;
   const hasError = candidatesError;
+
+  if (managerLoading) {
+    return (
+      <View
+        style={[
+          styles.center,
+          { backgroundColor: colors.background, paddingTop: insets.top },
+        ]}
+      >
+        <ActivityIndicator size="large" color={colors.accent} />
+      </View>
+    );
+  }
+
+  if (!managerId) {
+    return (
+      <View
+        style={[
+          styles.center,
+          { backgroundColor: colors.background, paddingTop: insets.top },
+        ]}
+      >
+        <Feather name="link" size={40} color={colors.mutedForeground} />
+        <Text style={[styles.connectPrompt, { color: colors.foreground }]}>
+          Connect your FPL account in Settings to use the Captain Picker.
+        </Text>
+      </View>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -176,11 +208,6 @@ export default function CaptainPickerScreen() {
   }
 
   if (hasError) {
-    const errorMsg =
-      hasError instanceof Error && hasError.message === "NO_MANAGER_ID"
-        ? "Connect your FPL account in Settings to use the Captain Picker."
-        : "Could not load squad data. Check your connection and try again.";
-
     return (
       <View
         style={[
@@ -189,7 +216,7 @@ export default function CaptainPickerScreen() {
         ]}
       >
         <Text style={[styles.errorText, { color: colors.destructive }]}>
-          {errorMsg}
+          Could not load squad data. Check your connection and try again.
         </Text>
       </View>
     );
@@ -362,6 +389,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
+    gap: 16,
+  },
+  connectPrompt: {
+    fontSize: 16,
+    fontFamily: "Inter_500Medium",
+    textAlign: "center",
+    lineHeight: 22,
   },
   scrollContent: {
     paddingHorizontal: 16,

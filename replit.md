@@ -122,7 +122,7 @@ SuperScout is a fantasy sports AI coach mobile app built with Expo (React Native
 ### Onboarding Flow
 - `artifacts/superscout/app/onboarding/` — 5-screen onboarding flow shown on first launch
   - WelcomeScreen → ConnectFPLScreen → ChoosePersonaScreen → WhatWeDoScreen → YoureInScreen
-  - FPL Manager ID entered during onboarding pre-populates the Squad screen (shared AsyncStorage key `superscout_manager_id`)
+  - FPL Manager ID saved to AsyncStorage (`superscout_manager_id`) + team name (`superscout_team_name`) + Supabase `users.fpl_manager_id`
   - Vibe choice saved to AsyncStorage key `superscout_persona` (internal key unchanged)
   - Completion stored in AsyncStorage key `superscout_onboarding_complete`
   - Root layout (`_layout.tsx`) checks onboarding status on launch and shows flow before main tabs if not completed
@@ -143,9 +143,19 @@ SuperScout is a fantasy sports AI coach mobile app built with Expo (React Native
 - Architecture: vibe prompts are sport-agnostic; banter sheet and rivalry map are in `fpl/` subfolder so F1 or other sports can add their own without touching prompts
 - Banter rules: only Critic and Fanboy use banter; Expert never does; suppressed after 3+ consecutive red arrows; rivalry matches protect user's team
 
+### Manager ID — Single Source of Truth
+- `hooks/useManagerId.ts` — shared hook that all screens use for manager ID access
+  - Reads from AsyncStorage (`superscout_manager_id`, `superscout_team_name`) on mount
+  - `setManager(id, name)` writes to AsyncStorage + Supabase `users.fpl_manager_id`
+  - `clearManager()` removes from both AsyncStorage and Supabase
+  - Used by: Settings, My Squad, Captain Picker, Transfer Advisor
+- No screen has its own Manager ID input — all read from this hook
+- If no manager ID is set, screens show "Connect your FPL account in Settings" with a link icon
+
 ### Settings Screen
-- `app/(tabs)/settings.tsx` — Settings tab with "Change your Vibe" option
-- Opens the same vibe picker used during onboarding (with `isSettings` prop)
+- `app/(tabs)/settings.tsx` — Settings tab with FPL Account + Vibe sections
+- **FPL Account**: Shows connected team name + manager ID with "Change" option, or "Connect your FPL Team" prompt. Opens the same ConnectFPLScreen from onboarding with a back button.
+- **Vibe**: Opens the same vibe picker used during onboarding (with `isSettings` prop)
 - User-facing terminology is "Vibe" everywhere; internal variable names and DB field (`default_persona`) remain unchanged
 - Saves vibe to AsyncStorage and Supabase `users.default_persona` when authenticated
 

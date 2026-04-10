@@ -8,14 +8,15 @@ import {
   StyleSheet,
   Platform,
 } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "expo-router";
 import { useColors } from "@/hooks/useColors";
+import { useManagerId } from "@/hooks/useManagerId";
 import TransferCard from "@/components/TransferCard";
 import type { TransferRecommendation } from "@/components/TransferCard";
 
-const MANAGER_ID_KEY = "superscout_manager_id";
 const PERSONA_KEY = "superscout_persona";
 
 function getApiBaseUrl(): string {
@@ -36,6 +37,7 @@ interface TransferAdviceResponse {
 export default function TransferAdvisorScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { managerId, loading: managerLoading, refresh: refreshManagerId } = useManagerId();
   const [recommendations, setRecommendations] = useState<TransferRecommendation[] | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
@@ -43,10 +45,10 @@ export default function TransferAdvisorScreen() {
   const [freeTransfers, setFreeTransfers] = useState<number>(0);
   const [budget, setBudget] = useState<number>(0);
   const [vibe, setVibe] = useState<"expert" | "critic" | "fanboy">("expert");
-  const [managerId, setManagerId] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
+      refreshManagerId();
       AsyncStorage.getItem(PERSONA_KEY).then((persona) => {
         if (persona === "expert" || persona === "critic" || persona === "fanboy") {
           setVibe((prev) => {
@@ -57,10 +59,6 @@ export default function TransferAdvisorScreen() {
             return persona;
           });
         }
-      }).catch(() => {});
-
-      AsyncStorage.getItem(MANAGER_ID_KEY).then((id) => {
-        setManagerId(id);
       }).catch(() => {});
     }, []),
   );
@@ -136,10 +134,19 @@ export default function TransferAdvisorScreen() {
     }
   };
 
+  if (managerLoading) {
+    return (
+      <View style={[styles.center, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+        <ActivityIndicator size="large" color={colors.accent} />
+      </View>
+    );
+  }
+
   if (!managerId) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-        <Text style={[styles.errorText, { color: colors.destructive }]}>
+        <Feather name="link" size={40} color={colors.mutedForeground} />
+        <Text style={[styles.connectPrompt, { color: colors.foreground }]}>
           Connect your FPL account in Settings to use the Transfer Advisor.
         </Text>
       </View>
@@ -254,6 +261,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
+    gap: 16,
+  },
+  connectPrompt: {
+    fontSize: 16,
+    fontFamily: "Inter_500Medium",
+    textAlign: "center",
+    lineHeight: 22,
   },
   scrollContent: {
     paddingHorizontal: 16,
