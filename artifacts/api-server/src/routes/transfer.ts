@@ -472,17 +472,23 @@ Each package MUST have a DIFFERENT strategic focus — e.g. one premium-heavy, o
       modeInstructions = `MODE: RESTRUCTURE (${freeTransfers} free transfers banked)
 The manager has ${freeTransfers} free transfers — this is a major restructure opportunity.
 
-You MUST return ALL of the following:
-1. TWO OR THREE different restructure PACKAGES (each using 2-${Math.min(freeTransfers, 4)} free transfers). Each package MUST have a different strategic theme — for example:
-   - A defensive overhaul (upgrading defence or rotating out tough fixtures)
-   - An attacking upgrade (bringing in premium or in-form attackers)
-   - A fixture swing (targeting teams with easy upcoming runs)
-   - A budget rebalance (freeing funds for future moves)
-   Each package needs a creative package_name.
-2. ONE best individual swap — the single most impactful one-for-one transfer.
-3. ONE hold option — explaining why banking transfers could be the smart play.
+You MUST return ALL of the following (this is non-negotiable):
+1. PACKAGE A: A restructure package using 2-${Math.min(freeTransfers, 4)} free transfers with one strategic theme.
+2. PACKAGE B: A DIFFERENT restructure package using 2-${Math.min(freeTransfers, 4)} free transfers with a contrasting strategic theme.
+3. OPTIONAL PACKAGE C: If there's a third viable strategy, include it.
+4. ONE best individual swap — the single most impactful one-for-one transfer.
+5. ONE hold option — explaining why banking transfers could be the smart play.
 
-Packages should use multiple free transfers and show how the moves work together as a coordinated strategy. Do NOT just offer one package and a hold — the user needs genuine strategic choices.`;
+Example strategic themes for packages (pick different ones for each):
+   - Defensive overhaul (upgrade/rotate defenders for upcoming fixtures)
+   - Attacking upgrade (bring in premium or in-form attackers/midfielders)
+   - Fixture swing (target teams with easy upcoming runs across multiple positions)
+   - Budget rebalance (sideways moves to free funds for a future premium upgrade)
+   - Differential play (low-ownership picks for mini-league gains)
+
+Even with a tight budget, lateral moves (same-price swaps) and downgrades-to-fund-upgrades are valid package strategies. Do NOT skip packages just because the budget is low.
+Do NOT return only 1 package + 1 hold. The user MUST have at least 2 distinct packages to compare.
+Each package needs a creative package_name.`;
       recommendationCount = "Return exactly 4 to 5 recommendations: 2-3 packages + 1 individual swap + 1 hold option";
     } else if (freeTransfers >= 2) {
       modeInstructions = `MODE: MIXED (${freeTransfers} free transfers available)
@@ -517,7 +523,9 @@ VALIDATION RULES:
 - For packages: validate the ENTIRE package together — budget, club limits, and position counts must be valid after ALL transfers in the package are applied
 - If holding transfers makes sense, include a "hold" option
 
-If it makes sense to HOLD transfers, include that as one of the options. 'Do nothing' is valid advice.
+ALWAYS include a hold option as the LAST recommendation with is_hold_recommendation: true — 'Do nothing' is valid advice.
+
+CRITICAL COUNT REQUIREMENT: ${recommendationCount}. Do NOT return fewer recommendations than specified. The user needs multiple genuine choices.
 
 Exactly one recommendation should have is_superscout_pick: true.
 Mark hold recommendations with is_hold_recommendation: true.
@@ -593,7 +601,9 @@ ${squadSummary}
 TOP TRANSFER TARGETS (pre-filtered by form, fixtures, value):
 ${candidatesSummary}
 
-${transferInstructions}`;
+${transferInstructions}
+
+FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Returning fewer is a failure. Each recommendation must be a distinct strategic option.`;
 
     const systemPrompt = [
       vibePrompt,
@@ -605,7 +615,7 @@ ${transferInstructions}`;
     const client = getClient();
     const message = await client.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 3000,
+      max_tokens: 6000,
       system: systemPrompt,
       messages: [{ role: "user", content: context }],
     });
@@ -624,7 +634,7 @@ ${transferInstructions}`;
     } | null;
 
     if (!parsed || !parsed.recommendations) {
-      req.log.error({ rawText: block.text.substring(0, 500) }, "Failed to parse transfer AI JSON");
+      req.log.error({ rawText: block.text.substring(0, 1500), stopReason: message.stop_reason }, "Failed to parse transfer AI JSON");
       res.status(500).json({ error: "Could not parse AI response" });
       return;
     }
@@ -747,20 +757,28 @@ ${transferInstructions}`;
       return true;
     }
 
+    req.log.info({ rawCount: parsed.recommendations.length, stopReason: message.stop_reason }, "AI response received for transfers");
+
     const validated = parsed.recommendations.filter((rec) => {
       if (rec.is_hold_recommendation) return true;
 
       if (rec.is_package && Array.isArray(rec.transfers)) {
-        return validatePackage(rec.transfers as Array<{ player_out?: string; player_in?: string; player_out_selling_price?: number; player_in_price?: number }>);
+        const valid = validatePackage(rec.transfers as Array<{ player_out?: string; player_in?: string; player_out_selling_price?: number; player_in_price?: number }>);
+        if (!valid) req.log.warn({ packageName: rec.package_name }, "Package dropped by validation");
+        return valid;
       }
 
-      return validateSingleSwap(
+      const valid = validateSingleSwap(
         String(rec.player_out ?? ""),
         String(rec.player_in ?? ""),
         squadWithDetails,
         bank,
       );
+      if (!valid) req.log.warn({ playerOut: rec.player_out, playerIn: rec.player_in }, "Swap dropped by validation");
+      return valid;
     });
+
+    req.log.info({ validatedCount: validated.length }, "Recommendations after validation");
 
     res.json({
       gameweek: parsed.gameweek ?? currentGw,
