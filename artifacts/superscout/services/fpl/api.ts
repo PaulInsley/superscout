@@ -281,7 +281,8 @@ export async function fetchCaptainCandidates(
 
     candidates.push({
       id: player.id,
-      name: `${player.first_name} ${player.second_name}`,
+      name: player.second_name,
+      firstName: player.first_name,
       team: team?.short_name ?? "UNK",
       teamId: player.team,
       position: POSITION_MAP[player.element_type] ?? "UNK",
@@ -295,6 +296,16 @@ export async function fetchCaptainCandidates(
       status: player.status,
       chanceOfPlaying: player.chance_of_playing_next_round,
     });
+  }
+
+  const surnameCounts = new Map<string, number>();
+  for (const c of candidates) {
+    surnameCounts.set(c.name, (surnameCounts.get(c.name) ?? 0) + 1);
+  }
+  for (const c of candidates) {
+    if ((surnameCounts.get(c.name) ?? 0) > 1 && c.firstName) {
+      c.name = `${c.firstName.charAt(0)}. ${c.name}`;
+    }
   }
 
   return { candidates, gameweek, deadlineTime, isMockData: false };
@@ -389,7 +400,7 @@ export async function fetchManagerData(
       return {
         id: pick.element,
         name: player
-          ? `${player.first_name} ${player.second_name}`
+          ? player.second_name
           : `Player ${pick.element}`,
         position: player
           ? (POSITION_MAP[player.element_type] ?? "UNK")
@@ -415,11 +426,11 @@ export async function fetchManagerData(
     return {
       event: t.event,
       playerIn: playerIn
-        ? `${playerIn.first_name} ${playerIn.second_name}`
+        ? playerIn.second_name
         : `Player ${t.element_in}`,
       playerInCost: t.element_in_cost / 10,
       playerOut: playerOut
-        ? `${playerOut.first_name} ${playerOut.second_name}`
+        ? playerOut.second_name
         : `Player ${t.element_out}`,
       playerOutCost: t.element_out_cost / 10,
       time: t.time,

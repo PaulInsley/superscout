@@ -202,6 +202,19 @@ router.post("/squad-card", async (req: Request, res: Response) => {
       };
     });
 
+    const webNameCounts = new Map<string, number>();
+    for (const p of squadPlayers) {
+      webNameCounts.set(p.webName, (webNameCounts.get(p.webName) ?? 0) + 1);
+    }
+    for (const p of squadPlayers) {
+      if ((webNameCounts.get(p.webName) ?? 0) > 1) {
+        const player = playerMap.get(p.id);
+        if (player?.first_name) {
+          p.webName = `${player.first_name.charAt(0)}. ${p.webName}`;
+        }
+      }
+    }
+
     const starters = squadPlayers.filter(p => !p.isBench);
     const bench = squadPlayers.filter(p => p.isBench).sort((a, b) => a.pickPosition - b.pickPosition);
     const formation = inferFormation(starters);
@@ -334,7 +347,7 @@ router.post("/squad-card/share", async (req: Request, res: Response) => {
       return;
     }
 
-    const dbPlatforms = ["twitter", "whatsapp", "imessage", "instagram", "clipboard"];
+    const dbPlatforms = ["twitter", "whatsapp", "imessage", "instagram", "clipboard", "other", "unknown"];
     const sharePlatform = dbPlatforms.includes(platform) ? platform : null;
 
     await supabase
