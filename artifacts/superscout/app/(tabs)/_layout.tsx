@@ -28,6 +28,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "arrow.left.arrow.right", selected: "arrow.left.arrow.right" }} />
         <Label>Transfers</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="card">
+        <Icon sf={{ default: "square.and.arrow.up", selected: "square.and.arrow.up.fill" }} />
+        <Label>Card</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="squad">
         <Icon sf={{ default: "sportscourt", selected: "sportscourt.fill" }} />
         <Label>My Squad</Label>
@@ -114,6 +118,19 @@ function ClassicTabLayout() {
               <SymbolView name="arrow.left.arrow.right" tintColor={color} size={24} />
             ) : (
               <Feather name="repeat" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="card"
+        options={{
+          title: "Card",
+          headerShown: false,
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="square.and.arrow.up" tintColor={color} size={24} />
+            ) : (
+              <Feather name="share" size={22} color={color} />
             ),
         }}
       />

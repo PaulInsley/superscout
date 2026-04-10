@@ -5,6 +5,7 @@ import captainRouter from "./captain";
 import transferRouter from "./transfer";
 import decisionLogRouter from "./decisionLog";
 import processDecisionsRouter from "./processDecisions";
+import squadCardRouter from "./squadCard";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(captainRouter);
 router.use(transferRouter);
 router.use(decisionLogRouter);
 router.use(processDecisionsRouter);
+router.use(squadCardRouter);
 
 export default router;
