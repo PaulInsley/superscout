@@ -125,6 +125,96 @@ router.get(
   }
 );
 
+router.get("/fpl/search", async (req: Request, res: Response) => {
+  const q = String(req.query.q ?? "").trim();
+  if (!q || q.length < 2) {
+    res.json({ results: [] });
+    return;
+  }
+
+  const numericId = Number(q);
+  if (!isNaN(numericId) && numericId > 0 && /^\d+$/.test(q)) {
+    try {
+      const entry = await fetchFromFpl<{
+        id: number;
+        name: string;
+        player_first_name: string;
+        player_last_name: string;
+        summary_overall_rank: number | null;
+        summary_overall_points: number | null;
+      }>(`/entry/${numericId}/`);
+
+      res.json({
+        results: [{
+          manager_id: entry.id,
+          team_name: entry.name,
+          manager_name: `${entry.player_first_name} ${entry.player_last_name}`,
+          rank: entry.summary_overall_rank ?? 0,
+          total_points: entry.summary_overall_points ?? 0,
+        }],
+      });
+      return;
+    } catch {
+      res.json({ results: [] });
+      return;
+    }
+  }
+
+  const leagueId = String(req.query.league ?? "").trim();
+  if (leagueId && /^\d+$/.test(leagueId)) {
+    try {
+      const pages = [1, 2];
+      const allResults: Array<{
+        manager_id: number;
+        team_name: string;
+        manager_name: string;
+        rank: number;
+        total_points: number;
+      }> = [];
+
+      for (const page of pages) {
+        const data = await fetchFromFpl<{
+          standings: {
+            has_next: boolean;
+            results: Array<{
+              entry: number;
+              entry_name: string;
+              player_name: string;
+              rank: number;
+              total: number;
+            }>;
+          };
+        }>(`/leagues-classic/${leagueId}/standings/?page_standings=${page}`);
+
+        const matched = (data.standings?.results ?? []).filter((r) => {
+          const lq = q.toLowerCase();
+          return r.entry_name.toLowerCase().includes(lq)
+            || r.player_name.toLowerCase().includes(lq);
+        });
+
+        for (const r of matched) {
+          allResults.push({
+            manager_id: r.entry,
+            team_name: r.entry_name,
+            manager_name: r.player_name,
+            rank: r.rank,
+            total_points: r.total,
+          });
+        }
+
+        if (!data.standings?.has_next || allResults.length >= 20) break;
+      }
+
+      res.json({ results: allResults.slice(0, 20) });
+      return;
+    } catch (error) {
+      req.log.error({ err: error, query: q, leagueId }, "FPL league search failed");
+    }
+  }
+
+  res.json({ results: [] });
+});
+
 router.get("/fpl/fixtures", (req: Request, res: Response) => {
   const key = cacheKey("fixtures");
   cachedFplRequest(req, res, "/fixtures/", key, TTL.STATIC);

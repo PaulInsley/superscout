@@ -116,8 +116,10 @@ export default function TransferAdvisorScreen() {
           options: data.recommendations.map((r, i) => ({
             option_rank: i + 1,
             player_id: null,
-            option_type: r.is_hold_recommendation ? "hold" : "transfer",
-            expected_points: r.expected_points_gain_3gw,
+            option_type: r.is_hold_recommendation ? "hold" : r.is_package ? "package" : "transfer",
+            expected_points: r.is_package
+              ? r.total_expected_points_gain_3gw ?? 0
+              : r.expected_points_gain_3gw ?? 0,
             confidence_score:
               r.confidence === "BANKER" ? 0.9
                 : r.confidence === "CALCULATED_RISK" ? 0.6

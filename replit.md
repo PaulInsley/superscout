@@ -100,11 +100,18 @@ SuperScout is a fantasy sports AI coach mobile app built with Expo (React Native
 - Pre-filters 500+ players to top 50 candidates by: form × fixture difficulty × points-per-million
 - Ensures minimum 5 players per position in candidate pool
 - Assembles context: squad with selling prices, free transfers, budget, chips remaining, filtered candidates
-- Server-side validation: budget check, club limit (R1.03), position count (R1.04), player availability
+- Server-side validation: budget check, club limit (R1.03), position count (R1.04), position match enforcement, player availability
 - AI returns 3-5 recommendations including optional "Hold your transfer" option
-- `artifacts/superscout/components/TransferCard.tsx` — Transfer-specific card with OUT→IN swap layout, net cost, hit/free indicator, 3GW impact
+- **Restructure Mode**: Prompt and response shape adapt based on free transfer count:
+  - 0-1 FT: Individual swaps only (original behaviour)
+  - 2-3 FT: Mixed mode — individual swaps AND multi-transfer packages (at least 1 package)
+  - 4-5 FT: Restructure — lead with packages of 2-4 coordinated transfers
+  - Wildcard/Free Hit active (current GW chip): Full squad overhaul packages (3-6 transfers each)
+- **Package format**: `is_package: true`, `package_name` (creative name), `transfers[]` array of individual swaps, `total_net_cost`, `total_hit_cost`, `uses_free_transfers`, `total_expected_points_gain_3gw`
+- **Package validation**: Validates entire package sequentially — simulates squad state after each swap, checks budget/club limits/position counts across all transfers combined
+- `artifacts/superscout/components/TransferCard.tsx` — Transfer-specific card with OUT→IN swap layout, net cost, hit/free indicator, 3GW impact. Package mode shows banner with package name, all swaps listed with dividers, combined impact stats
 - `artifacts/superscout/app/(tabs)/transfers.tsx` — Transfer Advisor tab with summary bar, card display, regenerate button
-- Decision Log writes with `decision_type: "transfer"` (matches DB CHECK constraint)
+- Decision Log writes with `decision_type: "transfer"` (matches DB CHECK constraint); package options logged with `option_type: "package"`
 - processDecisions extended: also checks actual FPL transfers after deadline and matches against recommendations
 
 ### API Proxy
@@ -120,6 +127,11 @@ SuperScout is a fantasy sports AI coach mobile app built with Expo (React Native
   - Completion stored in AsyncStorage key `superscout_onboarding_complete`
   - Root layout (`_layout.tsx`) checks onboarding status on launch and shows flow before main tabs if not completed
   - `fetchTeamName()` in `services/fpl/teamLookup.ts` — lightweight FPL API lookup for onboarding
+  - **Manager ID Search**: ConnectFPLScreen has two modes (toggle buttons):
+    - "Search" mode: type a Manager ID (numeric) for instant lookup via server proxy, or type a team name + optional mini-league ID to search within a league. 300ms debounce on input. Results show team name, manager name, rank, points. Tap to select fills manager ID automatically.
+    - "Enter ID" mode: original manual ID entry with Find button
+  - `searchTeams()` in `services/fpl/teamLookup.ts` — always routes through server proxy (`/api/fpl/search`) on both web and native
+  - Server endpoint: GET `/api/fpl/search?q=<query>&league=<leagueId>` — numeric queries do direct entry lookup; name queries filter within specified league standings
 
 ### Vibe System (AI Personality Engine)
 - `artifacts/api-server/src/lib/vibes.ts` — Server-side shared VIBE_PROMPTS used by both captain.ts and transfer.ts (single source of truth for AI persona prompts)

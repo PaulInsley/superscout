@@ -412,21 +412,73 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
 
     const rulesContext = getRulesContext(currentGw);
 
-    const transferInstructions = `You are generating transfer recommendations for this FPL manager. Analyse their squad, upcoming fixtures, budget, and available free transfers. Return 3 to 5 transfer options. Each option must specify: one player to sell (from their squad) and one player to buy (from the available pool), the net cost or profit of the trade, whether it uses a free transfer or costs a 4-point hit, the expected points impact over the next 3 gameweeks, a confidence level (one of: BANKER, CALCULATED_RISK, BOLD_PUNT), one sentence of upside, one sentence of risk, and a persona-voiced case.
+    const activeChip = historyData.chips.find((c) => c.event === currentGw);
+    const isWildcardActive = activeChip?.name === "wildcard";
+    const isFreeHitActive = activeChip?.name === "freehit";
+    const isChipMode = isWildcardActive || isFreeHitActive;
+
+    let modeInstructions: string;
+    let recommendationCount: string;
+
+    if (isChipMode) {
+      modeInstructions = `MODE: FULL SQUAD OVERHAUL (${isWildcardActive ? "Wildcard" : "Free Hit"} available)
+The manager has a ${isWildcardActive ? "Wildcard" : "Free Hit"} chip available. Recommend comprehensive squad restructure packages.
+Each recommendation should be a PACKAGE of 3-6 coordinated transfers that work together as a strategy.
+Every package needs a creative package_name (e.g. "The Premium Triple-Up", "Fixture Swing", "Template Reset").
+Show how the transfers combine for maximum impact. Budget constraint applies across ALL transfers in the package.`;
+      recommendationCount = "Return 3 to 4 restructure packages";
+    } else if (freeTransfers >= 4) {
+      modeInstructions = `MODE: RESTRUCTURE (${freeTransfers} free transfers banked)
+The manager has ${freeTransfers} free transfers — this is a restructure opportunity. LEAD with packages of 2-4 coordinated transfers.
+Each package needs a creative package_name (e.g. "The Fixture Swing", "Defence Overhaul", "Midfield Reset").
+You may also include 1-2 individual swap options, but packages should come first.
+Packages use multiple free transfers — show how the moves work together.`;
+      recommendationCount = "Return 3 to 5 recommendations (at least 2 must be packages)";
+    } else if (freeTransfers >= 2) {
+      modeInstructions = `MODE: MIXED (${freeTransfers} free transfers available)
+The manager has ${freeTransfers} free transfers. Include a MIX of individual swaps AND multi-transfer packages (2-3 transfers grouped together).
+Packages need a creative package_name (e.g. "The Double Switch", "Attack Refresh").
+Individual transfers do not need a package_name.
+At least one recommendation should be a package using 2+ free transfers.`;
+      recommendationCount = "Return 3 to 5 recommendations (at least 1 must be a package)";
+    } else {
+      modeInstructions = `MODE: INDIVIDUAL SWAPS (${freeTransfers} free transfer${freeTransfers === 1 ? "" : "s"})
+The manager has ${freeTransfers} free transfer${freeTransfers === 1 ? "" : "s"}. Recommend individual player swaps only.
+Each recommendation is a single player OUT / player IN swap.
+If the user has 0 free transfers, every suggestion costs a 4-point hit.`;
+      recommendationCount = "Return 3 to 5 transfer options";
+    }
+
+    const transferInstructions = `You are generating transfer recommendations for this FPL manager. Analyse their squad, upcoming fixtures, budget, and available free transfers.
+
+${modeInstructions}
+
+${recommendationCount}.
 
 VALIDATION RULES:
 - The buy player's price must not exceed the user's budget (£${bank.toFixed(1)}m) plus the sell player's selling price
 - The transfer must not result in 4+ players from the same club (R1.03)
 - Maintain position counts: 2 GK, 5 DEF, 5 MID, 3 FWD (R1.04)
-- If the user has 0 free transfers, every suggestion costs a 4-point hit
 - Do not recommend buying injured players (chance_of_playing = 0)
 - Factor in sell price formula: user keeps 50% of price rises, rounded down (R3.06)
-- If holding the transfer makes sense, include a "hold" option
+- For packages: validate the ENTIRE package together — budget, club limits, and position counts must be valid after ALL transfers in the package are applied
+- If holding transfers makes sense, include a "hold" option
 
-If it makes sense to HOLD the transfer, include that as one of the options. 'Do nothing' is valid advice.
+If it makes sense to HOLD transfers, include that as one of the options. 'Do nothing' is valid advice.
 
 Exactly one recommendation should have is_superscout_pick: true.
-Mark hold recommendations with is_hold_recommendation: true (player_out and player_in should be null for holds).
+Mark hold recommendations with is_hold_recommendation: true.
+
+For PACKAGE recommendations (multiple transfers grouped together):
+- Set is_package: true
+- Set package_name to a creative name for the package
+- Set transfers array with each individual swap in the package
+- Set combined fields: total_expected_points_gain_3gw, total_net_cost, total_hit_cost
+- The "case" field should explain why these transfers work TOGETHER
+
+For INDIVIDUAL recommendations (single swap):
+- Set is_package: false (or omit)
+- Use the flat fields: player_out, player_in, net_cost, etc.
 
 You MUST respond with valid JSON only — no markdown, no backticks, no preamble.
 
@@ -437,6 +489,7 @@ JSON structure:
   "budget_remaining": ${bank.toFixed(1)},
   "recommendations": [
     {
+      "is_package": false,
       "player_out": "Name or null",
       "player_out_team": "Team or null",
       "player_out_selling_price": 10.2,
@@ -452,6 +505,24 @@ JSON structure:
       "risk": "text",
       "case": "persona text",
       "is_superscout_pick": false,
+      "is_hold_recommendation": false
+    },
+    {
+      "is_package": true,
+      "package_name": "The Fixture Swing",
+      "transfers": [
+        { "player_out": "Name", "player_out_team": "Team", "player_out_selling_price": 5.0, "player_in": "Name", "player_in_team": "Team", "player_in_price": 5.5 },
+        { "player_out": "Name", "player_out_team": "Team", "player_out_selling_price": 7.0, "player_in": "Name", "player_in_team": "Team", "player_in_price": 6.5 }
+      ],
+      "total_net_cost": -1.0,
+      "total_hit_cost": 0,
+      "uses_free_transfers": 2,
+      "total_expected_points_gain_3gw": 8.0,
+      "confidence": "CALCULATED_RISK",
+      "upside": "text",
+      "risk": "text",
+      "case": "persona text explaining why these moves work TOGETHER",
+      "is_superscout_pick": true,
       "is_hold_recommendation": false
     }
   ]
@@ -505,13 +576,13 @@ ${transferInstructions}`;
       return;
     }
 
-    const validated = parsed.recommendations.filter((rec) => {
-      if (rec.is_hold_recommendation) return true;
-
-      const playerInName = String(rec.player_in ?? "");
-      const playerOutName = String(rec.player_out ?? "");
-
-      const playerOut = squadWithDetails.find(
+    function validateSingleSwap(
+      playerOutName: string,
+      playerInName: string,
+      currentSquad: typeof squadWithDetails,
+      availableBudget: number,
+    ): boolean {
+      const playerOut = currentSquad.find(
         (p) => p.name.toLowerCase() === playerOutName.toLowerCase()
       );
       if (!playerOut && playerOutName) {
@@ -534,14 +605,21 @@ ${transferInstructions}`;
       }
 
       if (playerOut && playerIn) {
+        const outPos = POSITION_MAP[bootstrap.elements.find((e) => e.id === playerOut.id)?.element_type ?? 0] ?? playerOut.position;
+        const inPos = POSITION_MAP[playerIn.element_type] ?? "UNK";
+        if (outPos !== inPos) {
+          req.log.warn({ playerOutName, outPos, playerInName, inPos }, "Transfer validation: position mismatch");
+          return false;
+        }
+
         const cost = (playerIn.now_cost / 10) - playerOut.sellingPrice;
-        if (cost > bank + 0.1) {
-          req.log.warn({ playerInName, cost, bank }, "Transfer validation: cannot afford");
+        if (cost > availableBudget + 0.1) {
+          req.log.warn({ playerInName, cost, availableBudget }, "Transfer validation: cannot afford");
           return false;
         }
 
         const playerInTeamId = playerIn.team;
-        const currentClubCount = squadWithDetails.filter(
+        const currentClubCount = currentSquad.filter(
           (p) => p.teamId === playerInTeamId && p.id !== playerOut.id
         ).length;
         if (currentClubCount >= 3) {
@@ -551,6 +629,84 @@ ${transferInstructions}`;
       }
 
       return true;
+    }
+
+    function validatePackage(
+      transfers: Array<{ player_out?: string; player_in?: string; player_out_selling_price?: number; player_in_price?: number }>,
+    ): boolean {
+      if (!transfers || transfers.length === 0) {
+        req.log.warn("Package validation: empty transfers array");
+        return false;
+      }
+
+      let runningBudget = bank;
+      const simSquad = [...squadWithDetails];
+
+      for (const swap of transfers) {
+        const outName = String(swap.player_out ?? "");
+        const inName = String(swap.player_in ?? "");
+
+        if (!validateSingleSwap(outName, inName, simSquad, runningBudget)) {
+          return false;
+        }
+
+        const playerOut = simSquad.find((p) => p.name.toLowerCase() === outName.toLowerCase());
+        const playerIn = bootstrap.elements.find(
+          (p) => `${p.first_name} ${p.second_name}`.toLowerCase() === inName.toLowerCase()
+            || p.web_name?.toLowerCase() === inName.toLowerCase()
+        );
+
+        if (playerOut && playerIn) {
+          runningBudget += playerOut.sellingPrice - (playerIn.now_cost / 10);
+          const idx = simSquad.findIndex((p) => p.id === playerOut.id);
+          if (idx >= 0) {
+            simSquad[idx] = {
+              ...simSquad[idx],
+              id: playerIn.id,
+              name: `${playerIn.first_name} ${playerIn.second_name}`,
+              teamId: playerIn.team,
+              position: POSITION_MAP[playerIn.element_type] ?? "UNK",
+              price: playerIn.now_cost / 10,
+              sellingPrice: playerIn.now_cost / 10,
+            };
+          }
+        }
+      }
+
+      const posCounts: Record<string, number> = {};
+      for (const p of simSquad) {
+        posCounts[p.position] = (posCounts[p.position] ?? 0) + 1;
+      }
+      const validCounts = (posCounts["GKP"] ?? 0) === 2
+        && (posCounts["DEF"] ?? 0) === 5
+        && (posCounts["MID"] ?? 0) === 5
+        && (posCounts["FWD"] ?? 0) === 3;
+      if (!validCounts) {
+        req.log.warn({ posCounts }, "Package validation: invalid position counts");
+        return false;
+      }
+
+      if (runningBudget < -0.1) {
+        req.log.warn({ runningBudget }, "Package validation: over budget");
+        return false;
+      }
+
+      return true;
+    }
+
+    const validated = parsed.recommendations.filter((rec) => {
+      if (rec.is_hold_recommendation) return true;
+
+      if (rec.is_package && Array.isArray(rec.transfers)) {
+        return validatePackage(rec.transfers as Array<{ player_out?: string; player_in?: string; player_out_selling_price?: number; player_in_price?: number }>);
+      }
+
+      return validateSingleSwap(
+        String(rec.player_out ?? ""),
+        String(rec.player_in ?? ""),
+        squadWithDetails,
+        bank,
+      );
     });
 
     res.json({

@@ -1,23 +1,39 @@
 import { View, Text, StyleSheet } from "react-native";
 import { useColors } from "@/hooks/useColors";
 
+export interface TransferSwap {
+  player_out: string;
+  player_out_team: string;
+  player_out_selling_price: number;
+  player_in: string;
+  player_in_team: string;
+  player_in_price: number;
+}
+
 export interface TransferRecommendation {
-  player_out: string | null;
-  player_out_team: string | null;
-  player_out_selling_price: number | null;
-  player_in: string | null;
-  player_in_team: string | null;
-  player_in_price: number | null;
-  net_cost: number | null;
-  uses_free_transfer: boolean;
-  hit_cost: number;
-  expected_points_gain_3gw: number;
+  player_out?: string | null;
+  player_out_team?: string | null;
+  player_out_selling_price?: number | null;
+  player_in?: string | null;
+  player_in_team?: string | null;
+  player_in_price?: number | null;
+  net_cost?: number | null;
+  uses_free_transfer?: boolean;
+  hit_cost?: number;
+  expected_points_gain_3gw?: number;
   confidence: "BANKER" | "CALCULATED_RISK" | "BOLD_PUNT";
   upside: string;
   risk: string;
   case: string;
   is_superscout_pick: boolean;
   is_hold_recommendation?: boolean;
+  is_package?: boolean;
+  package_name?: string;
+  transfers?: TransferSwap[];
+  total_net_cost?: number;
+  total_hit_cost?: number;
+  uses_free_transfers?: number;
+  total_expected_points_gain_3gw?: number;
 }
 
 const CONFIDENCE_CONFIG: Record<string, { label: string; color: string }> = {
@@ -25,6 +41,42 @@ const CONFIDENCE_CONFIG: Record<string, { label: string; color: string }> = {
   CALCULATED_RISK: { label: "Calculated Risk", color: "#f59e0b" },
   BOLD_PUNT: { label: "Bold Punt", color: "#f97316" },
 };
+
+function SingleSwapRow({ playerOut, playerOutTeam, playerOutPrice, playerIn, playerInTeam, playerInPrice, colors }: {
+  playerOut: string;
+  playerOutTeam: string;
+  playerOutPrice: number | null;
+  playerIn: string;
+  playerInTeam: string;
+  playerInPrice: number | null;
+  colors: ReturnType<typeof useColors>;
+}) {
+  return (
+    <View style={styles.swapRow}>
+      <View style={styles.playerBlock}>
+        <Text style={[styles.outLabel, { color: "#ef4444" }]}>OUT</Text>
+        <Text style={[styles.playerName, { color: colors.foreground }]} numberOfLines={1}>
+          {playerOut}
+        </Text>
+        <Text style={[styles.teamLine, { color: colors.mutedForeground }]}>
+          {playerOutTeam}
+          {playerOutPrice != null ? ` · £${playerOutPrice.toFixed(1)}m` : ""}
+        </Text>
+      </View>
+      <Text style={[styles.arrow, { color: colors.accent }]}>→</Text>
+      <View style={styles.playerBlock}>
+        <Text style={[styles.inLabel, { color: "#22c55e" }]}>IN</Text>
+        <Text style={[styles.playerName, { color: colors.foreground }]} numberOfLines={1}>
+          {playerIn}
+        </Text>
+        <Text style={[styles.teamLine, { color: colors.mutedForeground }]}>
+          {playerInTeam}
+          {playerInPrice != null ? ` · £${playerInPrice.toFixed(1)}m` : ""}
+        </Text>
+      </View>
+    </View>
+  );
+}
 
 export default function TransferCard({ recommendation }: { recommendation: TransferRecommendation }) {
   const colors = useColors();
@@ -34,6 +86,19 @@ export default function TransferCard({ recommendation }: { recommendation: Trans
   };
   const isSuperScoutPick = recommendation.is_superscout_pick;
   const isHold = recommendation.is_hold_recommendation;
+  const isPackage = recommendation.is_package && Array.isArray(recommendation.transfers) && recommendation.transfers.length > 0;
+
+  const pointsImpact = isPackage
+    ? recommendation.total_expected_points_gain_3gw ?? 0
+    : recommendation.expected_points_gain_3gw ?? 0;
+
+  const netCost = isPackage
+    ? recommendation.total_net_cost ?? 0
+    : recommendation.net_cost ?? 0;
+
+  const hitCost = isPackage
+    ? recommendation.total_hit_cost ?? 0
+    : recommendation.hit_cost ?? 0;
 
   return (
     <View
@@ -61,43 +126,55 @@ export default function TransferCard({ recommendation }: { recommendation: Trans
           </View>
           <View style={{ flex: 1, marginLeft: 12 }}>
             <Text style={[styles.playerName, { color: colors.foreground }]}>
-              Hold Your Transfer
+              Hold Your Transfer{(recommendation.uses_free_transfers ?? 0) > 1 ? "s" : ""}
             </Text>
             <Text style={[styles.teamLine, { color: colors.mutedForeground }]}>
-              Save it for next week
+              Save {(recommendation.uses_free_transfers ?? 1) > 1 ? "them" : "it"} for next week
             </Text>
+          </View>
+        </View>
+      ) : isPackage ? (
+        <View style={styles.packageHeader}>
+          <View style={[styles.packageBanner, { backgroundColor: colors.accent + "15" }]}>
+            <Text style={[styles.packageIcon]}>📦</Text>
+            <Text style={[styles.packageName, { color: colors.accent }]}>
+              {recommendation.package_name ?? "Transfer Package"}
+            </Text>
+            {recommendation.uses_free_transfers != null && (
+              <Text style={[styles.packageFtCount, { color: colors.mutedForeground }]}>
+                {recommendation.uses_free_transfers} FT
+              </Text>
+            )}
+          </View>
+          <View style={styles.packageSwaps}>
+            {recommendation.transfers!.map((swap, i) => (
+              <View key={`${swap.player_out}-${swap.player_in}-${i}`}>
+                {i > 0 && <View style={[styles.swapDivider, { backgroundColor: colors.border }]} />}
+                <SingleSwapRow
+                  playerOut={swap.player_out}
+                  playerOutTeam={swap.player_out_team}
+                  playerOutPrice={swap.player_out_selling_price}
+                  playerIn={swap.player_in}
+                  playerInTeam={swap.player_in_team}
+                  playerInPrice={swap.player_in_price}
+                  colors={colors}
+                />
+              </View>
+            ))}
           </View>
         </View>
       ) : (
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
-            <View style={styles.swapRow}>
-              <View style={styles.playerBlock}>
-                <Text style={[styles.outLabel, { color: "#ef4444" }]}>OUT</Text>
-                <Text style={[styles.playerName, { color: colors.foreground }]} numberOfLines={1}>
-                  {recommendation.player_out}
-                </Text>
-                <Text style={[styles.teamLine, { color: colors.mutedForeground }]}>
-                  {recommendation.player_out_team}
-                  {recommendation.player_out_selling_price != null
-                    ? ` · £${recommendation.player_out_selling_price.toFixed(1)}m`
-                    : ""}
-                </Text>
-              </View>
-              <Text style={[styles.arrow, { color: colors.accent }]}>→</Text>
-              <View style={styles.playerBlock}>
-                <Text style={[styles.inLabel, { color: "#22c55e" }]}>IN</Text>
-                <Text style={[styles.playerName, { color: colors.foreground }]} numberOfLines={1}>
-                  {recommendation.player_in}
-                </Text>
-                <Text style={[styles.teamLine, { color: colors.mutedForeground }]}>
-                  {recommendation.player_in_team}
-                  {recommendation.player_in_price != null
-                    ? ` · £${recommendation.player_in_price.toFixed(1)}m`
-                    : ""}
-                </Text>
-              </View>
-            </View>
+            <SingleSwapRow
+              playerOut={recommendation.player_out ?? ""}
+              playerOutTeam={recommendation.player_out_team ?? ""}
+              playerOutPrice={recommendation.player_out_selling_price ?? null}
+              playerIn={recommendation.player_in ?? ""}
+              playerInTeam={recommendation.player_in_team ?? ""}
+              playerInPrice={recommendation.player_in_price ?? null}
+              colors={colors}
+            />
           </View>
         </View>
       )}
@@ -116,26 +193,29 @@ export default function TransferCard({ recommendation }: { recommendation: Trans
 
         {!isHold && (
           <>
-            {recommendation.net_cost != null && (
+            {netCost !== 0 && (
               <Text style={[styles.costText, { color: colors.mutedForeground }]}>
-                {recommendation.net_cost > 0
-                  ? `Costs £${recommendation.net_cost.toFixed(1)}m`
-                  : recommendation.net_cost < 0
-                    ? `Saves £${Math.abs(recommendation.net_cost).toFixed(1)}m`
-                    : "Free swap"}
+                {netCost > 0
+                  ? `Costs £${netCost.toFixed(1)}m`
+                  : `Saves £${Math.abs(netCost).toFixed(1)}m`}
+              </Text>
+            )}
+            {netCost === 0 && !isPackage && (
+              <Text style={[styles.costText, { color: colors.mutedForeground }]}>
+                Free swap
               </Text>
             )}
 
-            {recommendation.hit_cost > 0 ? (
+            {hitCost > 0 ? (
               <View style={[styles.hitBadge, { backgroundColor: "#ef444420" }]}>
                 <Text style={[styles.hitText, { color: "#ef4444" }]}>
-                  -{recommendation.hit_cost}pt hit
+                  -{hitCost}pt hit
                 </Text>
               </View>
             ) : (
               <View style={[styles.freeBadge, { backgroundColor: "#22c55e20" }]}>
                 <Text style={[styles.freeText, { color: "#22c55e" }]}>
-                  Free transfer
+                  {isPackage ? `${recommendation.uses_free_transfers ?? 0} free transfers` : "Free transfer"}
                 </Text>
               </View>
             )}
@@ -146,11 +226,11 @@ export default function TransferCard({ recommendation }: { recommendation: Trans
       {!isHold && (
         <View style={[styles.impactRow, { backgroundColor: colors.primary + "10" }]}>
           <Text style={[styles.impactLabel, { color: colors.mutedForeground }]}>
-            Expected 3GW impact
+            {isPackage ? "Combined 3GW impact" : "Expected 3GW impact"}
           </Text>
-          <Text style={[styles.impactValue, { color: recommendation.expected_points_gain_3gw >= 0 ? "#22c55e" : "#ef4444" }]}>
-            {recommendation.expected_points_gain_3gw >= 0 ? "+" : ""}
-            {recommendation.expected_points_gain_3gw.toFixed(1)} pts
+          <Text style={[styles.impactValue, { color: pointsImpact >= 0 ? "#22c55e" : "#ef4444" }]}>
+            {pointsImpact >= 0 ? "+" : ""}
+            {pointsImpact.toFixed(1)} pts
           </Text>
         </View>
       )}
@@ -214,6 +294,37 @@ const styles = StyleSheet.create({
   },
   holdEmoji: {
     fontSize: 20,
+  },
+  packageHeader: {
+    marginBottom: 10,
+  },
+  packageBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  packageIcon: {
+    fontSize: 16,
+  },
+  packageName: {
+    fontSize: 15,
+    fontWeight: "700",
+    flex: 1,
+  },
+  packageFtCount: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  packageSwaps: {
+    gap: 0,
+  },
+  swapDivider: {
+    height: 1,
+    marginVertical: 8,
   },
   swapRow: {
     flexDirection: "row",
