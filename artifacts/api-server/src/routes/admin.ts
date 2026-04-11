@@ -386,10 +386,6 @@ function dashboardPage(): string {
       grid.innerHTML = tables.map(t => {
         return '<div class="table-card" id="card-' + t.name + '" data-table="' + t.name + '"><div class="name">' + t.name + '</div><div class="count ' + (t.count === 0 ? 'zero' : '') + '">' + (t.count >= 0 ? t.count : 'err') + '</div></div>';
       }).join('');
-
-      document.querySelectorAll('.table-card').forEach(function(card) {
-        card.addEventListener('click', function() { loadTable(card.dataset.table); });
-      });
     }
 
     // Load table data
@@ -481,7 +477,13 @@ function dashboardPage(): string {
 
     // Init
     loadTables();
-    document.getElementById('runBtn').addEventListener('click', runQuery);
+
+    document.getElementById('tableGrid').addEventListener('click', function(e) {
+      var card = e.target.closest('.table-card');
+      if (card && card.dataset.table) loadTable(card.dataset.table);
+    });
+
+    document.getElementById('runBtn').addEventListener('click', function() { runQuery(); });
     document.getElementById('refreshBtn').addEventListener('click', function() { if (currentTable) loadTable(currentTable); });
   </script>
 </body>
