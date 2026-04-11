@@ -1,0 +1,99 @@
+REPLIT AGENT PROMPT — SuperScout Host Privacy Policy and Terms of Service
+
+CONTEXT: SuperScout has finalised privacy policy and terms of service documents. The app already links to superscout.pro/privacy and superscout.pro/terms from the Settings screen, Paywall, onboarding consent checkbox, and landing page footer. These URLs currently don’t resolve to anything. We need to serve the actual content at those URLs.
+
+TASK: Add two new static pages served by the existing landing page server.
+
+1. In the server/serve.js file (or wherever the Express server handles the landing page), add two new routes:
+   
+   GET /privacy — serves the privacy policy page
+   GET /terms — serves the terms of service page
+1. Create two new HTML files in server/templates/:
+   
+   server/templates/privacy.html
+   server/templates/terms.html
+1. Both pages should:
+- Use the same dark theme as the app (#0D0D1A background, white text)
+- Have the SuperScout logo/name at the top
+- Display the content in clean, readable HTML with proper headings and paragraphs
+- Include a “Back to SuperScout” link at the bottom
+- Be mobile-responsive (most users will open these from the app on their phone)
+- Include a footer with: “SuperScout · Paul Insley, Sole Trader · England, United Kingdom”
+1. PRIVACY POLICY CONTENT — use this exact text:
+
+SuperScout Privacy Policy
+Version 1.0
+
+1. Who We Are
+   Data Controller: Paul Insley, trading as SuperScout, a sole trader registered in England, United Kingdom.
+   Email: privacy@superscout.pro
+1. Data We Collect
+   We collect: email address, display name, FPL Manager ID, preferences, notification settings, device type, OS version, app version, and subscription status. Usage data (screen views, feature interactions, session duration) is collected only with your consent. We do not collect special category data, FPL login credentials, real names, location/GPS data, contacts, health data, or photos.
+1. How We Use Data and Our Lawful Basis
+   Providing the service and managing your account: Contract (Art. 6(1)(b)).
+   Personalised AI recommendations, analysis, and commentary: Legitimate interests (Art. 6(1)(f)).
+   Push notifications: Consent (Art. 6(1)(a)) — withdraw any time via app settings.
+   Analytics and product improvement: Consent (Art. 6(1)(a)) — opt-in only.
+   Financial record-keeping: Legal obligation (Art. 6(1)(c)) — HMRC requirements.
+   Preventing misuse and ensuring security: Legitimate interests (Art. 6(1)(f)).
+1. Automated Decision-Making and Profiling
+   SuperScout uses AI (including large language models by Anthropic) to generate personalised recommendations based on your FPL data and preferences. This constitutes automated profiling. All recommendations are advisory — you retain full control over your decisions. You have the right to request human review of any automated output by contacting privacy@superscout.pro.
+1. Who We Share Data With
+   Supabase (database, London UK), Anthropic (AI analysis), RevenueCat (subscriptions), Apple/Google (app distribution and payments), Beehiiv (email newsletters), Expo (push notifications). We do not sell your data or share it for third-party marketing.
+1. International Transfers
+   Some processors are based outside the UK. All transfers are protected by UK International Data Transfer Agreements (IDTA) or the UK Extension to the EU-US Data Privacy Framework.
+1. How Long We Keep Your Data
+   Account data: until deletion + 30 days. FPL data and recommendation history: current season + 2 previous. Analytics data: rolling 12 months, then anonymised. Financial records: up to 6 years (HMRC). Push tokens: until you uninstall or revoke consent.
+1. Your Rights
+   You have the right to: access, rectify, erase, restrict processing, data portability, object to processing, withdraw consent, and rights related to automated decision-making. We respond within one calendar month. Contact: privacy@superscout.pro.
+1. Children’s Privacy
+   Not intended for children under 13. Users aged 13-17 may use SuperScout with parental permission. We are mindful of the ICO Age Appropriate Design Code.
+1. Data Breach Notification
+   We will notify the ICO within 72 hours of becoming aware of a breach that poses a risk to your rights. We will inform you without undue delay where the breach is likely to result in high risk.
+1. Security
+   We use encryption in transit (TLS) and at rest, secure access-controlled infrastructure, and regular security review. No method is 100% secure.
+1. Changes
+   We may update this policy. Significant changes: 30 days notice via app or email.
+1. Contact
+   privacy@superscout.pro
+1. TERMS OF SERVICE CONTENT — use this exact text:
+
+SuperScout Terms of Service
+Version 1.0
+
+1. Who We Are
+   SuperScout is operated by Paul Insley, trading as SuperScout, a sole trader registered in England, United Kingdom.
+   Email: hello@superscout.pro
+1. About SuperScout
+   SuperScout is an AI-powered fantasy sports companion providing personalised recommendations, analysis, and commentary. It does not make decisions for you, access your FPL login credentials, or provide financial or gambling advice. Requires iOS 16.0+, Android 10+, an internet connection, and an FPL account.
+1. Acceptance
+   By creating an account or using SuperScout, you agree to these Terms and our Privacy Policy.
+1. Accounts
+   You must be at least 13. Ages 13-17 require parental permission. You are responsible for account security.
+1. Your Statutory Rights
+   Under the Consumer Rights Act 2015, digital content must be of satisfactory quality, fit for purpose, and as described. Nothing in these terms limits your statutory rights. Visit citizensadvice.org.uk for more information.
+1. Subscriptions and Payments
+   Paid features are through Apple App Store and Google Play. Subscriptions renew automatically unless cancelled via the platform. We do not process payments directly. Under the Consumer Contracts Regulations 2013, you have a 14-day cooling-off period, though by beginning to use digital content you acknowledge loss of this right with your express consent.
+1. AI Disclaimer
+   AI-generated content may contain errors and should not be relied upon as the sole basis for decisions. You are responsible for all fantasy football decisions.
+1. Service Availability
+   We aim for continuous availability but do not guarantee it. Features may change with reasonable notice.
+1. Acceptable Use
+   Do not: use the service unlawfully, access other accounts, reverse engineer the app, use automated scraping tools, interfere with the service, or develop competing products.
+1. Intellectual Property
+   All IP belongs to Paul Insley trading as SuperScout. Shared Squad Cards grant us a non-exclusive licence for marketing, lasting while shared plus 12 months. Request removal at hello@superscout.pro.
+1. Limitation of Liability
+   We exclude nothing the law requires us to include (negligence causing death/injury, fraud, Consumer Rights Act 2015 rights). Otherwise, liability is capped at the greater of £50 or fees paid in the last 12 months. We are not liable for fantasy outcomes, AI recommendation results, or indirect losses.
+1. Termination
+   You may stop using SuperScout any time. We may suspend accounts for material breaches with 14 days notice where practicable. You have 30 days after termination to export your data.
+1. Dispute Resolution
+   Contact hello@superscout.pro first. We will consider alternative dispute resolution on a case-by-case basis. Citizens Advice: citizensadvice.org.uk.
+1. Changes
+   Material changes: at least 30 days notice via app or email. Continued use after changes constitutes acceptance.
+1. Governing Law
+   Laws of England and Wales. Your statutory consumer rights are not affected.
+1. Contact
+   General: hello@superscout.pro
+   Privacy: privacy@superscout.pro
+
+GIT SAFETY: Do not run git reset –hard, orphan commits, or force pushes rewriting history without stopping and explaining the consequences first.
