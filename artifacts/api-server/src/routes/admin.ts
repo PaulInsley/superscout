@@ -29,6 +29,39 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'superscout-admin-2026';
 const COOKIE_NAME = 'ss_admin_auth';
 const COOKIE_VALUE = Buffer.from(ADMIN_PASSWORD).toString('base64');
 
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MS = 15 * 60 * 1000;
+const loginAttempts = new Map<string, { count: number; lockedUntil: number }>();
+
+function getClientIp(req: Request): string {
+  return (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown';
+}
+
+function isLockedOut(ip: string): { locked: boolean; remainingMs: number } {
+  const record = loginAttempts.get(ip);
+  if (!record) return { locked: false, remainingMs: 0 };
+  if (record.lockedUntil > Date.now()) {
+    return { locked: true, remainingMs: record.lockedUntil - Date.now() };
+  }
+  if (record.lockedUntil > 0 && record.lockedUntil <= Date.now()) {
+    loginAttempts.delete(ip);
+  }
+  return { locked: false, remainingMs: 0 };
+}
+
+function recordFailedAttempt(ip: string): void {
+  const record = loginAttempts.get(ip) || { count: 0, lockedUntil: 0 };
+  record.count += 1;
+  if (record.count >= MAX_ATTEMPTS) {
+    record.lockedUntil = Date.now() + LOCKOUT_MS;
+  }
+  loginAttempts.set(ip, record);
+}
+
+function clearAttempts(ip: string): void {
+  loginAttempts.delete(ip);
+}
+
 function isAuthenticated(req: Request): boolean {
   return req.cookies?.[COOKIE_NAME] === COOKIE_VALUE;
 }
@@ -54,17 +87,33 @@ router.get('/login', (_req: Request, res: Response) => {
 });
 
 router.post('/api/login', (req: Request, res: Response) => {
+  const ip = getClientIp(req);
+  const lockout = isLockedOut(ip);
+  if (lockout.locked) {
+    const mins = Math.ceil(lockout.remainingMs / 60000);
+    res.status(429).json({ error: 'Too many attempts. Try again in ' + mins + ' minute' + (mins === 1 ? '' : 's') + '.' });
+    return;
+  }
+
   const { password } = req.body || {};
   if (password === ADMIN_PASSWORD) {
+    clearAttempts(ip);
     res.cookie(COOKIE_NAME, COOKIE_VALUE, {
       httpOnly: true,
       secure: true,
       sameSite: 'lax',
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      maxAge: 24 * 60 * 60 * 1000,
     });
     res.json({ success: true });
   } else {
-    res.status(401).json({ error: 'Invalid password' });
+    recordFailedAttempt(ip);
+    const record = loginAttempts.get(ip);
+    const remaining = MAX_ATTEMPTS - (record?.count || 0);
+    if (remaining <= 0) {
+      res.status(429).json({ error: 'Too many attempts. Locked out for 15 minutes.' });
+    } else {
+      res.status(401).json({ error: 'Invalid password. ' + remaining + ' attempt' + (remaining === 1 ? '' : 's') + ' remaining.' });
+    }
   }
 });
 
@@ -215,7 +264,7 @@ function loginPage(): string {
         body: JSON.stringify({ password })
       });
       if (resp.ok) { window.location.href = '/api/admin'; }
-      else { document.getElementById('error').style.display = 'block'; }
+      else { const data = await resp.json(); document.getElementById('error').textContent = data.error || 'Invalid password'; document.getElementById('error').style.display = 'block'; }
     }
   </script>
 </body>
