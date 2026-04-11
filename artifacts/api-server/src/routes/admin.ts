@@ -366,7 +366,7 @@ function dashboardPage(): string {
     <div class="query-section">
       <h3>Custom Query</h3>
       <div class="query-box">
-        <textarea id="queryInput" placeholder='{"table":"recommendations","select":"id,decision_type,gameweek","limit":10}'></textarea>
+        <textarea id="queryInput">{"table":"recommendations","select":"id,decision_type,gameweek","limit":10}</textarea>
         <button onclick="runQuery()">Run</button>
       </div>
     </div>
