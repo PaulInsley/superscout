@@ -9,6 +9,7 @@ import {
   checkCaptainHallucinations,
   checkTransferHallucinations,
 } from "../services/validation/hallucination-check";
+import { analyseGameweek } from "../lib/gameweekAnalysis";
 
 const router = Router();
 
@@ -263,9 +264,13 @@ Rules:
 
   const vibePrompt = VIBE_PROMPTS[vibe];
   const rulesContext = getRulesContext(gameweek);
+
+  const gwAnalysis = analyseGameweek(gameweek, fixtures, bootstrap.teams);
+
   const systemPrompt = [
     vibePrompt,
     rulesContext,
+    gwAnalysis.promptContext,
     `IMPORTANT: You MUST respond with valid JSON only. No markdown, no backticks, no preamble. Follow the EXACT JSON structure specified in the user message.`,
     `CRITICAL PERSONA REQUIREMENT: You MUST write the "case" field in your assigned persona voice. The Expert is calm and analytical — no emojis, no exclamation marks, references data. The Critic is sharp and sarcastic — dry wit, rhetorical questions, no emojis. The Fanboy uses CAPITALS for emphasis, slang like BRO and DUDE, 1-2 emojis (🔥🚀🚨), and extreme hype.`,
   ].filter(Boolean).join("\n\n");
@@ -289,6 +294,12 @@ Rules:
     const halCtx = { players: bootstrap.elements, teams: bootstrap.teams, fixtures, gameweek };
     const { filtered } = checkCaptainHallucinations(recs, halCtx);
     parsed.recommendations = filtered;
+  }
+
+  if (gwAnalysis.type !== "normal") {
+    (parsed as any).gw_type = gwAnalysis.type;
+    (parsed as any).blank_teams = gwAnalysis.blankTeams.map((t) => t.short_name);
+    (parsed as any).double_teams = gwAnalysis.doubleTeams.map((t) => t.short_name);
   }
 
   return parsed;
@@ -557,9 +568,13 @@ ${candidatesSummary}
 ${transferInstructions}`;
 
   const vibePrompt = VIBE_PROMPTS[vibe];
+
+  const gwAnalysis = analyseGameweek(gameweek, fixtures, bootstrap.teams);
+
   const systemPrompt = [
     vibePrompt,
     rulesContext,
+    gwAnalysis.promptContext,
     `IMPORTANT: You MUST respond with valid JSON only. No markdown, no backticks, no preamble.`,
     `CRITICAL PERSONA REQUIREMENT: Write the "case" field in your assigned persona voice.`,
   ].filter(Boolean).join("\n\n");
@@ -583,6 +598,12 @@ ${transferInstructions}`;
     const halCtx = { players: bootstrap.elements, teams: bootstrap.teams, fixtures, gameweek };
     const { filtered } = checkTransferHallucinations(recs, halCtx);
     parsed.recommendations = filtered;
+  }
+
+  if (gwAnalysis.type !== "normal") {
+    (parsed as any).gw_type = gwAnalysis.type;
+    (parsed as any).blank_teams = gwAnalysis.blankTeams.map((t) => t.short_name);
+    (parsed as any).double_teams = gwAnalysis.doubleTeams.map((t) => t.short_name);
   }
 
   return parsed;

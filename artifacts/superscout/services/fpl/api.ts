@@ -222,20 +222,48 @@ export function getActiveGameweek(data: FPLBootstrapResponse): {
   return { gameweek: 1, deadlineTime: "", isActive: false };
 }
 
-export async function fetchCaptainCandidates(
-  managerId: number,
-): Promise<{
+export interface CaptainCandidateResult {
   candidates: CaptainCandidate[];
   gameweek: number;
   deadlineTime: string;
   noSquadData?: boolean;
-}> {
+  deadlinePassed?: boolean;
+  seasonNotStarted?: boolean;
+  activeChip?: string | null;
+  gwType?: "normal" | "bgw" | "dgw" | "bgw_dgw";
+  blankTeams?: string[];
+  doubleTeams?: string[];
+  doubleTeamIds?: number[];
+  currentCaptain?: string | null;
+}
+
+export async function fetchCaptainCandidates(
+  managerId: number,
+): Promise<CaptainCandidateResult> {
   const bootstrapData = await getBootstrapData();
+  const currentEvent = bootstrapData.events.find((e) => e.is_current);
+  const nextEvent = bootstrapData.events.find((e) => e.is_next);
+  const anyFinished = bootstrapData.events.some((e) => e.finished);
+
+  if (!currentEvent && !nextEvent && !anyFinished) {
+    const gw1 = bootstrapData.events.find((e) => e.id === 1);
+    return {
+      candidates: [],
+      gameweek: 1,
+      deadlineTime: gw1?.deadline_time ?? "",
+      seasonNotStarted: true,
+    };
+  }
+
   const { gameweek, deadlineTime, isActive } = getActiveGameweek(bootstrapData);
 
   if (!isActive) {
     return { candidates: [], gameweek, deadlineTime, noSquadData: true };
   }
+
+  const isDeadlinePassed = currentEvent && !currentEvent.finished && new Date(currentEvent.deadline_time) < new Date();
+  const targetGw = isDeadlinePassed && nextEvent ? nextEvent.id : gameweek;
+  const targetDeadline = isDeadlinePassed && nextEvent ? nextEvent.deadline_time : deadlineTime;
 
   const playerMap = buildPlayerMap(bootstrapData.elements);
   const teamMap = new Map(bootstrapData.teams.map((t) => [t.id, t]));
@@ -244,19 +272,53 @@ export async function fetchCaptainCandidates(
   try {
     fixtures = await fetchFixtures();
   } catch {
-    return { candidates: [], gameweek, deadlineTime, noSquadData: true };
+    return { candidates: [], gameweek: targetGw, deadlineTime: targetDeadline, noSquadData: true };
   }
 
-  const gwFixtures = fixtures.filter((f) => f.event === gameweek);
+  const gwFixtures = fixtures.filter((f) => f.event === targetGw);
+
+  const teamFixtureCount = new Map<number, number>();
+  for (const f of gwFixtures) {
+    teamFixtureCount.set(f.team_h, (teamFixtureCount.get(f.team_h) ?? 0) + 1);
+    teamFixtureCount.set(f.team_a, (teamFixtureCount.get(f.team_a) ?? 0) + 1);
+  }
+
+  const blankTeamIds = new Set<number>();
+  const doubleTeamIds = new Set<number>();
+  for (const team of bootstrapData.teams) {
+    const count = teamFixtureCount.get(team.id) ?? 0;
+    if (count === 0) blankTeamIds.add(team.id);
+    if (count >= 2) doubleTeamIds.add(team.id);
+  }
+
+  const blankTeams = bootstrapData.teams.filter((t) => blankTeamIds.has(t.id)).map((t) => t.short_name);
+  const doubleTeams = bootstrapData.teams.filter((t) => doubleTeamIds.has(t.id)).map((t) => t.short_name);
+  const hasBlanks = blankTeams.length > 0;
+  const hasDoubles = doubleTeams.length > 0;
+  let gwType: "normal" | "bgw" | "dgw" | "bgw_dgw" = "normal";
+  if (hasBlanks && hasDoubles) gwType = "bgw_dgw";
+  else if (hasBlanks) gwType = "bgw";
+  else if (hasDoubles) gwType = "dgw";
 
   const picksResult = await tryFetchPicks(managerId, [gameweek, gameweek - 1]);
   if (!picksResult) {
     return {
       candidates: [],
-      gameweek,
-      deadlineTime,
+      gameweek: targetGw,
+      deadlineTime: targetDeadline,
       noSquadData: true,
     };
+  }
+
+  const activeChip = picksResult.picks.active_chip ?? null;
+
+  let currentCaptain: string | null = null;
+  if (isDeadlinePassed) {
+    const captainPick = picksResult.picks.picks.find((p) => p.is_captain);
+    if (captainPick) {
+      const player = playerMap.get(captainPick.element);
+      if (player) currentCaptain = player.second_name;
+    }
   }
 
   const candidates: CaptainCandidate[] = [];
@@ -266,12 +328,13 @@ export async function fetchCaptainCandidates(
     if (!player) continue;
 
     const team = teamMap.get(player.team);
-    const fixture = gwFixtures.find(
+    const playerFixtures = gwFixtures.filter(
       (f) => f.team_h === player.team || f.team_a === player.team,
     );
 
-    if (!fixture) continue;
+    if (playerFixtures.length === 0) continue;
 
+    const fixture = playerFixtures[0];
     const isHome = fixture.team_h === player.team;
     const opponentId = isHome ? fixture.team_a : fixture.team_h;
     const opponentTeam = teamMap.get(opponentId);
@@ -306,7 +369,19 @@ export async function fetchCaptainCandidates(
     }
   }
 
-  return { candidates, gameweek, deadlineTime };
+  return {
+    candidates,
+    gameweek: targetGw,
+    deadlineTime: targetDeadline,
+    ...(isDeadlinePassed && { deadlinePassed: true, currentCaptain }),
+    ...(activeChip && { activeChip }),
+    ...(gwType !== "normal" && {
+      gwType,
+      blankTeams,
+      doubleTeams,
+      doubleTeamIds: [...doubleTeamIds],
+    }),
+  };
 }
 
 export async function fetchManagerData(

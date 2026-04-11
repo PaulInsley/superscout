@@ -1,0 +1,36 @@
+REPLIT AGENT PROMPT — SuperScout Edge Case Handling
+
+CONTEXT: SuperScout’s captain picker and transfer advisor need to handle FPL edge cases gracefully. Currently they work for normal gameweeks but haven’t been tested against unusual situations.
+
+TASK: Add edge case handling for the following scenarios across both the captain and transfer features:
+
+1. BLANK GAMEWEEK (BGW) — A gameweek where some teams don’t play.
+- Before generating recommendations, check the fixtures endpoint for the target gameweek
+- Identify which teams have NO fixture in that gameweek
+- Filter out players from those teams before sending to AI
+- Add a note in the AI prompt: “This is a blank gameweek. The following teams do NOT play: [list]. Do not recommend any players from these teams.”
+- In the UI, show a banner: “Blank Gameweek — [X] teams not playing this week”
+1. DOUBLE GAMEWEEK (DGW) — A gameweek where some teams play twice.
+- Check fixtures endpoint for teams with 2+ fixtures in the gameweek
+- Flag these players as having double fixtures in the data sent to AI
+- Add to AI prompt: “This is a double gameweek. The following teams play TWICE: [list]. Double gameweek players have higher expected points ceilings.”
+- In the UI, show a “DGW” badge on players with two fixtures
+1. ACTIVE CHIP — When a user has activated a chip (Free Hit, Wildcard, Triple Captain, Bench Boost):
+- Check the manager’s picks endpoint for active_chip field
+- Adjust recommendations accordingly:
+  - Free Hit: expand transfer recommendations beyond free transfers (entire squad can change)
+  - Wildcard: same as Free Hit
+  - Triple Captain: emphasise captain pick importance (triple points)
+  - Bench Boost: include bench players in recommendation context (bench points count)
+- Add chip context to AI prompt so recommendations reflect the active chip
+1. SEASON NOT STARTED — Before GW1 when there’s no historical data:
+- Captain picker should work from pre-season form and fixture difficulty only
+- Transfer advisor should note it’s working from projected data, not actual performance
+- Don’t crash or show empty screens
+1. MID-GAMEWEEK — If a user opens the app while matches are in progress:
+- Captain picker should show “Deadline has passed” and display what was already picked
+- Transfer advisor should still work (transfers for next GW)
+
+For each scenario, add both the server-side logic and appropriate UI messaging. Test by simulating the edge case data structures.
+
+GIT SAFETY: Do not run git reset –hard, orphan commits, or force pushes rewriting history without stopping and explaining the consequences first.

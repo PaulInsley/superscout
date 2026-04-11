@@ -21,6 +21,7 @@ import BlurredCard from "@/components/BlurredCard";
 import Paywall from "@/components/Paywall";
 import ProgressLoadingIndicator from "@/components/ProgressLoadingIndicator";
 import { fetchCaptainCandidates } from "@/services/fpl/api";
+import type { CaptainCandidateResult } from "@/services/fpl/api";
 import type {
   CaptainRecommendation,
   CaptainPicksResponse,
@@ -147,6 +148,7 @@ export default function CaptainPickerScreen() {
             candidateData.gameweek,
             candidateData.deadlineTime,
             vibe,
+            candidateData.activeChip,
           ),
         }),
       });
@@ -277,6 +279,22 @@ export default function CaptainPickerScreen() {
     );
   }
 
+  if (candidateData?.seasonNotStarted) {
+    return (
+      <View
+        style={[
+          styles.center,
+          { backgroundColor: colors.background, paddingTop: insets.top },
+        ]}
+      >
+        <Feather name="calendar" size={40} color={colors.mutedForeground} />
+        <Text style={[styles.connectPrompt, { color: colors.foreground }]}>
+          The FPL season hasn't started yet. Captain recommendations will be available once GW1 begins.
+        </Text>
+      </View>
+    );
+  }
+
   if (candidateData?.noSquadData || (candidateData && candidateData.candidates.length === 0)) {
     return (
       <View
@@ -312,6 +330,46 @@ export default function CaptainPickerScreen() {
           GW{candidateData?.gameweek ?? "?"} ·{" "}
           {candidateData?.candidates.length ?? 0} players
         </Text>
+
+        {candidateData?.deadlinePassed && (
+          <View style={[styles.banner, { backgroundColor: "#f59e0b20", borderColor: "#f59e0b" }]}>
+            <Feather name="clock" size={16} color="#f59e0b" />
+            <Text style={[styles.bannerText, { color: "#f59e0b" }]}>
+              Deadline has passed{candidateData.currentCaptain ? ` — your captain is ${candidateData.currentCaptain}` : ""}. Showing picks for the next gameweek.
+            </Text>
+          </View>
+        )}
+
+        {candidateData?.activeChip && (
+          <View style={[styles.banner, { backgroundColor: "#8b5cf620", borderColor: "#8b5cf6" }]}>
+            <Feather name="zap" size={16} color="#8b5cf6" />
+            <Text style={[styles.bannerText, { color: "#8b5cf6" }]}>
+              {candidateData.activeChip === "3xc" ? "Triple Captain active — your captain earns 3x points!" :
+               candidateData.activeChip === "bboost" ? "Bench Boost active — all 15 players score this week" :
+               candidateData.activeChip === "wildcard" ? "Wildcard active" :
+               candidateData.activeChip === "freehit" ? "Free Hit active" :
+               `${candidateData.activeChip} chip active`}
+            </Text>
+          </View>
+        )}
+
+        {(candidateData?.gwType === "bgw" || candidateData?.gwType === "bgw_dgw") && (
+          <View style={[styles.banner, { backgroundColor: "#ef444420", borderColor: "#ef4444" }]}>
+            <Feather name="alert-triangle" size={16} color="#ef4444" />
+            <Text style={[styles.bannerText, { color: "#ef4444" }]}>
+              Blank Gameweek — {candidateData.blankTeams?.length ?? 0} teams not playing
+            </Text>
+          </View>
+        )}
+
+        {(candidateData?.gwType === "dgw" || candidateData?.gwType === "bgw_dgw") && (
+          <View style={[styles.banner, { backgroundColor: "#22c55e20", borderColor: "#22c55e" }]}>
+            <Feather name="layers" size={16} color="#22c55e" />
+            <Text style={[styles.bannerText, { color: "#22c55e" }]}>
+              Double Gameweek — {candidateData.doubleTeams?.join(", ")} play twice
+            </Text>
+          </View>
+        )}
 
         {!recommendations && !aiLoading && (
           <Pressable
@@ -413,6 +471,7 @@ function buildContext(
   gameweek: number,
   deadlineTime: string,
   vibe: string,
+  activeChip?: string | null,
 ): string {
   const squadSummary = candidates
     .map(
@@ -421,9 +480,11 @@ function buildContext(
     )
     .join("\n");
 
+  const chipLine = activeChip ? `\nACTIVE_CHIP: ${activeChip}` : "";
+
   return `GAMEWEEK: ${gameweek}
 DEADLINE: ${deadlineTime}
-VIBE: ${vibe}
+VIBE: ${vibe}${chipLine}
 
 SQUAD (15 players with upcoming fixtures):
 ${squadSummary}
@@ -493,7 +554,21 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    marginBottom: 20,
+    marginBottom: 8,
+  },
+  banner: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 8,
+    gap: 8,
+  },
+  bannerText: {
+    fontSize: 13,
+    fontWeight: "600",
+    flex: 1,
   },
   generateButton: {
     paddingVertical: 16,

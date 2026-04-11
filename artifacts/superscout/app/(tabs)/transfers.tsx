@@ -33,6 +33,10 @@ interface TransferAdviceResponse {
   free_transfers: number;
   budget_remaining: number;
   recommendations: TransferRecommendation[];
+  gw_type?: "normal" | "bgw" | "dgw" | "bgw_dgw";
+  blank_teams?: string[];
+  double_teams?: string[];
+  active_chip?: string | null;
 }
 
 export default function TransferAdvisorScreen() {
@@ -49,6 +53,10 @@ export default function TransferAdvisorScreen() {
   const [budget, setBudget] = useState<number>(0);
   const [vibe, setVibe] = useState<"expert" | "critic" | "fanboy">("expert");
   const [showPaywall, setShowPaywall] = useState(false);
+  const [gwType, setGwType] = useState<string | null>(null);
+  const [blankTeams, setBlankTeams] = useState<string[]>([]);
+  const [doubleTeams, setDoubleTeams] = useState<string[]>([]);
+  const [activeChip, setActiveChip] = useState<string | null>(null);
   const aiTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useFocusEffect(
@@ -95,6 +103,10 @@ export default function TransferAdvisorScreen() {
             setGameweek(resultData.gameweek ?? 0);
             setFreeTransfers(resultData.free_transfers ?? 0);
             setBudget(resultData.budget_remaining ?? 0);
+            setGwType(resultData.gw_type ?? null);
+            setBlankTeams(resultData.blank_teams ?? []);
+            setDoubleTeams(resultData.double_teams ?? []);
+            setActiveChip(resultData.active_chip ?? null);
             logRecommendationSilently(resultData);
             return;
           }
@@ -139,7 +151,9 @@ export default function TransferAdvisorScreen() {
             const event = JSON.parse(jsonStr);
 
             if (event.error) {
-              if (event.error === "new_manager") {
+              if (event.error === "season_not_started") {
+                setAiError("The FPL season hasn't started yet. Transfer advice will be available once the season begins.");
+              } else if (event.error === "new_manager") {
                 setAiError("Your FPL team hasn't played any gameweeks yet. Transfer advice will be available once you've entered a gameweek.");
               } else if (event.error === "no_picks") {
                 setAiError("Could not find your squad picks. Make sure you have an active FPL team.");
@@ -163,6 +177,10 @@ export default function TransferAdvisorScreen() {
                 free_transfers: event.free_transfers,
                 budget_remaining: event.budget_remaining,
                 recommendations: event.recommendations,
+                gw_type: event.gw_type,
+                blank_teams: event.blank_teams,
+                double_teams: event.double_teams,
+                active_chip: event.active_chip,
               };
             } else if (event.stage) {
               setLoadingStage(event.stage);
@@ -215,6 +233,10 @@ export default function TransferAdvisorScreen() {
         setGameweek(resultData.gameweek);
         setFreeTransfers(resultData.free_transfers);
         setBudget(resultData.budget_remaining);
+        setGwType(resultData.gw_type ?? null);
+        setBlankTeams(resultData.blank_teams ?? []);
+        setDoubleTeams(resultData.double_teams ?? []);
+        setActiveChip(resultData.active_chip ?? null);
         logRecommendationSilently(resultData);
       } else {
         setAiError("SuperScout is thinking too hard — try again in a moment.");
@@ -319,6 +341,37 @@ export default function TransferAdvisorScreen() {
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
             AI-powered transfer recommendations for your squad
           </Text>
+        )}
+
+        {activeChip && (recommendations || aiLoading) && (
+          <View style={[styles.banner, { backgroundColor: "#8b5cf620", borderColor: "#8b5cf6" }]}>
+            <Feather name="zap" size={16} color="#8b5cf6" />
+            <Text style={[styles.bannerText, { color: "#8b5cf6" }]}>
+              {activeChip === "3xc" ? "Triple Captain active" :
+               activeChip === "bboost" ? "Bench Boost active — all 15 players matter" :
+               activeChip === "wildcard" ? "Wildcard active — unlimited transfers" :
+               activeChip === "freehit" ? "Free Hit active — build your ideal XI" :
+               `${activeChip} chip active`}
+            </Text>
+          </View>
+        )}
+
+        {(gwType === "bgw" || gwType === "bgw_dgw") && (recommendations || aiLoading) && (
+          <View style={[styles.banner, { backgroundColor: "#ef444420", borderColor: "#ef4444" }]}>
+            <Feather name="alert-triangle" size={16} color="#ef4444" />
+            <Text style={[styles.bannerText, { color: "#ef4444" }]}>
+              Blank Gameweek — {blankTeams.length} teams not playing
+            </Text>
+          </View>
+        )}
+
+        {(gwType === "dgw" || gwType === "bgw_dgw") && (recommendations || aiLoading) && (
+          <View style={[styles.banner, { backgroundColor: "#22c55e20", borderColor: "#22c55e" }]}>
+            <Feather name="layers" size={16} color="#22c55e" />
+            <Text style={[styles.bannerText, { color: "#22c55e" }]}>
+              Double Gameweek — {doubleTeams.join(", ")} play twice
+            </Text>
+          </View>
         )}
 
         {!recommendations && !aiLoading && (
@@ -450,6 +503,20 @@ const styles = StyleSheet.create({
     width: 3,
     height: 3,
     borderRadius: 1.5,
+  },
+  banner: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 8,
+    gap: 8,
+  },
+  bannerText: {
+    fontSize: 13,
+    fontWeight: "600",
+    flex: 1,
   },
   generateButton: {
     paddingVertical: 16,

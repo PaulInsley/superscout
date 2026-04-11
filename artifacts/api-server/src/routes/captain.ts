@@ -8,6 +8,7 @@ import {
   checkCaptainHallucinations,
   ANTI_HALLUCINATION_PROMPT_SUFFIX,
 } from "../services/validation/hallucination-check";
+import { analyseGameweek } from "../lib/gameweekAnalysis";
 
 loadRules("fpl");
 
@@ -133,13 +134,6 @@ router.post("/captain-picks", async (req: Request, res: Response) => {
     const gameweek = gwMatch ? parseInt(gwMatch[1], 10) : undefined;
     const rulesContext = getRulesContext(gameweek);
 
-    const systemPrompt = [
-      vibePrompt,
-      rulesContext,
-      `IMPORTANT: You MUST respond with valid JSON only. No markdown, no backticks, no preamble. Follow the EXACT JSON structure specified in the user message — use the exact field names provided (player_name, team, opponent, expected_points, confidence, ownership_pct, upside, risk, case, is_superscout_pick). Do not add extra fields or rename fields.`,
-      `CRITICAL PERSONA REQUIREMENT: You MUST write the "case" field in your assigned persona voice. The Expert is calm and analytical — no emojis, no exclamation marks, references data. The Critic is sharp and sarcastic — dry wit, rhetorical questions, no emojis. The Fanboy uses CAPITALS for emphasis, slang like BRO and DUDE, 1-2 emojis (🔥🚀🚨), and extreme hype. If the case text could have been written by any of the three personas, you have failed the task.`,
-    ].filter(Boolean).join("\n\n");
-
     let bootstrap: BootstrapData | null = null;
     let fixtures: FPLFixture[] | null = null;
     try {
@@ -150,6 +144,37 @@ router.post("/captain-picks", async (req: Request, res: Response) => {
     } catch {
       req.log.warn("Could not fetch FPL data for hallucination check — skipping");
     }
+
+    let gwAnalysisPrompt = "";
+    if (bootstrap && fixtures && gameweek) {
+      const gwAnalysis = analyseGameweek(gameweek, fixtures, bootstrap.teams);
+      if (gwAnalysis.promptContext) {
+        gwAnalysisPrompt = gwAnalysis.promptContext;
+        req.log.info({ gwType: gwAnalysis.type, blankCount: gwAnalysis.blankTeams.length, doubleCount: gwAnalysis.doubleTeams.length }, "Gameweek analysis");
+      }
+    }
+
+    const chipMatch = context.match(/ACTIVE_CHIP:\s*(\w+)/i);
+    const activeChip = chipMatch ? chipMatch[1].toLowerCase() : null;
+    let chipPrompt = "";
+    if (activeChip === "3xc") {
+      chipPrompt = "TRIPLE CAPTAIN ACTIVE: The manager has activated the Triple Captain chip. The captain will earn TRIPLE points this gameweek instead of double. This makes captain selection even more critical — prioritise safety and high-floor picks. Emphasise the magnified impact in your recommendations.";
+    } else if (activeChip === "bboost") {
+      chipPrompt = "BENCH BOOST ACTIVE: The manager has activated Bench Boost. All bench players will score points this gameweek. Consider this when making captain recommendations — bench players earning points means the captain differential is relatively less impactful, but still choose the highest-ceiling option.";
+    } else if (activeChip === "wildcard") {
+      chipPrompt = "WILDCARD ACTIVE: The manager has activated their Wildcard chip and can change their entire squad. Captain recommendations should reflect the squad they end up with — focus on the best available captain options from the full player pool, not just their current squad.";
+    } else if (activeChip === "freehit") {
+      chipPrompt = "FREE HIT ACTIVE: The manager has activated their Free Hit chip — they can pick any squad for this single gameweek. Captain recommendations should consider ALL available players since the squad will revert next week. Prioritise the absolute best captain pick regardless of current squad composition.";
+    }
+
+    const systemPrompt = [
+      vibePrompt,
+      rulesContext,
+      gwAnalysisPrompt,
+      chipPrompt,
+      `IMPORTANT: You MUST respond with valid JSON only. No markdown, no backticks, no preamble. Follow the EXACT JSON structure specified in the user message — use the exact field names provided (player_name, team, opponent, expected_points, confidence, ownership_pct, upside, risk, case, is_superscout_pick). Do not add extra fields or rename fields.`,
+      `CRITICAL PERSONA REQUIREMENT: You MUST write the "case" field in your assigned persona voice. The Expert is calm and analytical — no emojis, no exclamation marks, references data. The Critic is sharp and sarcastic — dry wit, rhetorical questions, no emojis. The Fanboy uses CAPITALS for emphasis, slang like BRO and DUDE, 1-2 emojis (🔥🚀🚨), and extreme hype. If the case text could have been written by any of the three personas, you have failed the task.`,
+    ].filter(Boolean).join("\n\n");
 
     const { parsed, rawText } = await generateCaptainPicks(vibe, context, systemPrompt);
 

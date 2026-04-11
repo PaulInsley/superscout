@@ -8,6 +8,7 @@ import {
   checkTransferHallucinations,
   ANTI_HALLUCINATION_PROMPT_SUFFIX,
 } from "../services/validation/hallucination-check";
+import { analyseGameweek } from "../lib/gameweekAnalysis";
 
 const router = Router();
 
@@ -239,12 +240,20 @@ function preFilterCandidates(
     }
   }
 
+  const currentGwFixtures = fixtures.filter((f) => f.event === currentGw);
+  const teamsWithFixture = new Set<number>();
+  for (const f of currentGwFixtures) {
+    teamsWithFixture.add(f.team_h);
+    teamsWithFixture.add(f.team_a);
+  }
+
   const eligible = allPlayers.filter((p) => {
     if (squadIds.has(p.id)) return false;
     if (p.status === "u" || p.status === "i" || p.status === "s" || p.status === "n") return false;
     if (p.chance_of_playing_next_round === 0) return false;
     if (p.now_cost / 10 > maxAffordable) return false;
     if (p.minutes < 90) return false;
+    if (!teamsWithFixture.has(p.team)) return false;
     return true;
   });
 
@@ -346,7 +355,10 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
     const nextEvent = bootstrap.events.find((e) => e.is_next);
     const activeEvent = nextEvent ?? currentEvent;
     if (!activeEvent) {
-      sendError(503, { error: "No active gameweek found" });
+      sendError(200, {
+        error: "season_not_started",
+        message: "The FPL season hasn't started yet. Transfer advice will be available once the season begins.",
+      });
       return;
     }
     const currentGw = activeEvent.id;
@@ -488,9 +500,25 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
 
     const rulesContext = getRulesContext(currentGw);
 
+    const gwAnalysis = analyseGameweek(currentGw, fixtures, bootstrap.teams);
+    let gwAnalysisPrompt = "";
+    if (gwAnalysis.promptContext) {
+      gwAnalysisPrompt = gwAnalysis.promptContext;
+      req.log.info({ gwType: gwAnalysis.type, blankCount: gwAnalysis.blankTeams.length, doubleCount: gwAnalysis.doubleTeams.length }, "Transfer gameweek analysis");
+    }
+
+    const picksForChipCheck = await fetchCachedData<{ active_chip: string | null }>(
+      cacheKey("picks-chip", managerId, String(currentGw)),
+      `/entry/${managerId}/event/${currentGw}/picks/`,
+      TTL.USER,
+    ).catch(() => null);
+    const liveActiveChip = picksForChipCheck?.active_chip ?? null;
+
     const activeChip = historyData.chips.find((c) => c.event === currentGw);
-    const isWildcardActive = activeChip?.name === "wildcard";
-    const isFreeHitActive = activeChip?.name === "freehit";
+    const isWildcardActive = activeChip?.name === "wildcard" || liveActiveChip === "wildcard";
+    const isFreeHitActive = activeChip?.name === "freehit" || liveActiveChip === "freehit";
+    const isTripleCaptainActive = activeChip?.name === "3xc" || liveActiveChip === "3xc";
+    const isBenchBoostActive = activeChip?.name === "bboost" || liveActiveChip === "bboost";
     const isChipMode = isWildcardActive || isFreeHitActive;
 
     let modeInstructions: string;
@@ -642,9 +670,18 @@ ${transferInstructions}
 
 FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Returning fewer is a failure. Each recommendation must be a distinct strategic option.`;
 
+    let chipPrompt = "";
+    if (isTripleCaptainActive) {
+      chipPrompt = "TRIPLE CAPTAIN ACTIVE: The manager has activated Triple Captain this gameweek. Captain choice is paramount — focus transfer recommendations on enabling the best possible captain option. If the squad already has a strong TC target, the hold option may be optimal.";
+    } else if (isBenchBoostActive) {
+      chipPrompt = "BENCH BOOST ACTIVE: The manager has activated Bench Boost. ALL 15 players score this gameweek, including bench players. Prioritise transfers that upgrade weak bench options — every player matters. Flag bench players with blanks or tough fixtures as priority sells.";
+    }
+
     const systemPrompt = [
       vibePrompt,
       rulesContext,
+      gwAnalysisPrompt,
+      chipPrompt,
       `IMPORTANT: You MUST respond with valid JSON only. No markdown, no backticks, no preamble.`,
       `CRITICAL PERSONA REQUIREMENT: Write the "case" field in your assigned persona voice.`,
     ].filter(Boolean).join("\n\n");
@@ -884,11 +921,19 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
       }
     }
 
-    const result = {
+    const chipName = isWildcardActive ? "wildcard" : isFreeHitActive ? "freehit" : isTripleCaptainActive ? "3xc" : isBenchBoostActive ? "bboost" : null;
+
+    const result: Record<string, unknown> = {
       gameweek: parsed.gameweek ?? currentGw,
       free_transfers: parsed.free_transfers ?? freeTransfers,
       budget_remaining: parsed.budget_remaining ?? bank,
       recommendations: halChecked,
+      ...(gwAnalysis.type !== "normal" && {
+        gw_type: gwAnalysis.type,
+        blank_teams: gwAnalysis.blankTeams.map((t) => t.short_name),
+        double_teams: gwAnalysis.doubleTeams.map((t) => t.short_name),
+      }),
+      ...(chipName && { active_chip: chipName }),
     };
 
     if (isSSE) {
