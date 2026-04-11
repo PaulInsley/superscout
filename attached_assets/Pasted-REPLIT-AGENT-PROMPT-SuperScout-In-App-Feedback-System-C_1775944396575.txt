@@ -1,0 +1,50 @@
+REPLIT AGENT PROMPT — SuperScout In-App Feedback System
+
+CONTEXT: SuperScout needs an in-app feedback system before beta testers arrive in Phase 2. This has two channels: a post-gameweek pulse check (3 quick questions after each GW) and a persistent feedback button available at any time. Results go to Supabase for weekly review.
+
+The feedback_responses table already exists in Supabase with these columns: id, user_id, gameweek, season, usefulness_score, best_feature, frustration_text, feedback_type, category, created_at. If it doesn’t exist, create it with a migration file.
+
+TASK: Build the complete feedback system:
+
+1. CREATE component: components/PulseCheck.tsx
+   A modal that appears once per gameweek after the user views their results (captain outcome or squad card). Three questions:
+   
+   Q1: “How useful was SuperScout this gameweek?” — 5 star rating (tappable stars)
+   Q2: “What was the best thing?” — Pre-set option buttons: Captain advice, Transfer advice, Vibe commentary, Squad Card, Streak, Other
+   Q3: “Anything frustrating?” — Free text input, optional, max 280 characters, with character counter
+- Submit button saves to feedback_responses with feedback_type = ‘pulse’
+- “Skip” button dismisses without saving
+- Track in AsyncStorage which gameweeks have been pulsed so it only shows once per GW
+- The pulse NEVER blocks access to content — it appears as a dismissible overlay
+- Style it to match the app’s dark theme (#0D0D1A background)
+- Stars should use the green accent (#00ff87)
+1. CREATE component: components/FeedbackButton.tsx
+   A small persistent feedback icon (use Feather “message-circle” icon) that opens a simple form:
+- Category dropdown or segmented control: Bug, Feature request, Vibe feedback, Other
+- Free text area (max 500 chars) with character counter
+- Submit saves to feedback_responses with feedback_type = ‘persistent’
+- Confirmation message after submit: “Thanks! Your feedback helps SuperScout improve.” — deliver this in a brief, friendly tone
+- The form opens as a modal, same dark theme styling
+1. ADD the FeedbackButton to the Settings screen — place it in a visible position, not buried at the bottom.
+1. ADD the PulseCheck modal to trigger after:
+- The captain picker shows post-deadline results (when the user sees what their captain actually scored)
+- The squad card screen loads completed GW data
+   
+   Use this logic: if current GW is finished AND user hasn’t been pulsed for this GW (check AsyncStorage), show the pulse after a 2-second delay. Store the pulsed GW number in AsyncStorage to prevent repeat showing.
+1. Both components need to read the user_id the same way the other screens do (from Supabase auth session, falling back to the placeholder if needed — same pattern as the BROADSPEC fixes).
+1. For the feedback_responses table — check if it exists first. If it does, use it as-is. If it doesn’t, create a migration at scripts/supabase-migration-feedback.sql with these fields:
+- id (uuid, primary key, default gen_random_uuid())
+- user_id (uuid)
+- gameweek (integer, nullable — null for persistent feedback)
+- season (text, default ‘2026-27’)
+- usefulness_score (integer, 1-5, nullable — only for pulse)
+- best_feature (text, nullable)
+- frustration_text (text, nullable)
+- feedback_type (text, not null — ‘pulse’ or ‘persistent’)
+- category (text, nullable — for persistent only: bug, feature_request, vibe_feedback, other)
+- created_at (timestamptz, default now())
+  Enable RLS with the same pattern as other tables.
+
+DESIGN: Keep it fast — the whole pulse should take under 15 seconds to complete. The goal is 50%+ completion rate, so it must feel effortless, not like a chore.
+
+GIT SAFETY: Do not run git reset –hard, orphan commits, or force pushes rewriting history without stopping and explaining the consequences first.

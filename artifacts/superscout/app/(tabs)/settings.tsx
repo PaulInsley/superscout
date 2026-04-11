@@ -23,6 +23,7 @@ import ChooseVibeScreen, {
 import ConnectFPLScreen from "@/app/onboarding/ConnectFPLScreen";
 import Paywall from "@/components/Paywall";
 import ProBadge from "@/components/ProBadge";
+import { FeedbackModal } from "@/components/FeedbackButton";
 import { ONBOARDING_COMPLETE_KEY } from "@/app/onboarding/OnboardingFlow";
 import type { Vibe } from "@/app/onboarding/ChooseVibeScreen";
 
@@ -36,6 +37,7 @@ export default function SettingsScreen() {
   const [showVibePicker, setShowVibePicker] = useState(false);
   const [showFPLConnect, setShowFPLConnect] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
   const { managerId, teamName, setManager } = useManagerId();
 
   useEffect(() => {
@@ -319,6 +321,55 @@ export default function SettingsScreen() {
           <Text
             style={[styles.sectionTitle, { color: colors.mutedForeground }]}
           >
+            Feedback
+          </Text>
+
+          <Pressable
+            onPress={() => setShowFeedback(true)}
+            style={({ pressed }) => [
+              styles.settingRow,
+              { opacity: pressed ? 0.7 : 1 },
+            ]}
+          >
+            <View style={styles.settingLeft}>
+              <Feather name="message-circle" size={18} color={colors.accent} />
+              <View>
+                <Text
+                  style={[styles.settingLabel, { color: colors.foreground }]}
+                >
+                  Send Feedback
+                </Text>
+                <Text
+                  style={[
+                    styles.settingValue,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  Bug reports, feature requests, vibe feedback
+                </Text>
+              </View>
+            </View>
+            <Feather
+              name="chevron-right"
+              size={18}
+              color={colors.mutedForeground}
+            />
+          </Pressable>
+        </View>
+
+        <View
+          style={[
+            styles.section,
+            {
+              backgroundColor: colors.card,
+              borderRadius: colors.radius,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <Text
+            style={[styles.sectionTitle, { color: colors.mutedForeground }]}
+          >
             Legal
           </Text>
 
@@ -451,6 +502,7 @@ export default function SettingsScreen() {
       </ScrollView>
 
       <Paywall visible={showPaywall} onClose={() => setShowPaywall(false)} />
+      <FeedbackModal visible={showFeedback} onClose={() => setShowFeedback(false)} />
     </View>
   );
 }

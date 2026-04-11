@@ -20,6 +20,7 @@ import { supabase } from "@/services/supabase";
 import ChoiceCard from "@/components/ChoiceCard";
 import BlurredCard from "@/components/BlurredCard";
 import Paywall from "@/components/Paywall";
+import PulseCheck from "@/components/PulseCheck";
 import ProgressLoadingIndicator from "@/components/ProgressLoadingIndicator";
 import { fetchCaptainCandidates } from "@/services/fpl/api";
 import type { CaptainCandidateResult } from "@/services/fpl/api";
@@ -50,6 +51,7 @@ export default function CaptainPickerScreen() {
   const [deadlineTime, setDeadlineTime] = useState<string>("");
   const [vibe, setVibe] = useState<"expert" | "critic" | "fanboy">("expert");
   const [showPaywall, setShowPaywall] = useState(false);
+  const [showPulse, setShowPulse] = useState(false);
   const stageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useFocusEffect(
@@ -95,6 +97,13 @@ export default function CaptainPickerScreen() {
   useEffect(() => {
     return () => clearStageTimers();
   }, [clearStageTimers]);
+
+  useEffect(() => {
+    if (candidateData?.deadlinePassed && recommendations && gameweek > 0) {
+      const timer = setTimeout(() => setShowPulse(true), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [candidateData?.deadlinePassed, recommendations, gameweek]);
 
   const requestPicks = useCallback(async () => {
     if (!candidateData) return;
@@ -454,6 +463,11 @@ export default function CaptainPickerScreen() {
       </ScrollView>
 
       <Paywall visible={showPaywall} onClose={() => setShowPaywall(false)} />
+      <PulseCheck
+        gameweek={gameweek}
+        visible={showPulse}
+        onDismiss={() => setShowPulse(false)}
+      />
     </View>
   );
 }

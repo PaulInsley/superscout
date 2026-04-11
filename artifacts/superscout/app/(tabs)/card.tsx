@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -20,6 +20,7 @@ import { useColors } from "@/hooks/useColors";
 import { useManagerId } from "@/hooks/useManagerId";
 import { useSubscription } from "@/lib/revenuecat";
 import SquadCard from "@/components/SquadCard";
+import PulseCheck from "@/components/PulseCheck";
 import ProgressLoadingIndicator from "@/components/ProgressLoadingIndicator";
 
 interface CardPlayer {
@@ -78,7 +79,15 @@ export default function CardScreen() {
   const [loadingStage, setLoadingStage] = useState<string>("squad");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [showPulse, setShowPulse] = useState(false);
   const viewShotRef = useRef<ViewShot>(null);
+
+  useEffect(() => {
+    if (cardData && cardData.gameweek > 0) {
+      const timer = setTimeout(() => setShowPulse(true), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [cardData]);
 
   useFocusEffect(
     useCallback(() => {
@@ -353,6 +362,12 @@ export default function CardScreen() {
           </Pressable>
         </>
       )}
+
+      <PulseCheck
+        gameweek={cardData?.gameweek ?? 0}
+        visible={showPulse}
+        onDismiss={() => setShowPulse(false)}
+      />
     </ScrollView>
   );
 }
