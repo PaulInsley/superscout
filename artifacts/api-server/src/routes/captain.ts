@@ -45,6 +45,7 @@ function getClient(): Anthropic {
   return new Anthropic({
     baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
     apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
+    timeout: 30000,
   });
 }
 
@@ -238,9 +239,14 @@ router.post("/captain-picks", async (req: Request, res: Response) => {
     }
 
     res.json(parsed);
-  } catch (error) {
-    req.log.error({ err: error }, "Captain picks generation failed");
-    res.status(500).json({ error: "Failed to generate captain picks" });
+  } catch (error: any) {
+    if (error?.status === 408 || error?.code === "ETIMEDOUT" || error?.message?.includes("timed out") || error?.message?.includes("timeout")) {
+      req.log.warn({ err: error }, "Claude API timeout during captain picks");
+      res.status(504).json({ error: "SuperScout is taking longer than usual — please try again in a moment." });
+    } else {
+      req.log.error({ err: error }, "Captain picks generation failed");
+      res.status(500).json({ error: "Failed to generate captain picks" });
+    }
   }
 });
 

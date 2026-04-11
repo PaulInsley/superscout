@@ -25,9 +25,9 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 // ---------------------------------------------------------------------------
 // Simple password auth via cookie
 // ---------------------------------------------------------------------------
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'superscout-admin-2026';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || null;
 const COOKIE_NAME = 'ss_admin_auth';
-const COOKIE_VALUE = Buffer.from(ADMIN_PASSWORD).toString('base64');
+const COOKIE_VALUE = ADMIN_PASSWORD ? Buffer.from(ADMIN_PASSWORD).toString('base64') : '';
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MS = 15 * 60 * 1000;
@@ -87,6 +87,11 @@ router.get('/login', (_req: Request, res: Response) => {
 });
 
 router.post('/api/login', (req: Request, res: Response) => {
+  if (!ADMIN_PASSWORD) {
+    res.status(503).json({ error: 'Admin panel not configured — set ADMIN_PASSWORD environment variable' });
+    return;
+  }
+
   const ip = getClientIp(req);
   const lockout = isLockedOut(ip);
   if (lockout.locked) {

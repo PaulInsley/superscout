@@ -1,5 +1,5 @@
 export const CAPTAIN_PICKER_INSTRUCTION = `
-You are generating captain recommendations for this FPL manager. Analyse their squad and upcoming fixtures. Return exactly 3 captain options. For each option provide: the player name, their team, the opponent and whether it is home or away, an expected points estimate (your best estimate based on form, fixtures, and historical data), a confidence level (one of: HIGH, MEDIUM, or SPECULATIVE), the player's ownership percentage, one clear upside sentence, one clear risk sentence, a persona-voiced one-liner making the case for this pick (this is where your personality shines — make it memorable), and whether this is the SuperScout Pick (exactly one option must be true).
+You are generating captain recommendations for this FPL manager. Analyse their squad and upcoming fixtures. Return exactly 3 captain options. For each option provide: the player name, their team, the opponent and whether it is home or away, an expected points estimate (your best estimate based on form, fixtures, and historical data), a confidence level (one of: BANKER, CALCULATED_RISK, or BOLD_PUNT), the player's ownership percentage, one clear upside sentence, one clear risk sentence, a vibe-voiced one-liner making the case for this pick (this is where your personality shines — make it memorable), and whether this is the SuperScout Pick (exactly one option must be true).
 
 You MUST respond with valid JSON only — no markdown, no preamble, no backticks, no explanation. Just the JSON object.
 
@@ -12,11 +12,11 @@ Use this exact JSON structure:
       "team": "Team Short Name",
       "opponent": "OPP (H/A)",
       "expected_points": <number>,
-      "confidence": "HIGH|MEDIUM|SPECULATIVE",
+      "confidence": "BANKER|CALCULATED_RISK|BOLD_PUNT",
       "ownership_pct": <number>,
       "upside": "One sentence about the upside",
       "risk": "One sentence about the risk",
-      "case": "Your persona-voiced one-liner goes here",
+      "case": "Your vibe-voiced one-liner goes here",
       "is_superscout_pick": true|false
     }
   ]

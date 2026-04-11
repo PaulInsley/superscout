@@ -82,6 +82,7 @@ function getClient(): Anthropic {
   return new Anthropic({
     baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
     apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
+    timeout: 30000,
   });
 }
 
@@ -278,8 +279,9 @@ IMPORTANT: Return ONLY the quip text. No quotes, no preamble, no explanation. Ju
           quipText = raw;
         }
       }
-    } catch (err) {
-      req.log.error({ err }, "Quip generation failed, using fallback");
+    } catch (err: any) {
+      const isTimeout = err?.status === 408 || err?.code === "ETIMEDOUT" || err?.message?.includes("timed out") || err?.message?.includes("timeout");
+      req.log.error({ err, isTimeout }, "Quip generation failed, using fallback");
     }
 
     let cardId: string | null = null;
@@ -330,9 +332,15 @@ IMPORTANT: Return ONLY the quip text. No quotes, no preamble, no explanation. Ju
       quipText,
       vibe: vibeKey,
     });
-  } catch (err) {
-    req.log.error({ err }, "Squad card generation failed");
-    res.status(500).json({ error: "internal", message: "Something went wrong generating your squad card." });
+  } catch (err: any) {
+    const isTimeout = err?.status === 408 || err?.code === "ETIMEDOUT" || err?.message?.includes("timed out") || err?.message?.includes("timeout");
+    if (isTimeout) {
+      req.log.warn({ err }, "Claude API timeout during squad card generation");
+      res.status(504).json({ error: "timeout", message: "SuperScout is taking longer than usual — please try again in a moment." });
+    } else {
+      req.log.error({ err }, "Squad card generation failed");
+      res.status(500).json({ error: "internal", message: "Something went wrong generating your squad card." });
+    }
   }
 });
 

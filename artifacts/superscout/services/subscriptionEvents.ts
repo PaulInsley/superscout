@@ -24,6 +24,17 @@ function getPlatformSource(): "app_store" | "google_play" | "web_stripe" {
   return "web_stripe";
 }
 
+// TODO: Replace placeholder with real user auth before public launch
+const PLACEHOLDER_USER_ID = "00000000-0000-0000-0000-000000000000";
+
+async function getUserId(): Promise<string> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.id) return user.id;
+  } catch {}
+  return PLACEHOLDER_USER_ID;
+}
+
 export async function logSubscriptionEvent({
   eventType,
   fromTier,
@@ -31,8 +42,9 @@ export async function logSubscriptionEvent({
   gameweek,
 }: LogSubscriptionEventParams) {
   try {
+    const userId = await getUserId();
     const { error } = await supabase.from("subscription_events").insert({
-      user_id: "00000000-0000-0000-0000-000000000000",
+      user_id: userId,
       event_type: eventType,
       tier_from: fromTier,
       tier_to: toTier,
@@ -50,10 +62,11 @@ export async function logSubscriptionEvent({
 
 export async function updateUserSubscriptionTier(tier: string) {
   try {
+    const userId = await getUserId();
     const { error } = await supabase
       .from("users")
       .update({ subscription_tier: tier === "free" ? "free" : tier === "season_pass" ? "season_pass" : "pro" })
-      .eq("id", "00000000-0000-0000-0000-000000000000");
+      .eq("id", userId);
 
     if (error) {
       console.error("[SuperScout] Failed to update user subscription tier:", error);

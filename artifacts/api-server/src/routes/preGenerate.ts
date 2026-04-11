@@ -20,6 +20,7 @@ function getClient(): Anthropic {
   return new Anthropic({
     baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
     apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
+    timeout: 30000,
   });
 }
 
@@ -698,8 +699,9 @@ router.post("/pre-generate/:gameweek", async (req: Request, res: Response) => {
           } else {
             results.captain_failed++;
           }
-        } catch (err) {
-          req.log.error({ err, userId: user.id, vibe, type: "captain" }, "Pre-gen captain failed");
+        } catch (err: any) {
+          const isTimeout = err?.status === 408 || err?.code === "ETIMEDOUT" || err?.message?.includes("timed out") || err?.message?.includes("timeout");
+          req.log.error({ err, userId: user.id, vibe, type: "captain", isTimeout }, "Pre-gen captain failed");
           results.captain_failed++;
         }
 
@@ -726,8 +728,9 @@ router.post("/pre-generate/:gameweek", async (req: Request, res: Response) => {
           } else {
             results.transfer_failed++;
           }
-        } catch (err) {
-          req.log.error({ err, userId: user.id, vibe, type: "transfer" }, "Pre-gen transfer failed");
+        } catch (err: any) {
+          const isTimeout = err?.status === 408 || err?.code === "ETIMEDOUT" || err?.message?.includes("timed out") || err?.message?.includes("timeout");
+          req.log.error({ err, userId: user.id, vibe, type: "transfer", isTimeout }, "Pre-gen transfer failed");
           results.transfer_failed++;
         }
 

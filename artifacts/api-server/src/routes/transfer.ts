@@ -106,6 +106,7 @@ function getClient(): Anthropic {
   return new Anthropic({
     baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
     apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
+    timeout: 30000,
   });
 }
 
@@ -943,13 +944,21 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
     } else {
       res.json(result);
     }
-  } catch (error) {
-    req.log.error({ err: error }, "Transfer advice generation failed");
+  } catch (error: any) {
+    const isTimeout = error?.status === 408 || error?.code === "ETIMEDOUT" || error?.message?.includes("timed out") || error?.message?.includes("timeout");
+    const msg = isTimeout
+      ? "SuperScout is taking longer than usual — please try again in a moment."
+      : "Failed to generate transfer advice";
+    if (isTimeout) {
+      req.log.warn({ err: error }, "Claude API timeout during transfer advice");
+    } else {
+      req.log.error({ err: error }, "Transfer advice generation failed");
+    }
     if (isSSE) {
-      res.write(`data: ${JSON.stringify({ error: "Failed to generate transfer advice" })}\n\n`);
+      res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
       res.end();
     } else {
-      res.status(500).json({ error: "Failed to generate transfer advice" });
+      res.status(isTimeout ? 504 : 500).json({ error: msg });
     }
   }
 });
