@@ -572,6 +572,7 @@ For PACKAGE recommendations (multiple transfers grouped together):
 For INDIVIDUAL recommendations (single swap):
 - Set is_package: false (or omit)
 - Use the flat fields: player_out, player_in, net_cost, etc.
+- IMPORTANT: For player_out and player_in, use SURNAME ONLY (e.g. "Cunha" not "Matheus Santos Cunha", "Salah" not "Mohamed Salah", "Milenković" not "Nikola Milenković"). FPL managers know players by surname.
 
 You MUST respond with valid JSON only — no markdown, no backticks, no preamble.
 
@@ -583,10 +584,10 @@ JSON structure:
   "recommendations": [
     {
       "is_package": false,
-      "player_out": "Name or null",
+      "player_out": "Surname or null",
       "player_out_team": "Team or null",
       "player_out_selling_price": 10.2,
-      "player_in": "Name or null",
+      "player_in": "Surname or null",
       "player_in_team": "Team or null",
       "player_in_price": 13.0,
       "net_cost": 2.8,
@@ -604,8 +605,8 @@ JSON structure:
       "is_package": true,
       "package_name": "The Fixture Swing",
       "transfers": [
-        { "player_out": "Name", "player_out_team": "Team", "player_out_selling_price": 5.0, "player_in": "Name", "player_in_team": "Team", "player_in_price": 5.5 },
-        { "player_out": "Name", "player_out_team": "Team", "player_out_selling_price": 7.0, "player_in": "Name", "player_in_team": "Team", "player_in_price": 6.5 }
+        { "player_out": "Surname", "player_out_team": "Team", "player_out_selling_price": 5.0, "player_in": "Surname", "player_in_team": "Team", "player_in_price": 5.5 },
+        { "player_out": "Surname", "player_out_team": "Team", "player_out_selling_price": 7.0, "player_in": "Surname", "player_in_team": "Team", "player_in_price": 6.5 }
       ],
       "total_net_cost": -1.0,
       "total_hit_cost": 0,
