@@ -289,7 +289,7 @@ export default function ConnectFPLScreen({ onNext }: Props) {
             onPress={() => {
               supabase
                 .from("consent_events")
-                .insert({ event_type: "privacy_accepted", fpl_manager_id: String(validatedId) })
+                .insert({ consent_type: "privacy_accepted", consent_given: true })
                 .then(() => {})
                 .catch(() => {});
               onNext(validatedId, teamName);
@@ -315,7 +315,7 @@ export default function ConnectFPLScreen({ onNext }: Props) {
             if (privacyAccepted) {
               supabase
                 .from("consent_events")
-                .insert({ event_type: "privacy_accepted" })
+                .insert({ consent_type: "privacy_accepted", consent_given: true })
                 .then(() => {})
                 .catch(() => {});
             }
