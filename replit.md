@@ -37,6 +37,7 @@ A dynamic rules engine loads and caches sport-specific rules, injecting them int
 - **Onboarding Flow**: A guided first-time user experience to connect FPL accounts and choose an AI persona.
 - **Decision Logging**: Server-side logging of all AI recommendations and user decisions for tracking outcomes and model improvement.
 - **Auto-Pull Decisions**: Post-deadline process to automatically pull actual user captain choices from FPL API and compare against SuperScout recommendations.
+- **Admin Dashboard**: Web-based admin panel at `/api/admin` for browsing Supabase tables, viewing row counts, querying data, and running custom queries. Protected by cookie-based password auth (`ADMIN_PASSWORD` env var). Route: `artifacts/api-server/src/routes/admin.ts`.
 
 ### UI/UX & Interaction
 - Reusable UI components like `ChoiceCard.tsx` and `TransferCard.tsx` ensure a consistent design.
