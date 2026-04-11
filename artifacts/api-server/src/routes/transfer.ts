@@ -4,6 +4,10 @@ import { getRulesContext } from "../lib/rulesEngine";
 import { getCached, getStale, cacheKey, TTL, setCache } from "../lib/fplCache";
 import { fetchFromFpl } from "../lib/fplRateLimiter";
 import { VIBE_PROMPTS } from "../lib/vibes";
+import {
+  checkTransferHallucinations,
+  ANTI_HALLUCINATION_PROMPT_SUFFIX,
+} from "../services/validation/hallucination-check";
 
 const router = Router();
 
@@ -819,11 +823,72 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
 
     req.log.info({ validatedCount: validated.length }, "Recommendations after validation");
 
+    const hallucinationCtx = {
+      players: bootstrap.elements,
+      teams: bootstrap.teams,
+      fixtures,
+      gameweek: currentGw,
+      logger: req.log,
+    };
+
+    let { filtered: halChecked, result: halResult } = checkTransferHallucinations(validated, hallucinationCtx);
+
+    if (halResult.removedCount > 0 || halResult.correctedCount > 0) {
+      req.log.info(
+        { removed: halResult.removedCount, corrected: halResult.correctedCount, warnings: halResult.warnings },
+        "Transfer hallucination check completed",
+      );
+    }
+
+    if (halResult.flaggedStats.length > 0) {
+      req.log.info({ flaggedStats: halResult.flaggedStats }, "Transfer stat claims flagged for review");
+    }
+
+    const nonHoldCount = halChecked.filter((r) => !r.is_hold_recommendation).length;
+    if (nonHoldCount < 2) {
+      req.log.warn({ remaining: nonHoldCount }, "Too few transfer recs after hallucination check — retrying");
+
+      const retrySystemPrompt = [
+        vibePrompt,
+        rulesContext,
+        `IMPORTANT: You MUST respond with valid JSON only. No markdown, no backticks, no preamble.`,
+        `CRITICAL PERSONA REQUIREMENT: Write the "case" field in your assigned persona voice.`,
+        ANTI_HALLUCINATION_PROMPT_SUFFIX,
+      ].filter(Boolean).join("\n\n");
+
+      const retryMessage = await client.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 6000,
+        system: retrySystemPrompt,
+        messages: [{ role: "user", content: context }],
+      });
+
+      const retryBlock = retryMessage.content[0];
+      if (retryBlock.type === "text") {
+        const retryParsed = extractJSON(retryBlock.text) as typeof parsed;
+        if (retryParsed?.recommendations) {
+          const retryValidated = retryParsed.recommendations.filter((rec) => {
+            if (rec.is_hold_recommendation) return true;
+            if (rec.is_package && Array.isArray(rec.transfers)) {
+              return validatePackage(rec.transfers as Array<{ player_out?: string; player_in?: string; player_out_selling_price?: number; player_in_price?: number }>);
+            }
+            return validateSingleSwap(String(rec.player_out ?? ""), String(rec.player_in ?? ""), squadWithDetails, bank);
+          });
+          const retryHal = checkTransferHallucinations(retryValidated, hallucinationCtx);
+          req.log.info(
+            { removed: retryHal.result.removedCount, remaining: retryHal.filtered.length },
+            "Retry hallucination check completed",
+          );
+          halChecked = retryHal.filtered;
+        }
+      }
+    }
+
     const result = {
       gameweek: parsed.gameweek ?? currentGw,
       free_transfers: parsed.free_transfers ?? freeTransfers,
       budget_remaining: parsed.budget_remaining ?? bank,
-      recommendations: validated,
+      recommendations: halChecked,
     };
 
     if (isSSE) {

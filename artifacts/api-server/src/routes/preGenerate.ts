@@ -5,6 +5,10 @@ import { getCached, getStale, cacheKey, TTL, setCache } from "../lib/fplCache";
 import { fetchFromFpl } from "../lib/fplRateLimiter";
 import { VIBE_PROMPTS } from "../lib/vibes";
 import { getSupabase } from "../lib/supabase";
+import {
+  checkCaptainHallucinations,
+  checkTransferHallucinations,
+} from "../services/validation/hallucination-check";
 
 const router = Router();
 
@@ -276,7 +280,18 @@ Rules:
 
   const block = message.content[0];
   if (block.type !== "text") return null;
-  return extractJSON(block.text);
+
+  const parsed = extractJSON(block.text) as Record<string, unknown> | null;
+  if (!parsed) return null;
+
+  const recs = parsed.recommendations as Array<Record<string, unknown>> | undefined;
+  if (recs) {
+    const halCtx = { players: bootstrap.elements, teams: bootstrap.teams, fixtures, gameweek };
+    const { filtered } = checkCaptainHallucinations(recs, halCtx);
+    parsed.recommendations = filtered;
+  }
+
+  return parsed;
 }
 
 async function generateTransferAdvice(
@@ -559,7 +574,18 @@ ${transferInstructions}`;
 
   const block = message.content[0];
   if (block.type !== "text") return null;
-  return extractJSON(block.text);
+
+  const parsed = extractJSON(block.text) as Record<string, unknown> | null;
+  if (!parsed) return null;
+
+  const recs = parsed.recommendations as Array<Record<string, unknown>> | undefined;
+  if (recs) {
+    const halCtx = { players: bootstrap.elements, teams: bootstrap.teams, fixtures, gameweek };
+    const { filtered } = checkTransferHallucinations(recs, halCtx);
+    parsed.recommendations = filtered;
+  }
+
+  return parsed;
 }
 
 router.post("/pre-generate/:gameweek", async (req: Request, res: Response) => {
