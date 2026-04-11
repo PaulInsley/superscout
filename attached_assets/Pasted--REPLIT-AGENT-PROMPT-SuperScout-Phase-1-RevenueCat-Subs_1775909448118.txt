@@ -1,0 +1,224 @@
+# REPLIT AGENT PROMPT — SuperScout Phase 1: RevenueCat Subscription System
+
+This is the payment system. RevenueCat wraps Apple StoreKit and Google Play Billing into one integration. Three subscription products at launch, with feature gating throughout the app. The free tier must feel genuinely useful — we’re helping people upgrade, not punishing them for not paying.
+
+**Before you start:** Do not run any destructive git operations (git reset –hard, force pushes, orphan commits) at any point during this task. If you encounter a git problem, stop and explain it to me before doing anything.
+
+-----
+
+## WHAT REVENUECAT IS
+
+RevenueCat is a service that sits between your app and the Apple/Google payment systems. Instead of building separate Apple StoreKit and Google Play Billing integrations, you build one RevenueCat integration and it handles both. It’s free up to $2,500/month in tracked revenue. It manages subscription status, handles renewals, cancellations, refunds, and provides webhooks for server-side events.
+
+**You’ll need a RevenueCat account.** Go to https://www.revenuecat.com and create one. The API key goes into Replit Secrets as `REVENUECAT_API_KEY`. We’ll also need an Apple Developer account (£79/year) and Google Play Developer account (£20 one-off) — but those are for Phase 2 app store submission. For now, RevenueCat can be set up and tested in sandbox mode.
+
+-----
+
+## THREE SUBSCRIPTION PRODUCTS
+
+### Product 1: Free (no purchase required)
+
+- 1 captain recommendation per gameweek — just the SuperScout Pick, no choice architecture (no other options shown)
+- Expert vibe only
+- Basic Squad Card (no AI quip — just the squad, points, and rank)
+- Other captain options visible but BLURRED with a subtle “Unlock with Pro” overlay
+- Transfer Advisor: single top recommendation only, no restructure packages
+- No Decision Log access
+- No streaks, no Report Card, no Banter Engine
+
+### Product 2: Pro Monthly — £4.99/month
+
+- RevenueCat product identifier: `superscout_pro_monthly`
+- Full choice architecture: 3–5 options per decision with confidence levels, pros/cons, and SuperScout Pick
+- All 3 vibes (Expert, Critic, Fanboy) — switch any time
+- Squad Cards with AI-generated vibe quip
+- Full Transfer Advisor including restructure packages
+- Decision Log — full history of every recommendation and outcome
+- Streaks, Report Card, notifications, Banter Engine (when built in Phase 2)
+
+### Product 3: Season Pass — £29.99/year
+
+- RevenueCat product identifier: `superscout_season_pass`
+- Everything in Pro
+- Season Wrapped at end of season (when built)
+- Locked-in price — immune to any mid-season price increases
+- This is the hero product in all marketing
+
+### Soft Launch Pricing (Weeks 15–16)
+
+- Pro Monthly introductory: £2.99 for the first month, then £4.99/month
+- Season Pass early bird: £24.99 (saves £5 vs standard)
+- These are configured in App Store Connect and Google Play Console, not in code. RevenueCat reads whatever price the store has.
+
+-----
+
+## REVENUECAT SETUP
+
+1. Install the RevenueCat React Native SDK: `react-native-purchases` (or the Expo-compatible version if using Expo managed workflow — check https://docs.revenuecat.com/docs/reactnative for the latest).
+1. Initialise RevenueCat on app launch with the API key from Replit Secrets (`REVENUECAT_API_KEY`). Use the anonymous app user ID for now — we’ll link to Supabase user IDs when authentication is built in Phase 2.
+1. Configure two “Offerings” in the RevenueCat dashboard:
+- **default** offering containing both products (Pro Monthly and Season Pass)
+- Each product maps to an “Entitlement” called `pro` — both Pro Monthly and Season Pass grant the same `pro` entitlement
+1. The app checks entitlement status to determine what to show. The logic is simple:
+- Has `pro` entitlement → show full features
+- Does not have `pro` entitlement → show free tier
+
+-----
+
+## FEATURE GATING — HOW FREE VS PRO WORKS IN THE APP
+
+This is the most important part. The free tier must feel useful, not broken. Users should see WHAT they’re missing and feel motivated to upgrade — not frustrated.
+
+### Captain Picker
+
+- **Free:** Shows the SuperScout Pick (top recommendation) with full detail — confidence level, reasoning, vibe commentary. Below it, show 2 more options as BLURRED cards. The player name is hidden, the confidence badge is visible but greyed, and a subtle overlay says “See all options with Pro”. The user can still make a good captain decision with the free pick — they just can’t see the alternatives.
+- **Pro:** Full choice architecture. All 3–5 options visible with complete detail.
+
+### Transfer Advisor
+
+- **Free:** Shows the top single transfer recommendation with reasoning. No restructure packages. No hold option analysis.
+- **Pro:** Full Transfer Advisor with restructure packages, hold option, and multi-transfer coordination.
+
+### Squad Card
+
+- **Free:** Card generates with squad, points, rank — but NO AI quip. The quip area says “Upgrade to Pro for AI commentary” in muted text. Share and Save still work — the card is still shareable, just without the personality.
+- **Pro:** Full card with AI-generated vibe quip.
+
+### Vibe Selection
+
+- **Free:** Expert only. The Critic and Fanboy cards on the vibe selector show a small lock icon. Tapping them shows a brief preview of what they sound like (the same carousel from onboarding) with an “Unlock with Pro” button.
+- **Pro:** All three vibes available. Switch any time from Settings.
+
+### Decision Log
+
+- **Free:** Not available. The nav item or menu entry shows “Pro” badge.
+- **Pro:** Full history.
+
+-----
+
+## THE UPGRADE SCREEN (PAYWALL)
+
+When a user taps any locked feature (blurred captain option, locked vibe, locked Decision Log), show the upgrade screen. This is NOT a hard paywall — it’s an invitation.
+
+**Layout:**
+
+1. **Headline:** “Unlock SuperScout Pro” in Space Grotesk Bold
+1. **Subtitle:** “Better decisions in 2 minutes, not 30.” (This is the time-poor competitor pitch)
+1. **Three benefit bullets** (short, punchy):
+- “All 3 vibes — Expert, Critic, and Fanboy”
+- “Full choice architecture — see every option, not just one”
+- “AI-powered Squad Cards your mates will actually screenshot”
+1. **Two purchase buttons:**
+- **Season Pass (hero product, shown first, larger):** “Season Pass — £29.99/year” with a “Best value” badge
+- **Monthly:** “Pro Monthly — £4.99/month”
+1. **Restore purchases link** at the bottom (required by Apple)
+1. **Close/dismiss button** — always visible. Never trap the user.
+
+The purchase buttons call RevenueCat’s `purchasePackage()` method. After a successful purchase, the entitlement updates immediately and the locked content unlocks without requiring a restart.
+
+**Design notes:** Use the brand colours — dark background (#0D0D1A), indigo primary button for Season Pass, surface-alt for Monthly. The Season Pass button should feel like the obvious choice. Keep the screen clean — no walls of text, no feature comparison tables, no pressure tactics.
+
+-----
+
+## SUBSCRIPTION STATUS IN THE APP
+
+Create a React context or hook (something like `useSubscription` or `usePurchases`) that:
+
+1. Checks RevenueCat for the current user’s entitlements on app launch
+1. Exposes a simple boolean: `isPro` (true/false)
+1. Exposes the current subscription type: `'free'`, `'pro_monthly'`, or `'season_pass'`
+1. Provides a `purchaseProduct(productId)` function
+1. Provides a `restorePurchases()` function
+1. Listens for subscription status changes and updates in real-time
+
+Every screen that has feature gating checks `isPro` from this hook. This means subscription logic lives in ONE place, not scattered across every screen.
+
+-----
+
+## DATABASE LOGGING — TABLE 11 (subscription_events)
+
+Every subscription change must be logged to Supabase for analytics. When RevenueCat reports a subscription event, write a row to the `subscription_events` table:
+
+- **user_id** — the current user’s ID (will be the anonymous ID until auth is built)
+- **event_type** — one of: ‘initial_purchase’, ‘renewal’, ‘cancellation’, ‘expiration’, ‘resubscribe’, ‘upgrade’, ‘downgrade’
+- **from_tier** — the tier they were on before (e.g. ‘free’)
+- **to_tier** — the tier they moved to (e.g. ‘pro_monthly’ or ‘season_pass’)
+- **platform** — ‘ios’ or ‘android’
+- **gameweek** — the current FPL gameweek number (nullable — may not be available outside season)
+- **created_at** — timestamp
+
+For now, log these events client-side when RevenueCat confirms a purchase. In Phase 2, we’ll add RevenueCat webhooks to the API server for server-side event logging (more reliable).
+
+-----
+
+## ALSO UPDATE THE USERS TABLE
+
+When a user’s subscription status changes, update their record in the `users` table:
+
+- Set `subscription_tier` to the appropriate value: ‘free’, ‘pro’, or ‘season_pass’
+- This keeps the Supabase user record in sync with RevenueCat’s state
+
+-----
+
+## SANDBOX TESTING
+
+RevenueCat has a sandbox mode that simulates purchases without real money. For now:
+
+1. Set up RevenueCat in sandbox mode
+1. Create the two products in the RevenueCat dashboard (they don’t need to be configured in App Store Connect yet — that happens in Phase 2)
+1. Test that tapping “Purchase” triggers the RevenueCat purchase flow (it will show a sandbox purchase dialog)
+1. Test that after a sandbox purchase, `isPro` becomes true and all locked features unlock immediately
+1. Test that dismissing the paywall returns to the previous screen without any state issues
+1. Test that the subscription_events table receives a row after a sandbox purchase
+1. Test restore purchases — after clearing app state, tapping “Restore” should recover the sandbox subscription
+
+-----
+
+## EDGE CASES
+
+- **Network offline during purchase:** Show a clear error: “Couldn’t complete the purchase — check your connection and try again.” Don’t leave the user in an ambiguous state.
+- **RevenueCat SDK fails to initialise:** Fall back to free tier. Log the error. Don’t crash. Don’t block the app.
+- **User has expired subscription:** RevenueCat handles this — the entitlement disappears. The app should gracefully revert to free tier with a gentle message: “Your Pro subscription has ended. Your data is safe — upgrade any time to pick up where you left off.”
+- **User on free tier completes a gameweek:** Their single recommendation and basic Squad Card should feel complete and useful. They should never feel like the free tier is broken or crippled.
+- **Subscription purchased on one device, opened on another:** RevenueCat’s `restorePurchases()` handles this. The “Restore” link on the paywall is essential.
+
+-----
+
+## WHAT THIS DOES NOT INCLUDE (YET)
+
+- **Apple App Store / Google Play product configuration** — that requires developer accounts (Phase 2, Weeks 7–8). For now, RevenueCat sandbox is enough.
+- **Server-side webhook validation** — Phase 2. Client-side logging is fine for now.
+- **Stripe / web payments** — if we add a website subscription option later, Stripe handles web. RevenueCat handles in-app. For launch, in-app only.
+- **Elite tier** — removed from launch. Returns at GW5+ if usage data shows demand.
+- **Promotional offers / free trials** — can be configured in App Store Connect later. Not in this build.
+
+-----
+
+## TESTING CHECKLIST
+
+1. RevenueCat SDK initialises without errors on app launch
+1. Free tier shows: 1 captain pick, blurred alternatives, basic Squad Card (no quip), Expert only, locked vibes
+1. Tapping a blurred option or locked vibe opens the paywall
+1. Paywall shows Season Pass and Pro Monthly with correct prices
+1. Sandbox purchase completes and `isPro` flips to true immediately
+1. All locked features unlock after purchase without restarting the app
+1. Squad Card now includes AI quip after upgrade
+1. All 3 vibes available after upgrade
+1. Full choice architecture visible on Captain Picker and Transfer Advisor
+1. Subscription event logged to Supabase `subscription_events` table
+1. `users` table `subscription_tier` field updated
+1. Restore purchases works after clearing app state
+1. Dismissing the paywall returns cleanly to the previous screen
+1. Offline purchase attempt shows clear error message
+1. RevenueCat failure falls back to free tier (not a crash)
+
+-----
+
+## FILE LOCATIONS
+
+- RevenueCat initialisation: `services/purchases.ts` or `services/revenuecat.ts`
+- Subscription hook: `hooks/useSubscription.ts` or `hooks/usePurchases.ts`
+- Paywall screen: `components/Paywall.tsx` or `app/paywall.tsx`
+- Feature gating should be checked via the hook in each screen that has free/pro differences
+
+Push everything to GitHub when complete.
