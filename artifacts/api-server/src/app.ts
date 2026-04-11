@@ -37,6 +37,10 @@ if (process.env.REPLIT_DEV_DOMAIN) {
 if (process.env.REPLIT_EXPO_DEV_DOMAIN) {
   allowedOrigins.add(`https://${process.env.REPLIT_EXPO_DEV_DOMAIN}`);
 }
+if (process.env.REPLIT_DEPLOYMENT_URL) {
+  allowedOrigins.add(process.env.REPLIT_DEPLOYMENT_URL);
+}
+allowedOrigins.add('https://super-scout.replit.app');
 const isDev = process.env.NODE_ENV !== 'production';
 app.use(cors({
   origin: (origin, callback) => {
@@ -53,7 +57,7 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use("/api", router);
 app.use("/api/admin", adminRouter);
+app.use("/api", router);
 
 export default app;
