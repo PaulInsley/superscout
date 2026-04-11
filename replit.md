@@ -38,6 +38,7 @@ A dynamic rules engine loads and caches sport-specific rules, injecting them int
 - **Onboarding Flow**: A guided first-time user experience to connect FPL accounts and choose an AI persona.
 - **Decision Logging**: Server-side logging of all AI recommendations and user decisions for tracking outcomes and model improvement.
 - **Auto-Pull Decisions**: Post-deadline process to automatically pull actual user captain choices from FPL API and compare against SuperScout recommendations.
+- **Pre-Generation Pipeline**: Caches AI recommendations (captain picks and transfer advice) per user/vibe/gameweek before users open the app. Triggered via `POST /api/pre-generate/:gameweek` (auth: `Bearer PROCESS_DECISIONS_SECRET`). Clients check `GET /api/pre-generated/:gameweek` (supports `current` as gameweek) before making live AI calls, falling back to real-time generation if no cached result exists. Stored in `pre_generated_recommendations` Supabase table with expiry at gameweek deadline. Migration: `scripts/supabase-migration-pre-gen.sql`. Route: `artifacts/api-server/src/routes/preGenerate.ts`.
 - **Admin Dashboard**: Web-based admin panel at `/api/admin` for browsing Supabase tables, viewing row counts, querying data, and running custom queries. Protected by cookie-based password auth (`ADMIN_PASSWORD` env var). Route: `artifacts/api-server/src/routes/admin.ts`.
 
 ### UI/UX & Interaction

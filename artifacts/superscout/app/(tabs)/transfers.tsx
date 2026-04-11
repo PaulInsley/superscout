@@ -81,6 +81,26 @@ export default function TransferAdvisorScreen() {
 
     try {
       const apiBase = getApiBaseUrl();
+
+      const preGenUrl = `${apiBase}/pre-generated/current?user_id=00000000-0000-0000-0000-000000000000&decision_type=transfer&vibe=${vibe}`;
+      try {
+        const preGenRes = await fetch(preGenUrl);
+        if (preGenRes.ok) {
+          const preGenData = await preGenRes.json();
+          if (preGenData.found && preGenData.response) {
+            if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
+            setLoadingStage("done");
+            const resultData = preGenData.response as TransferAdviceResponse;
+            setRecommendations(resultData.recommendations ?? []);
+            setGameweek(resultData.gameweek ?? 0);
+            setFreeTransfers(resultData.free_transfers ?? 0);
+            setBudget(resultData.budget_remaining ?? 0);
+            logRecommendationSilently(resultData);
+            return;
+          }
+        }
+      } catch {}
+
       const supportsStreaming = typeof ReadableStream !== "undefined" && Platform.OS === "web";
       const response = await fetch(`${apiBase}/transfer-advice`, {
         method: "POST",

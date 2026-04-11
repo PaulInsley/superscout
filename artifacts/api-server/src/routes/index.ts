@@ -6,6 +6,7 @@ import transferRouter from "./transfer";
 import decisionLogRouter from "./decisionLog";
 import processDecisionsRouter from "./processDecisions";
 import squadCardRouter from "./squadCard";
+import preGenerateRouter from "./preGenerate";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(transferRouter);
 router.use(decisionLogRouter);
 router.use(processDecisionsRouter);
 router.use(squadCardRouter);
+router.use(preGenerateRouter);
 
 export default router;

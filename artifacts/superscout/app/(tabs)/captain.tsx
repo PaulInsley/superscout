@@ -117,6 +117,26 @@ export default function CaptainPickerScreen() {
 
     try {
       const apiBase = getApiBaseUrl();
+
+      const preGenUrl = `${apiBase}/pre-generated/${candidateData.gameweek}?user_id=00000000-0000-0000-0000-000000000000&decision_type=captain&vibe=${vibe}`;
+      try {
+        const preGenRes = await fetch(preGenUrl);
+        if (preGenRes.ok) {
+          const preGenData = await preGenRes.json();
+          if (preGenData.found && preGenData.response) {
+            clearStageTimers();
+            setLoadingStage("done");
+            setGameweek(candidateData.gameweek);
+            setDeadlineTime(candidateData.deadlineTime);
+            await new Promise((r) => setTimeout(r, 300));
+            const recs = preGenData.response.recommendations ?? preGenData.response;
+            setRecommendations(Array.isArray(recs) ? recs : []);
+            logRecommendationSilently({ recommendations: Array.isArray(recs) ? recs : [] } as CaptainPicksResponse, candidateData.gameweek);
+            return;
+          }
+        }
+      } catch {}
+
       const response = await fetch(`${apiBase}/captain-picks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
