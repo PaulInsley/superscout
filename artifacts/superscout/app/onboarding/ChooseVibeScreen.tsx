@@ -13,16 +13,16 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 
-export type Persona = "expert" | "critic" | "fanboy";
+export type Vibe = "expert" | "critic" | "fanboy";
 
-interface PersonaCard {
-  key: Persona;
+interface VibeCard {
+  key: Vibe;
   name: string;
   description: string;
   example: string;
 }
 
-export const PERSONAS: PersonaCard[] = [
+export const VIBES: VibeCard[] = [
   {
     key: "expert",
     name: "The Expert",
@@ -47,7 +47,7 @@ export const PERSONAS: PersonaCard[] = [
 ];
 
 interface Props {
-  onNext: (persona: Persona) => void;
+  onNext: (vibe: Vibe) => void;
   onCancel?: () => void;
   isSettings?: boolean;
 }
@@ -55,17 +55,17 @@ interface Props {
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CAROUSEL_ITEM_WIDTH = SCREEN_WIDTH - 48;
 
-export default function ChoosePersonaScreen({ onNext, onCancel, isSettings }: Props) {
+export default function ChooseVibeScreen({ onNext, onCancel, isSettings }: Props) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const [selected, setSelected] = useState<Persona | null>(null);
+  const [selected, setSelected] = useState<Vibe | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
   const [carouselIndex, setCarouselIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
 
   const handleCarouselScroll = (e: { nativeEvent: { contentOffset: { x: number } } }) => {
     const idx = Math.round(e.nativeEvent.contentOffset.x / CAROUSEL_ITEM_WIDTH);
-    if (idx >= 0 && idx < PERSONAS.length) {
+    if (idx >= 0 && idx < VIBES.length) {
       setCarouselIndex(idx);
     }
   };
@@ -109,7 +109,7 @@ export default function ChoosePersonaScreen({ onNext, onCancel, isSettings }: Pr
           </Text>
         </Pressable>
 
-        {PERSONAS.map((p) => {
+        {VIBES.map((p) => {
           const isSelected = selected === p.key;
           return (
             <Pressable
@@ -126,7 +126,7 @@ export default function ChoosePersonaScreen({ onNext, onCancel, isSettings }: Pr
             >
               <Text
                 style={[
-                  styles.personaName,
+                  styles.vibeName,
                   {
                     color: isSelected ? colors.primary : colors.foreground,
                   },
@@ -135,7 +135,7 @@ export default function ChoosePersonaScreen({ onNext, onCancel, isSettings }: Pr
                 {p.name}
               </Text>
               <Text
-                style={[styles.personaDesc, { color: colors.mutedForeground }]}
+                style={[styles.vibeDesc, { color: colors.mutedForeground }]}
               >
                 {p.description}
               </Text>
@@ -199,7 +199,7 @@ export default function ChoosePersonaScreen({ onNext, onCancel, isSettings }: Pr
   );
 
   const renderCarouselView = () => {
-    const current = PERSONAS[carouselIndex];
+    const current = VIBES[carouselIndex];
     return (
       <View style={styles.carouselContainer}>
         <View style={styles.carouselHeader}>
@@ -218,7 +218,7 @@ export default function ChoosePersonaScreen({ onNext, onCancel, isSettings }: Pr
 
         <FlatList
           ref={flatListRef}
-          data={PERSONAS}
+          data={VIBES}
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
@@ -242,13 +242,13 @@ export default function ChoosePersonaScreen({ onNext, onCancel, isSettings }: Pr
                 ]}
               >
                 <Text
-                  style={[styles.carouselPersonaName, { color: colors.primary }]}
+                  style={[styles.carouselVibeName, { color: colors.primary }]}
                 >
                   {item.name}
                 </Text>
                 <Text
                   style={[
-                    styles.carouselPersonaDesc,
+                    styles.carouselVibeDesc,
                     { color: colors.mutedForeground },
                   ]}
                 >
@@ -278,7 +278,7 @@ export default function ChoosePersonaScreen({ onNext, onCancel, isSettings }: Pr
         />
 
         <View style={styles.dots}>
-          {PERSONAS.map((p, i) => (
+          {VIBES.map((p, i) => (
             <Pressable key={p.key} onPress={() => goToSlide(i)}>
               <View
                 style={[
@@ -385,12 +385,12 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     marginBottom: 14,
   },
-  personaName: {
+  vibeName: {
     fontSize: 18,
     fontFamily: "Inter_700Bold",
     marginBottom: 4,
   },
-  personaDesc: {
+  vibeDesc: {
     fontSize: 14,
     fontFamily: "Inter_400Regular",
     marginBottom: 10,
@@ -437,12 +437,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginHorizontal: 0,
   },
-  carouselPersonaName: {
+  carouselVibeName: {
     fontSize: 22,
     fontFamily: "Inter_700Bold",
     marginBottom: 6,
   },
-  carouselPersonaDesc: {
+  carouselVibeDesc: {
     fontSize: 14,
     fontFamily: "Inter_400Regular",
     marginBottom: 16,

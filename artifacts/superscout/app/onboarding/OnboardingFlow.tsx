@@ -5,7 +5,7 @@ import { View, StyleSheet } from "react-native";
 import { supabase } from "@/services/supabase";
 import WelcomeScreen from "./WelcomeScreen";
 import ConnectFPLScreen from "./ConnectFPLScreen";
-import ChoosePersonaScreen from "./ChoosePersonaScreen";
+import ChooseVibeScreen from "./ChooseVibeScreen";
 import WhatWeDoScreen from "./WhatWeDoScreen";
 import YoureInScreen from "./YoureInScreen";
 
@@ -22,7 +22,7 @@ export default function OnboardingFlow({ onComplete }: Props) {
   const [step, setStep] = useState(0);
   const [teamName, setTeamName] = useState<string | null>(null);
   const [managerId, setManagerId] = useState<number | null>(null);
-  const [persona, setPersona] = useState<"expert" | "critic" | "fanboy" | null>(null);
+  const [vibe, setVibe] = useState<"expert" | "critic" | "fanboy" | null>(null);
 
   const handleFPLConnect = (id: number | null, name: string | null) => {
     if (id && name) {
@@ -34,9 +34,9 @@ export default function OnboardingFlow({ onComplete }: Props) {
     setStep(2);
   };
 
-  const handlePersonaSelect = (p: "expert" | "critic" | "fanboy") => {
-    setPersona(p);
-    AsyncStorage.setItem(PERSONA_KEY, p).catch(() => {});
+  const handleVibeSelect = (v: "expert" | "critic" | "fanboy") => {
+    setVibe(v);
+    AsyncStorage.setItem(PERSONA_KEY, v).catch(() => {});
     setStep(3);
   };
 
@@ -53,7 +53,7 @@ export default function OnboardingFlow({ onComplete }: Props) {
         const updates: Record<string, unknown> = {
           onboarding_completed: true,
         };
-        if (persona) updates.default_persona = persona;
+        if (vibe) updates.default_persona = vibe;
         if (managerId) updates.fpl_manager_id = String(managerId);
 
         await supabase
@@ -72,7 +72,7 @@ export default function OnboardingFlow({ onComplete }: Props) {
     <View style={styles.container}>
       {step === 0 && <WelcomeScreen onNext={() => setStep(1)} />}
       {step === 1 && <ConnectFPLScreen onNext={handleFPLConnect} />}
-      {step === 2 && <ChoosePersonaScreen onNext={handlePersonaSelect} />}
+      {step === 2 && <ChooseVibeScreen onNext={handleVibeSelect} />}
       {step === 3 && <WhatWeDoScreen onNext={() => setStep(4)} />}
       {step === 4 && (
         <YoureInScreen teamName={teamName} onFinish={handleFinish} />

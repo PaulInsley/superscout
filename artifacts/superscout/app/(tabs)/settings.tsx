@@ -16,14 +16,14 @@ import { useManagerId } from "@/hooks/useManagerId";
 import { useSubscription } from "@/lib/revenuecat";
 import { supabase } from "@/services/supabase";
 import config from "@/constants/config";
-import ChoosePersonaScreen, {
-  PERSONAS,
-} from "@/app/onboarding/ChoosePersonaScreen";
+import ChooseVibeScreen, {
+  VIBES,
+} from "@/app/onboarding/ChooseVibeScreen";
 import ConnectFPLScreen from "@/app/onboarding/ConnectFPLScreen";
 import Paywall from "@/components/Paywall";
 import ProBadge from "@/components/ProBadge";
 import { ONBOARDING_COMPLETE_KEY } from "@/app/onboarding/OnboardingFlow";
-import type { Persona } from "@/app/onboarding/ChoosePersonaScreen";
+import type { Vibe } from "@/app/onboarding/ChooseVibeScreen";
 
 const PERSONA_KEY = "superscout_persona";
 
@@ -31,8 +31,8 @@ export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { isPro, subscriptionType } = useSubscription();
-  const [currentPersona, setCurrentPersona] = useState<Persona | null>(null);
-  const [showPersonaPicker, setShowPersonaPicker] = useState(false);
+  const [currentVibe, setCurrentVibe] = useState<Vibe | null>(null);
+  const [showVibePicker, setShowVibePicker] = useState(false);
   const [showFPLConnect, setShowFPLConnect] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const { managerId, teamName, setManager } = useManagerId();
@@ -41,17 +41,17 @@ export default function SettingsScreen() {
     AsyncStorage.getItem(PERSONA_KEY)
       .then((val) => {
         if (val === "expert" || val === "critic" || val === "fanboy") {
-          setCurrentPersona(val);
+          setCurrentVibe(val);
         }
       })
       .catch(() => {});
   }, []);
 
-  const handlePersonaChange = (persona: Persona) => {
-    setCurrentPersona(persona);
-    setShowPersonaPicker(false);
+  const handleVibeChange = (v: Vibe) => {
+    setCurrentVibe(v);
+    setShowVibePicker(false);
 
-    AsyncStorage.setItem(PERSONA_KEY, persona).catch(() => {});
+    AsyncStorage.setItem(PERSONA_KEY, v).catch(() => {});
 
     supabase.auth
       .getUser()
@@ -59,7 +59,7 @@ export default function SettingsScreen() {
         if (user) {
           supabase
             .from("users")
-            .update({ default_persona: persona })
+            .update({ default_persona: v })
             .eq("id", user.id);
         }
       })
@@ -76,11 +76,11 @@ export default function SettingsScreen() {
     setShowFPLConnect(false);
   };
 
-  if (showPersonaPicker) {
+  if (showVibePicker) {
     return (
-      <ChoosePersonaScreen
-        onNext={handlePersonaChange}
-        onCancel={() => setShowPersonaPicker(false)}
+      <ChooseVibeScreen
+        onNext={handleVibeChange}
+        onCancel={() => setShowVibePicker(false)}
         isSettings
       />
     );
@@ -109,8 +109,8 @@ export default function SettingsScreen() {
     );
   }
 
-  const personaLabel =
-    PERSONAS.find((p) => p.key === currentPersona)?.name ?? "Not set";
+  const vibeLabel =
+    VIBES.find((p) => p.key === currentVibe)?.name ?? "Not set";
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -206,7 +206,7 @@ export default function SettingsScreen() {
           <Pressable
             onPress={() => {
               if (isPro) {
-                setShowPersonaPicker(true);
+                setShowVibePicker(true);
               } else {
                 setShowPaywall(true);
               }
@@ -230,7 +230,7 @@ export default function SettingsScreen() {
                     { color: colors.mutedForeground },
                   ]}
                 >
-                  {isPro ? personaLabel : "Expert (free tier)"}
+                  {isPro ? vibeLabel : "Expert (free tier)"}
                 </Text>
               </View>
             </View>
