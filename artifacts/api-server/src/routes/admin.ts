@@ -413,7 +413,9 @@ function dashboardPage(): string {
     // Run custom query
     async function runQuery() {
       try {
-        const input = JSON.parse(document.getElementById('queryInput').value);
+        var raw = document.getElementById('queryInput').value;
+        raw = raw.replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"').replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'");
+        const input = JSON.parse(raw);
         const viewer = document.getElementById('viewer');
         viewer.style.display = 'block';
         document.getElementById('viewerTitle').textContent = input.table || 'Query Result';
