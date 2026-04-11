@@ -356,6 +356,8 @@ export async function fetchCaptainCandidates(
       fixtureDifficulty: fdr,
       status: player.status,
       chanceOfPlaying: player.chance_of_playing_next_round,
+      pickPosition: pick.position,
+      isBench: pick.position >= 12,
     });
   }
 

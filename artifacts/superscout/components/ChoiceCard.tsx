@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet } from "react-native";
+import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import type { CaptainRecommendation } from "@/services/fpl/types";
 
@@ -19,6 +20,7 @@ export default function ChoiceCard({ recommendation }: ChoiceCardProps) {
     color: colors.mutedForeground,
   };
   const isSuperScoutPick = recommendation.is_superscout_pick;
+  const hasLineupChanges = recommendation.lineup_changes && recommendation.lineup_changes.length > 0;
 
   return (
     <View
@@ -41,12 +43,19 @@ export default function ChoiceCard({ recommendation }: ChoiceCardProps) {
 
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
-          <Text
-            style={[styles.playerName, { color: colors.foreground }]}
-            numberOfLines={1}
-          >
-            {recommendation.player_name}
-          </Text>
+          <View style={styles.nameRow}>
+            <Text
+              style={[styles.playerName, { color: colors.foreground }]}
+              numberOfLines={1}
+            >
+              {recommendation.player_name}
+            </Text>
+            {recommendation.is_on_bench && (
+              <View style={[styles.benchBadge, { backgroundColor: "#f59e0b20", borderColor: "#f59e0b" }]}>
+                <Text style={[styles.benchBadgeText, { color: "#f59e0b" }]}>BENCH</Text>
+              </View>
+            )}
+          </View>
           <Text style={[styles.teamLine, { color: colors.mutedForeground }]}>
             {recommendation.team} vs {recommendation.opponent}
           </Text>
@@ -102,6 +111,39 @@ export default function ChoiceCard({ recommendation }: ChoiceCardProps) {
         </View>
       </View>
 
+      {hasLineupChanges && (
+        <View style={[styles.lineupContainer, { backgroundColor: "#8b5cf610", borderColor: "#8b5cf640" }]}>
+          <View style={styles.lineupHeader}>
+            <Feather name="shuffle" size={13} color="#8b5cf6" />
+            <Text style={[styles.lineupTitle, { color: "#8b5cf6" }]}>
+              Lineup Changes
+            </Text>
+          </View>
+          {recommendation.lineup_changes!.map((change, idx) => (
+            <View key={idx} style={styles.lineupSwap}>
+              <View style={styles.swapRow}>
+                <Feather name="arrow-up" size={11} color="#22c55e" />
+                <Text style={[styles.swapPlayerIn, { color: colors.foreground }]}>
+                  {change.player_in}
+                </Text>
+                <Feather name="arrow-down" size={11} color="#ef4444" />
+                <Text style={[styles.swapPlayerOut, { color: colors.mutedForeground }]}>
+                  {change.player_out}
+                </Text>
+              </View>
+              <Text style={[styles.swapReason, { color: colors.mutedForeground }]} numberOfLines={1}>
+                {change.reason}
+              </Text>
+            </View>
+          ))}
+          {recommendation.lineup_note && (
+            <Text style={[styles.lineupNote, { color: colors.mutedForeground }]} numberOfLines={2}>
+              {recommendation.lineup_note}
+            </Text>
+          )}
+        </View>
+      )}
+
       <View
         style={[
           styles.caseContainer,
@@ -147,10 +189,27 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 10,
   },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
   playerName: {
     fontSize: 18,
     fontWeight: "700",
     marginBottom: 2,
+  },
+  benchBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+    borderWidth: 1,
+    marginBottom: 2,
+  },
+  benchBadgeText: {
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
   teamLine: {
     fontSize: 13,
@@ -207,6 +266,49 @@ const styles = StyleSheet.create({
     fontSize: 13,
     flex: 1,
     lineHeight: 18,
+  },
+  lineupContainer: {
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 10,
+    gap: 6,
+  },
+  lineupHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 2,
+  },
+  lineupTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  lineupSwap: {
+    gap: 2,
+  },
+  swapRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  swapPlayerIn: {
+    fontSize: 13,
+    fontWeight: "600",
+    marginRight: 6,
+  },
+  swapPlayerOut: {
+    fontSize: 13,
+  },
+  swapReason: {
+    fontSize: 11,
+    marginLeft: 15,
+  },
+  lineupNote: {
+    fontSize: 11,
+    fontStyle: "italic",
+    marginTop: 2,
   },
   caseContainer: {
     padding: 10,

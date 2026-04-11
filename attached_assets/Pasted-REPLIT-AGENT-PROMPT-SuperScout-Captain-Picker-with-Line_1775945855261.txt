@@ -1,0 +1,99 @@
+REPLIT AGENT PROMPT — SuperScout Captain Picker with Lineup Optimisation
+
+CONTEXT: SuperScout’s captain picker currently recommends 3 captain options from the user’s 15-man squad. However it doesn’t account for whether the recommended captain is in the starting XI or on the bench. FPL rules require the captain to be in the starting XI — a benched captain wastes the 2x multiplier.
+
+The real insight is that captain choice and lineup selection are linked decisions. If your best captain is on the bench, you need to know who to swap out. And different captain choices might mean different optimal lineups. SuperScout should handle both decisions together.
+
+TASK: Upgrade the captain picker so each captain recommendation includes a recommended starting XI optimised for that captain choice.
+
+## PART 1: Include bench status in captain candidate data
+
+1. When building the captain candidate list from the FPL API picks data, include ALL 15 players (starters AND bench). For each player, include whether they are currently a starter (position 1-11) or on the bench (position 12-15).
+1. In the squad data sent to the AI, mark each player clearly:
+- “STARTER (pos 3)” for starting XI players
+- “BENCH (pos 12)” for bench players
+  Include their position number so the AI knows the current bench order too.
+
+## PART 2: Update the AI prompt to generate lineup advice per captain option
+
+1. Update the captain picker prompt to include this instruction:
+
+“For each captain recommendation, also provide a recommended starting XI. Analyse all 15 players in the squad and determine the optimal 11 starters for this gameweek, assuming this player is captain.
+
+For each recommendation, include a ‘lineup_changes’ field in the JSON response:
+
+- If the recommended captain is already in the starting XI and the current lineup is optimal, set lineup_changes to an empty array and set lineup_note to ‘Current lineup works — no changes needed.’
+- If the recommended captain is on the bench, they MUST be swapped into the starting XI. Include the swap in lineup_changes.
+- If other lineup changes would improve the starting XI regardless of captain choice (e.g. a bench player has a much better fixture than a starter), include those too.
+- Maximum 3 lineup changes per recommendation to keep it simple.
+
+Each lineup change should include:
+
+- player_in: name of the player coming into the starting XI
+- player_out: name of the player being benched
+- reason: one sentence explaining why (e.g. ‘Fernandes has Chelsea (A) with 7.7 form; King has Brentford (A), tougher fixture and lower ceiling’)
+
+Also include a lineup_note field: a single sentence summary like ‘Bring Fernandes in for King — stronger fixture and higher captain ceiling’ or ‘Current lineup is optimal for this captain choice.’”
+
+1. Update the JSON schema to include the new fields. The recommendations array should now look like:
+
+{
+“gameweek”: 33,
+“recommendations”: [
+{
+“player_name”: “Bruno Fernandes”,
+“team”: “MUN”,
+“opponent”: “CHE (A)”,
+“expected_points”: 9.0,
+“confidence”: “BANKER|CALCULATED_RISK|BOLD_PUNT”,
+“ownership_pct”: 45.6,
+“upside”: “…”,
+“risk”: “…”,
+“case”: “…”,
+“is_superscout_pick”: true,
+“is_on_bench”: true,
+“lineup_changes”: [
+{
+“player_in”: “Bruno Fernandes”,
+“player_out”: “Josh King”,
+“reason”: “Fernandes has 7.7 form and 189 total points; King faces Brentford away with lower expected output”
+}
+],
+“lineup_note”: “Bring Fernandes into your starting XI for King to unlock this captain pick”
+}
+]
+}
+
+## PART 3: Update the UI to show lineup advice
+
+1. In the captain screen (app/(tabs)/captain.tsx), update the ChoiceCard or captain recommendation display:
+   
+   a. If is_on_bench is true, show a visible amber/orange banner on the card:
+   “⚠️ Currently on your bench”
+   
+   b. Below the existing upside/risk/case content, add a new “Lineup” section:
+- If lineup_changes is empty: show “✅ Current lineup works — no changes needed” in green
+- If lineup_changes has items: show each swap as a clear visual:
+  “↑ [Player In] for ↓ [Player Out]” with the reason underneath in smaller text
+- Show the lineup_note as a summary line
+   
+   c. Style the lineup section distinctly from the recommendation — use a subtle divider or different background shade so it’s clear this is lineup advice, not captain reasoning.
+1. The blurred/locked cards for free tier users should still show a hint that lineup advice exists (e.g. the section header “Lineup Changes” is visible but the content is blurred). This adds to the upgrade incentive.
+
+## PART 4: Apply to pre-generation pipeline
+
+1. Update the pre-generation pipeline (preGenerate.ts) to use the same updated prompt so pre-generated recommendations also include lineup_changes and lineup_note.
+
+## PART 5: Validation
+
+1. In the hallucination check, verify that any player named in lineup_changes actually exists in the user’s 15-man squad. If a swap references a player not in the squad, remove that swap (but keep the captain recommendation).
+1. If the AI recommends a bench player as captain but provides no lineup_changes to bring them in, add a fallback: automatically generate a swap suggestion by finding the starting player in the same position with the lowest expected points this gameweek.
+
+## IMPORTANT CONSTRAINTS
+
+- Valid formations must be maintained after any swap: exactly 1 GK, minimum 3 DEF, minimum 2 MID, minimum 1 FWD in the starting XI
+- A swap can only happen between a bench player and a starter — you can’t swap two starters
+- The AI should consider DGW/BGW status when suggesting swaps — a bench player from a DGW team is more valuable than a starter from a BGW team
+- Keep the total response concise — lineup advice should add clarity, not overwhelm. One sentence per swap reason, one sentence lineup_note
+
+GIT SAFETY: Do not run git reset –hard, orphan commits, or force pushes rewriting history without stopping and explaining the consequences first.

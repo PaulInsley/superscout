@@ -485,6 +485,8 @@ function buildContext(
     fixtureDifficulty: number;
     status: string;
     chanceOfPlaying: number | null;
+    pickPosition: number;
+    isBench: boolean;
   }>,
   gameweek: number,
   deadlineTime: string,
@@ -494,7 +496,7 @@ function buildContext(
   const squadSummary = candidates
     .map(
       (c) =>
-        `- ${c.name} (${c.position}, ${c.team}) | Form: ${c.form} | Total Pts: ${c.totalPoints} | Ownership: ${c.ownershipPct}% | Price: £${c.price}m | vs ${c.opponent} | FDR: ${c.fixtureDifficulty} | Status: ${c.status}${c.chanceOfPlaying !== null && c.chanceOfPlaying < 100 ? ` (${c.chanceOfPlaying}% chance)` : ""}`,
+        `- ${c.name} (${c.position}, ${c.team}) | Pos: ${c.pickPosition}${c.isBench ? " [BENCH]" : ""} | Form: ${c.form} | Total Pts: ${c.totalPoints} | Ownership: ${c.ownershipPct}% | Price: £${c.price}m | vs ${c.opponent} | FDR: ${c.fixtureDifficulty} | Status: ${c.status}${c.chanceOfPlaying !== null && c.chanceOfPlaying < 100 ? ` (${c.chanceOfPlaying}% chance)` : ""}`,
     )
     .join("\n");
 
@@ -504,10 +506,17 @@ function buildContext(
 DEADLINE: ${deadlineTime}
 VIBE: ${vibe}${chipLine}
 
-SQUAD (15 players with upcoming fixtures):
+SQUAD (15 players — positions 1-11 = starting XI, 12-15 = bench):
 ${squadSummary}
 
 You are generating captain recommendations for this FPL manager. Analyse their squad and upcoming fixtures. Return exactly 3 captain options. For each option provide: the player name, their team, the opponent and whether it is home or away, an expected points estimate (your best estimate based on form, fixtures, and historical data), a confidence level (one of: BANKER, CALCULATED_RISK, or BOLD_PUNT), the player's ownership percentage, one clear upside sentence, one clear risk sentence, a persona-voiced one-liner making the case for this pick (this is where your personality shines — make it memorable), and whether this is the SuperScout Pick (exactly one option must be true).
+
+LINEUP OPTIMISATION:
+- Set is_on_bench to true if the captain pick is currently on the bench (position 12-15), false otherwise.
+- If a captain pick is on the bench, you MUST include a lineup_changes array showing which bench player to bring in and which starting player to bench, plus a lineup_note summarising the change.
+- Even for starting XI captains, if you spot a clearly better lineup (e.g. a benched player with much better fixture than a starter of the same position), include lineup_changes.
+- If no lineup changes are needed, omit lineup_changes and lineup_note entirely.
+- lineup_changes player names must use EXACT surnames from the squad data above.
 
 Confidence levels explained:
 - BANKER — the safe, obvious pick. The one you'd tell your nan to captain.
@@ -530,7 +539,16 @@ Use this exact JSON structure:
       "upside": "One sentence about the upside",
       "risk": "One sentence about the risk",
       "case": "Your persona-voiced one-liner goes here",
-      "is_superscout_pick": true|false
+      "is_superscout_pick": true|false,
+      "is_on_bench": false,
+      "lineup_changes": [
+        {
+          "player_in": "Bench player surname",
+          "player_out": "Starting player surname",
+          "reason": "Short reason"
+        }
+      ],
+      "lineup_note": "Brief summary of lineup changes"
     }
   ]
 }
@@ -542,7 +560,10 @@ Rules:
 - Do not recommend players with no fixture in this gameweek.
 - The expected_points should be a realistic estimate (typically 2-12 range).
 - The "case" field is where your vibe personality comes through.
-- ownership_pct should match the data provided.`;
+- ownership_pct should match the data provided.
+- is_on_bench must be true if the player's position number is 12-15.
+- If a captain pick is on the bench, lineup_changes is REQUIRED.
+- lineup_changes player names must match EXACTLY the surnames from the squad data.`;
 }
 
 const styles = StyleSheet.create({

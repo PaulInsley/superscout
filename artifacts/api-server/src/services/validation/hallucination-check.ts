@@ -30,6 +30,7 @@ interface HallucinationContext {
   teams: FPLTeam[];
   fixtures: FPLFixture[];
   gameweek: number;
+  squadPlayerNames?: Set<string>;
   logger?: {
     warn: (obj: Record<string, unknown>, msg: string) => void;
     info: (obj: Record<string, unknown>, msg: string) => void;
@@ -271,6 +272,39 @@ export function checkCaptainHallucinations(
         result.correctedCount++;
         result.warnings.push(`Venue corrected for ${playerName}: ${fixtureCheck.corrected}`);
       }
+    }
+
+    if (rec.lineup_changes && Array.isArray(rec.lineup_changes)) {
+      const validChanges: Array<Record<string, unknown>> = [];
+      for (const change of rec.lineup_changes as Array<Record<string, unknown>>) {
+        const playerInName = String(change.player_in ?? "");
+        const playerOutName = String(change.player_out ?? "");
+        const playersToCheck = ctx.squadPlayerNames ? ctx.players.filter(
+          (p) => ctx.squadPlayerNames!.has(normalize(p.second_name)) || ctx.squadPlayerNames!.has(normalize(p.web_name))
+        ) : ctx.players;
+        const playerIn = playerInName ? fuzzyPlayerMatch(playerInName, playersToCheck.length > 0 ? playersToCheck : ctx.players) : null;
+        const playerOut = playerOutName ? fuzzyPlayerMatch(playerOutName, playersToCheck.length > 0 ? playersToCheck : ctx.players) : null;
+        if (!playerIn && playerInName) {
+          result.warnings.push(`Lineup change player_in "${playerInName}" not found in squad — removed change`);
+          ctx.logger?.warn({ playerInName, playerName }, "Hallucination: lineup_changes player_in not in squad");
+          continue;
+        }
+        if (!playerOut && playerOutName) {
+          result.warnings.push(`Lineup change player_out "${playerOutName}" not found in squad — removed change`);
+          ctx.logger?.warn({ playerOutName, playerName }, "Hallucination: lineup_changes player_out not in squad");
+          continue;
+        }
+        validChanges.push(change);
+      }
+      rec.lineup_changes = validChanges.length > 0 ? validChanges : undefined;
+      if (!rec.lineup_changes) {
+        rec.lineup_note = undefined;
+      }
+    }
+
+    if (rec.is_on_bench && !rec.lineup_changes) {
+      rec.lineup_note = "Move this player into your starting XI before setting as captain";
+      ctx.logger?.warn({ playerName }, "Bench captain missing lineup_changes — added generic note");
     }
 
     const caseText = String(rec.case ?? "");

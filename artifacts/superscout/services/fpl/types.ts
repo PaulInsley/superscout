@@ -168,6 +168,14 @@ export interface CaptainCandidate {
   fixtureDifficulty: number;
   status: string;
   chanceOfPlaying: number | null;
+  pickPosition: number;
+  isBench: boolean;
+}
+
+export interface LineupChange {
+  player_in: string;
+  player_out: string;
+  reason: string;
 }
 
 export interface CaptainRecommendation {
@@ -181,6 +189,9 @@ export interface CaptainRecommendation {
   risk: string;
   case: string;
   is_superscout_pick: boolean;
+  is_on_bench?: boolean;
+  lineup_changes?: LineupChange[];
+  lineup_note?: string;
 }
 
 export interface CaptainPicksResponse {

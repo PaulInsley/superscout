@@ -102,7 +102,7 @@ async function generateCaptainPicks(
   const client = getClient();
   const message = await client.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 2000,
+    max_tokens: 2500,
     system: systemPrompt,
     messages: [{ role: "user", content: context }],
   });
@@ -173,7 +173,8 @@ router.post("/captain-picks", async (req: Request, res: Response) => {
       rulesContext,
       gwAnalysisPrompt,
       chipPrompt,
-      `IMPORTANT: You MUST respond with valid JSON only. No markdown, no backticks, no preamble. Follow the EXACT JSON structure specified in the user message — use the exact field names provided (player_name, team, opponent, expected_points, confidence, ownership_pct, upside, risk, case, is_superscout_pick). Do not add extra fields or rename fields.`,
+      `IMPORTANT: You MUST respond with valid JSON only. No markdown, no backticks, no preamble. Follow the EXACT JSON structure specified in the user message — use the exact field names provided (player_name, team, opponent, expected_points, confidence, ownership_pct, upside, risk, case, is_superscout_pick, is_on_bench, lineup_changes, lineup_note). Do not rename fields.`,
+      `LINEUP OPTIMISATION: Each player has a position number (1-11 starting XI, 12-15 bench). If a captain pick is on the bench set is_on_bench: true and include lineup_changes showing which bench player to start and which starter to bench, with a reason. For starting XI picks, include lineup_changes only if there is a clearly better lineup. If no changes needed, omit lineup_changes and lineup_note.`,
       `CRITICAL PERSONA REQUIREMENT: You MUST write the "case" field in your assigned persona voice. The Expert is calm and analytical — no emojis, no exclamation marks, references data. The Critic is sharp and sarcastic — dry wit, rhetorical questions, no emojis. The Fanboy uses CAPITALS for emphasis, slang like BRO and DUDE, 1-2 emojis (🔥🚀🚨), and extreme hype. If the case text could have been written by any of the three personas, you have failed the task.`,
     ].filter(Boolean).join("\n\n");
 
@@ -190,11 +191,15 @@ router.post("/captain-picks", async (req: Request, res: Response) => {
     const recs = parsed.recommendations as Array<Record<string, unknown>> | undefined;
 
     if (recs && bootstrap && fixtures && gameweek) {
+      const squadNameMatches = context.match(/^- (\S+?) \(/gm) ?? [];
+      const squadPlayerNames = new Set(squadNameMatches.map((m: string) => m.replace(/^- /, "").replace(/ \($/, "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s]/g, "").trim()));
+
       const hallucinationCtx = {
         players: bootstrap.elements,
         teams: bootstrap.teams,
         fixtures,
         gameweek,
+        squadPlayerNames: squadPlayerNames.size > 0 ? squadPlayerNames : undefined,
         logger: req.log,
       };
 
