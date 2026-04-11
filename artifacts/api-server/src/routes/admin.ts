@@ -335,7 +335,7 @@ function dashboardPage(): string {
       const tables = await resp.json();
 
       grid.innerHTML = tables.map(t => {
-        return '<div class="table-card" id="card-' + t.name + '" onclick="loadTable(\'' + t.name + '\')"><div class="name">' + t.name + '</div><div class="count ' + (t.count === 0 ? 'zero' : '') + '">' + (t.count >= 0 ? t.count : 'err') + '</div></div>';
+        return '<div class="table-card" id="card-' + t.name + '" onclick="loadTable(\\'' + t.name + '\\')"><div class="name">' + t.name + '</div><div class="count ' + (t.count === 0 ? 'zero' : '') + '">' + (t.count >= 0 ? t.count : 'err') + '</div></div>';
       }).join('');
     }
 
