@@ -31,9 +31,10 @@ The AI service, utilizing Claude (claude-sonnet-4-6), generates recommendations 
 A dynamic rules engine loads and caches sport-specific rules, injecting them into AI prompts to ensure recommendations are compliant and strategically sound. A client-side validation layer further checks AI outputs (e.g., captain choices, transfers) against FPL rules before display, providing warnings or filtering invalid suggestions.
 
 ### Key Features
-- **Captain Picker**: Provides AI-powered captain recommendations, displaying choices with confidence badges (Banker, Calculated Risk, Bold Punt).
-- **Transfer Advisor**: Offers AI-driven transfer advice with SSE streaming for real-time progress updates. It considers squad composition, budget, free transfers, and various strategic modes (individual swaps, packages, full restructure).
-- **Squad Card Generator**: Allows users to generate shareable gameweek squad cards with AI-generated quips, designed for social media.
+- **Captain Picker**: Provides AI-powered captain recommendations, displaying choices with confidence badges (Banker, Calculated Risk, Bold Punt). Free tier shows only the SuperScout Pick; Pro shows all 3-5 options.
+- **Transfer Advisor**: Offers AI-driven transfer advice with SSE streaming for real-time progress updates. Free tier shows only the top recommendation; Pro unlocks restructure packages and full multi-transfer advice.
+- **Squad Card Generator**: Allows users to generate shareable gameweek squad cards with AI-generated quips, designed for social media. Free tier omits the AI quip; Pro includes full vibe-voiced commentary.
+- **RevenueCat Subscription System**: Three-tier subscription model (Free, Pro Monthly £4.99/mo, Season Pass £29.99/yr). Both paid tiers grant a single `pro` entitlement. Feature gating via `useSubscription()` hook from `lib/revenuecat.tsx`. Paywall component at `components/Paywall.tsx`. Subscription events logged to `subscription_events` Supabase table.
 - **Onboarding Flow**: A guided first-time user experience to connect FPL accounts and choose an AI persona.
 - **Decision Logging**: Server-side logging of all AI recommendations and user decisions for tracking outcomes and model improvement.
 - **Auto-Pull Decisions**: Post-deadline process to automatically pull actual user captain choices from FPL API and compare against SuperScout recommendations.
@@ -54,3 +55,5 @@ A dynamic rules engine loads and caches sport-specific rules, injecting them int
 - **`react-native-view-shot`**: For capturing screenshots of UI components (e.g., Squad Cards).
 - **`expo-sharing`**: For sharing functionality (e.g., sharing generated squad cards).
 - **`expo-media-library`**: For saving generated images to the user's photo library.
+- **RevenueCat (`react-native-purchases`)**: Client-side SDK for in-app purchases and subscription management. Configured in `lib/revenuecat.tsx`.
+- **`@replit/revenuecat-sdk`**: Server-side SDK for RevenueCat REST API, used in the seed script (`scripts/src/seedRevenueCat.ts`).

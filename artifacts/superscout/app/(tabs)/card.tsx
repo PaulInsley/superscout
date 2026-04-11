@@ -18,6 +18,7 @@ import * as MediaLibrary from "expo-media-library";
 
 import { useColors } from "@/hooks/useColors";
 import { useManagerId } from "@/hooks/useManagerId";
+import { useSubscription } from "@/lib/revenuecat";
 import SquadCard from "@/components/SquadCard";
 import ProgressLoadingIndicator from "@/components/ProgressLoadingIndicator";
 
@@ -70,6 +71,7 @@ function getApiBaseUrl(): string {
 export default function CardScreen() {
   const colors = useColors();
   const { managerId, teamName, loading: managerLoading } = useManagerId();
+  const { isPro } = useSubscription();
   const [vibe, setVibe] = useState<"expert" | "critic" | "fanboy">("expert");
   const [cardData, setCardData] = useState<SquadCardData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -82,12 +84,15 @@ export default function CardScreen() {
     useCallback(() => {
       AsyncStorage.getItem("superscout_persona").then(stored => {
         const validVibes = ["expert", "critic", "fanboy"] as const;
-        if (stored && validVibes.includes(stored as typeof validVibes[number]) && stored !== vibe) {
-          setVibe(stored as "expert" | "critic" | "fanboy");
-          setCardData(null);
+        if (stored && validVibes.includes(stored as typeof validVibes[number])) {
+          const effectiveVibe = isPro ? stored : "expert";
+          if (effectiveVibe !== vibe) {
+            setVibe(effectiveVibe as "expert" | "critic" | "fanboy");
+            setCardData(null);
+          }
         }
       });
-    }, [vibe])
+    }, [vibe, isPro])
   );
 
   const generateCard = useCallback(async () => {
@@ -133,7 +138,11 @@ export default function CardScreen() {
       setTimeout(() => {
         setLoadingStage("done");
         setTimeout(() => {
-          setCardData(data);
+          if (!isPro) {
+            setCardData({ ...data, quipText: "" });
+          } else {
+            setCardData(data);
+          }
           setLoading(false);
         }, 400);
       }, 300);

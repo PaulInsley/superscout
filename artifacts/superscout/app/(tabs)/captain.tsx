@@ -15,7 +15,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useFocusEffect } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 import { useManagerId } from "@/hooks/useManagerId";
+import { useSubscription } from "@/lib/revenuecat";
 import ChoiceCard from "@/components/ChoiceCard";
+import BlurredCard from "@/components/BlurredCard";
+import Paywall from "@/components/Paywall";
 import ProgressLoadingIndicator from "@/components/ProgressLoadingIndicator";
 import { fetchCaptainCandidates } from "@/services/fpl/api";
 import type {
@@ -34,6 +37,7 @@ export default function CaptainPickerScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { managerId, loading: managerLoading, refresh: refreshManagerId } = useManagerId();
+  const { isPro } = useSubscription();
   const [recommendations, setRecommendations] = useState<
     CaptainRecommendation[] | null
   >(null);
@@ -43,6 +47,7 @@ export default function CaptainPickerScreen() {
   const [gameweek, setGameweek] = useState<number>(0);
   const [deadlineTime, setDeadlineTime] = useState<string>("");
   const [vibe, setVibe] = useState<"expert" | "critic" | "fanboy">("expert");
+  const [showPaywall, setShowPaywall] = useState(false);
   const stageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useFocusEffect(
@@ -50,16 +55,17 @@ export default function CaptainPickerScreen() {
       refreshManagerId();
       AsyncStorage.getItem(PERSONA_KEY).then((persona) => {
         if (persona === "expert" || persona === "critic" || persona === "fanboy") {
+          const effectiveVibe = isPro ? persona : "expert";
           setVibe((prev) => {
-            if (prev !== persona) {
+            if (prev !== effectiveVibe) {
               setRecommendations(null);
               setAiError(null);
             }
-            return persona;
+            return effectiveVibe as "expert" | "critic" | "fanboy";
           });
         }
       }).catch(() => {});
-    }, []),
+    }, [isPro]),
   );
 
   const {
@@ -164,7 +170,7 @@ export default function CaptainPickerScreen() {
           decision_type: "captain",
           options_shown: data.recommendations,
           persona_used: vibe,
-          tier_at_time: "free",
+          tier_at_time: isPro ? "pro" : "free",
           options: data.recommendations.map((r, i) => ({
             option_rank: i + 1,
             player_id: null,
@@ -267,6 +273,9 @@ export default function CaptainPickerScreen() {
     );
   }
 
+  const superscoutPick = recommendations?.find((r) => r.is_superscout_pick);
+  const otherPicks = recommendations?.filter((r) => !r.is_superscout_pick) || [];
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView
@@ -324,12 +333,26 @@ export default function CaptainPickerScreen() {
         {recommendations && (
           <>
             <View style={styles.cardsContainer}>
-              {recommendations.map((rec) => (
-                <ChoiceCard
-                  key={rec.player_name}
-                  recommendation={rec}
-                />
-              ))}
+              {isPro ? (
+                recommendations.map((rec) => (
+                  <ChoiceCard
+                    key={rec.player_name}
+                    recommendation={rec}
+                  />
+                ))
+              ) : (
+                <>
+                  {superscoutPick && (
+                    <ChoiceCard
+                      key={superscoutPick.player_name}
+                      recommendation={superscoutPick}
+                    />
+                  )}
+                  {otherPicks.map((_, i) => (
+                    <BlurredCard key={`blurred-${i}`} onPress={() => setShowPaywall(true)} />
+                  ))}
+                </>
+              )}
             </View>
 
             <Text style={[styles.fplReminder, { color: colors.mutedForeground }]}>
@@ -347,6 +370,8 @@ export default function CaptainPickerScreen() {
           </>
         )}
       </ScrollView>
+
+      <Paywall visible={showPaywall} onClose={() => setShowPaywall(false)} />
     </View>
   );
 }

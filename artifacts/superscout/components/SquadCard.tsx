@@ -179,8 +179,14 @@ export default function SquadCard({
 
         <View style={styles.quipSection}>
           <View style={styles.quipContainer}>
-            <Text style={styles.quipVibeTag}>The {vibeLabel} says:</Text>
-            <Text style={styles.quipText}>{quipText}</Text>
+            {quipText ? (
+              <>
+                <Text style={styles.quipVibeTag}>The {vibeLabel} says:</Text>
+                <Text style={styles.quipText}>{quipText}</Text>
+              </>
+            ) : (
+              <Text style={styles.quipUpgradeText}>Upgrade to Pro for AI commentary</Text>
+            )}
           </View>
         </View>
 
@@ -421,6 +427,13 @@ const styles = StyleSheet.create({
     color: "#e2e8f0",
     lineHeight: 34,
     fontStyle: "italic",
+  },
+  quipUpgradeText: {
+    fontSize: 20,
+    fontWeight: "500",
+    color: "#64748b",
+    fontStyle: "italic",
+    textAlign: "center",
   },
   footer: {
     alignItems: "center",

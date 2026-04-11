@@ -14,7 +14,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 import { useManagerId } from "@/hooks/useManagerId";
+import { useSubscription } from "@/lib/revenuecat";
 import TransferCard from "@/components/TransferCard";
+import BlurredCard from "@/components/BlurredCard";
+import Paywall from "@/components/Paywall";
 import ProgressLoadingIndicator from "@/components/ProgressLoadingIndicator";
 import type { TransferRecommendation } from "@/components/TransferCard";
 
@@ -36,6 +39,7 @@ export default function TransferAdvisorScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { managerId, loading: managerLoading, refresh: refreshManagerId } = useManagerId();
+  const { isPro } = useSubscription();
   const [recommendations, setRecommendations] = useState<TransferRecommendation[] | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
@@ -44,6 +48,7 @@ export default function TransferAdvisorScreen() {
   const [freeTransfers, setFreeTransfers] = useState<number>(0);
   const [budget, setBudget] = useState<number>(0);
   const [vibe, setVibe] = useState<"expert" | "critic" | "fanboy">("expert");
+  const [showPaywall, setShowPaywall] = useState(false);
   const aiTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useFocusEffect(
@@ -51,16 +56,17 @@ export default function TransferAdvisorScreen() {
       refreshManagerId();
       AsyncStorage.getItem(PERSONA_KEY).then((persona) => {
         if (persona === "expert" || persona === "critic" || persona === "fanboy") {
+          const effectiveVibe = isPro ? persona : "expert";
           setVibe((prev) => {
-            if (prev !== persona) {
+            if (prev !== effectiveVibe) {
               setRecommendations(null);
               setAiError(null);
             }
-            return persona;
+            return effectiveVibe as "expert" | "critic" | "fanboy";
           });
         }
       }).catch(() => {});
-    }, []),
+    }, [isPro]),
   );
 
   const requestAdvice = useCallback(async () => {
@@ -213,7 +219,7 @@ export default function TransferAdvisorScreen() {
           decision_type: "transfer",
           options_shown: data.recommendations,
           persona_used: vibe,
-          tier_at_time: "free",
+          tier_at_time: isPro ? "pro" : "free",
           options: data.recommendations.map((r, i) => ({
             option_rank: i + 1,
             player_id: null,
@@ -333,12 +339,26 @@ export default function TransferAdvisorScreen() {
         {recommendations && (
           <>
             <View style={styles.cardsContainer}>
-              {recommendations.map((rec, index) => (
-                <TransferCard
-                  key={rec.is_hold_recommendation ? "hold" : `${rec.player_out}-${rec.player_in}-${index}`}
-                  recommendation={rec}
-                />
-              ))}
+              {isPro ? (
+                recommendations.map((rec, index) => (
+                  <TransferCard
+                    key={rec.is_hold_recommendation ? "hold" : `${rec.player_out}-${rec.player_in}-${index}`}
+                    recommendation={rec}
+                  />
+                ))
+              ) : (
+                <>
+                  {recommendations.length > 0 && (
+                    <TransferCard
+                      key={recommendations[0].is_hold_recommendation ? "hold" : `${recommendations[0].player_out}-${recommendations[0].player_in}-0`}
+                      recommendation={recommendations[0]}
+                    />
+                  )}
+                  {recommendations.slice(1).map((_, i) => (
+                    <BlurredCard key={`blurred-transfer-${i}`} onPress={() => setShowPaywall(true)} />
+                  ))}
+                </>
+              )}
             </View>
 
             <Text style={[styles.fplReminder, { color: colors.mutedForeground }]}>
@@ -356,6 +376,8 @@ export default function TransferAdvisorScreen() {
           </>
         )}
       </ScrollView>
+
+      <Paywall visible={showPaywall} onClose={() => setShowPaywall(false)} />
     </View>
   );
 }

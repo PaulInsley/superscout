@@ -13,12 +13,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { useManagerId } from "@/hooks/useManagerId";
+import { useSubscription } from "@/lib/revenuecat";
 import { supabase } from "@/services/supabase";
 import config from "@/constants/config";
 import ChoosePersonaScreen, {
   PERSONAS,
 } from "@/app/onboarding/ChoosePersonaScreen";
 import ConnectFPLScreen from "@/app/onboarding/ConnectFPLScreen";
+import Paywall from "@/components/Paywall";
+import ProBadge from "@/components/ProBadge";
 import { ONBOARDING_COMPLETE_KEY } from "@/app/onboarding/OnboardingFlow";
 import type { Persona } from "@/app/onboarding/ChoosePersonaScreen";
 
@@ -27,9 +30,11 @@ const PERSONA_KEY = "superscout_persona";
 export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { isPro, subscriptionType } = useSubscription();
   const [currentPersona, setCurrentPersona] = useState<Persona | null>(null);
   const [showPersonaPicker, setShowPersonaPicker] = useState(false);
   const [showFPLConnect, setShowFPLConnect] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
   const { managerId, teamName, setManager } = useManagerId();
 
   useEffect(() => {
@@ -199,7 +204,13 @@ export default function SettingsScreen() {
           </Text>
 
           <Pressable
-            onPress={() => setShowPersonaPicker(true)}
+            onPress={() => {
+              if (isPro) {
+                setShowPersonaPicker(true);
+              } else {
+                setShowPaywall(true);
+              }
+            }}
             style={({ pressed }) => [
               styles.settingRow,
               { opacity: pressed ? 0.7 : 1 },
@@ -219,16 +230,79 @@ export default function SettingsScreen() {
                     { color: colors.mutedForeground },
                   ]}
                 >
-                  {personaLabel}
+                  {isPro ? personaLabel : "Expert (free tier)"}
                 </Text>
               </View>
             </View>
-            <Feather
-              name="chevron-right"
-              size={18}
-              color={colors.mutedForeground}
-            />
+            <View style={styles.settingRight}>
+              {!isPro && <ProBadge />}
+              <Feather
+                name="chevron-right"
+                size={18}
+                color={colors.mutedForeground}
+              />
+            </View>
           </Pressable>
+        </View>
+
+        <View
+          style={[
+            styles.section,
+            {
+              backgroundColor: colors.card,
+              borderRadius: colors.radius,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <Text
+            style={[styles.sectionTitle, { color: colors.mutedForeground }]}
+          >
+            Subscription
+          </Text>
+
+          {isPro ? (
+            <View style={styles.aboutRow}>
+              <Text style={[styles.settingLabel, { color: colors.foreground }]}>
+                {subscriptionType === "season_pass" ? "Season Pass" : "Pro Monthly"}
+              </Text>
+              <View style={[styles.activeBadge, { backgroundColor: "#22c55e20" }]}>
+                <Text style={[styles.activeBadgeText, { color: "#22c55e" }]}>Active</Text>
+              </View>
+            </View>
+          ) : (
+            <Pressable
+              onPress={() => setShowPaywall(true)}
+              style={({ pressed }) => [
+                styles.settingRow,
+                { opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <View style={styles.settingLeft}>
+                <Feather name="zap" size={18} color="#4338ca" />
+                <View>
+                  <Text
+                    style={[styles.settingLabel, { color: colors.foreground }]}
+                  >
+                    Upgrade to Pro
+                  </Text>
+                  <Text
+                    style={[
+                      styles.settingValue,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    Unlock all features
+                  </Text>
+                </View>
+              </View>
+              <Feather
+                name="chevron-right"
+                size={18}
+                color={colors.mutedForeground}
+              />
+            </Pressable>
+          )}
         </View>
 
         <View
@@ -311,6 +385,8 @@ export default function SettingsScreen() {
           </Pressable>
         </View>
       </ScrollView>
+
+      <Paywall visible={showPaywall} onClose={() => setShowPaywall(false)} />
     </View>
   );
 }
@@ -379,6 +455,29 @@ const styles = StyleSheet.create({
   aboutValue: {
     fontSize: 14,
     fontFamily: "Inter_400Regular",
+  },
+  settingRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  activeBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  activeBadgeText: {
+    fontSize: 13,
+    fontWeight: "700",
+    fontFamily: "Inter_600SemiBold",
+  },
+  settingRowInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  settingIcon: {
+    width: 20,
   },
   fplConnectHeader: {
     flexDirection: "row",

@@ -16,6 +16,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.85.0",
     "@replit/connectors-sdk": "^0.3.0",
+    "@replit/revenuecat-sdk": "4.0.0",
     "@supabase/supabase-js": "^2.102.1",
     "pg": "^8.20.0"
   }
