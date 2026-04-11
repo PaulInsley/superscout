@@ -1,0 +1,20 @@
+-- SuperScout: subscription_events table
+-- NOTE: This table already exists from supabase-migration.sql (TABLE 11).
+-- This file documents the schema for reference.
+-- The existing schema uses: tier_from/tier_to (not from_tier/to_tier),
+-- source (not platform), and event types: signup, upgrade, downgrade,
+-- cancel, expired, resubscribe.
+
+-- Original DDL (from supabase-migration.sql):
+-- CREATE TABLE IF NOT EXISTS subscription_events (
+--   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+--   user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+--   event_type text NOT NULL CHECK (event_type IN ('signup', 'upgrade', 'downgrade', 'cancel', 'expired', 'resubscribe')),
+--   tier_from text,
+--   tier_to text,
+--   gameweek integer,
+--   source text CHECK (source IN ('app_store', 'google_play', 'web_stripe')),
+--   created_at timestamptz DEFAULT now()
+-- );
+--
+-- Indexes and RLS were applied in supabase-migration.sql and supabase-rls-fix.sql.

@@ -2,13 +2,12 @@ import { supabase } from "./supabase";
 import { Platform } from "react-native";
 
 export type SubscriptionEventType =
-  | "initial_purchase"
-  | "renewal"
-  | "cancellation"
-  | "expiration"
-  | "resubscribe"
+  | "signup"
   | "upgrade"
-  | "downgrade";
+  | "downgrade"
+  | "cancel"
+  | "expired"
+  | "resubscribe";
 
 export type SubscriptionTier = "free" | "pro_monthly" | "season_pass";
 
@@ -19,6 +18,12 @@ interface LogSubscriptionEventParams {
   gameweek?: number | null;
 }
 
+function getPlatformSource(): "app_store" | "google_play" | "web_stripe" {
+  if (Platform.OS === "ios") return "app_store";
+  if (Platform.OS === "android") return "google_play";
+  return "web_stripe";
+}
+
 export async function logSubscriptionEvent({
   eventType,
   fromTier,
@@ -26,14 +31,12 @@ export async function logSubscriptionEvent({
   gameweek,
 }: LogSubscriptionEventParams) {
   try {
-    const platform = Platform.OS === "ios" ? "ios" : Platform.OS === "android" ? "android" : "web";
-
     const { error } = await supabase.from("subscription_events").insert({
       user_id: "00000000-0000-0000-0000-000000000000",
       event_type: eventType,
-      from_tier: fromTier,
-      to_tier: toTier,
-      platform,
+      tier_from: fromTier,
+      tier_to: toTier,
+      source: getPlatformSource(),
       gameweek: gameweek ?? null,
     });
 

@@ -40,7 +40,7 @@ export default function Paywall({ visible, onClose }: PaywallProps) {
       const productId = pkg?.product?.identifier || "";
       const toTier = productId.includes("season_pass") ? "season_pass" as const : "pro_monthly" as const;
       logSubscriptionEvent({
-        eventType: "initial_purchase",
+        eventType: "signup",
         fromTier: "free",
         toTier,
       });
