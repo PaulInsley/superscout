@@ -43,6 +43,9 @@ export async function logSubscriptionEvent({
 }: LogSubscriptionEventParams) {
   try {
     const userId = await getUserId();
+    if (userId === PLACEHOLDER_USER_ID) {
+      return;
+    }
     const { error } = await supabase.from("subscription_events").insert({
       user_id: userId,
       event_type: eventType,
@@ -63,6 +66,9 @@ export async function logSubscriptionEvent({
 export async function updateUserSubscriptionTier(tier: string) {
   try {
     const userId = await getUserId();
+    if (userId === PLACEHOLDER_USER_ID) {
+      return;
+    }
     const { error } = await supabase
       .from("users")
       .update({ subscription_tier: tier === "free" ? "free" : tier === "season_pass" ? "season_pass" : "pro" })
