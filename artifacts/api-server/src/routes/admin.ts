@@ -350,7 +350,7 @@ function dashboardPage(): string {
             <option value="50">50 rows</option>
             <option value="100">100 rows</option>
           </select>
-          <button id="refreshBtn">Refresh</button>
+          <button onclick="loadTable(currentTable)">Refresh</button>
         </div>
       </div>
       <div class="results-wrap" id="resultsWrap">
@@ -367,7 +367,7 @@ function dashboardPage(): string {
       <h3>Custom Query</h3>
       <div class="query-box">
         <textarea id="queryInput" placeholder='{"table":"recommendations","select":"id,decision_type,gameweek","limit":10}'></textarea>
-        <button id="runBtn">Run</button>
+        <button onclick="runQuery()">Run</button>
       </div>
     </div>
   </div>
@@ -483,8 +483,6 @@ function dashboardPage(): string {
       if (card && card.dataset.table) loadTable(card.dataset.table);
     });
 
-    document.getElementById('runBtn').addEventListener('click', function() { runQuery(); });
-    document.getElementById('refreshBtn').addEventListener('click', function() { if (currentTable) loadTable(currentTable); });
   </script>
 </body>
 </html>`;
