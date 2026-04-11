@@ -167,23 +167,25 @@ export default function CardScreen() {
     let platform = "other";
 
     try {
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(uri, {
-          mimeType: "image/png",
-          UTI: "public.png",
-          dialogTitle: "Share your Squad Card",
-        });
-        didShare = true;
-        platform = "other";
-      } else if (Platform.OS === "ios") {
+      if (Platform.OS === "ios") {
         const result = await Share.share({ url: uri });
         if (result.action === Share.sharedAction) {
           didShare = true;
           platform = mapActivityTypeToPlatform(result.activityType);
         }
       } else {
-        Alert.alert("Sharing not available", "Sharing is not supported on this device.");
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(uri, {
+            mimeType: "image/png",
+            UTI: "public.png",
+            dialogTitle: "Share your Squad Card",
+          });
+          didShare = true;
+          platform = "other";
+        } else {
+          Alert.alert("Sharing not available", "Sharing is not supported on this device.");
+        }
       }
     } catch (err) {
       console.error("[SuperScout] Share error:", err);
