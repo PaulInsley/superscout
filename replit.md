@@ -36,7 +36,8 @@ A dynamic rules engine loads and caches sport-specific rules, injecting them int
 - **Gameweek Analysis**: Shared utility (`artifacts/api-server/src/lib/gameweekAnalysis.ts`) detects blank gameweeks (teams with no fixture), double gameweeks (teams with 2+ fixtures), and injects context into AI prompts. Used by captain, transfer, and pre-generation routes.
 - **Squad Card Generator**: Allows users to generate shareable gameweek squad cards with AI-generated quips, designed for social media. Free tier omits the AI quip; Pro includes full vibe-voiced commentary.
 - **RevenueCat Subscription System**: Three-tier subscription model (Free, Pro Monthly £4.99/mo, Season Pass £29.99/yr). Both paid tiers grant a single `pro` entitlement. Feature gating via `useSubscription()` hook from `lib/revenuecat.tsx`. Paywall component at `components/Paywall.tsx`. Subscription events logged to `subscription_events` Supabase table.
-- **Onboarding Flow**: A guided first-time user experience to connect FPL accounts and choose an AI persona.
+- **Privacy Policy Integration**: Privacy Policy and Terms of Service links in Settings (Legal section), Paywall (legal text below restore), onboarding ConnectFPLScreen (checkbox with consent logging to `consent_events` table), and landing page footer. URLs: `https://superscout.pro/privacy` and `https://superscout.pro/terms`.
+- **Onboarding Flow**: A guided first-time user experience to connect FPL accounts and choose an AI persona. Includes privacy consent checkbox that must be accepted before proceeding.
 - **Decision Logging**: Server-side logging of all AI recommendations and user decisions for tracking outcomes and model improvement.
 - **Auto-Pull Decisions**: Post-deadline process to automatically pull actual user captain choices from FPL API and compare against SuperScout recommendations.
 - **Pre-Generation Pipeline**: Caches AI recommendations (captain picks and transfer advice) per user/vibe/gameweek before users open the app. Triggered via `POST /api/pre-generate/:gameweek` (auth: `Bearer PROCESS_DECISIONS_SECRET`). Clients check `GET /api/pre-generated/:gameweek` (supports `current` as gameweek) before making live AI calls, falling back to real-time generation if no cached result exists. Stored in `pre_generated_recommendations` Supabase table with expiry at gameweek deadline. Migration: `scripts/supabase-migration-pre-gen.sql`. Route: `artifacts/api-server/src/routes/preGenerate.ts`.
@@ -53,7 +54,7 @@ A dynamic rules engine loads and caches sport-specific rules, injecting them int
 - **Fantasy Premier League (FPL) API**: Primary data source for player statistics, fixtures, and user team information. Accessed via a cached, rate-limited proxy.
 - **Anthropic Claude API**: Used for AI recommendation generation and text generation (e.g., squad card quips).
 - **Supabase**: Backend-as-a-Service for database, authentication, and RLS.
-- **Expo**: Framework for building universal React Native apps.
+- **Expo**: Framework for building universal React Native apps. EAS build config at `artifacts/superscout/eas.json`. iOS bundle ID: `pro.superscout.app`, Android package: `pro.superscout.app`. Note: `react-native-purchases` and `expo-media-library` plugins must be added to `app.json` plugins array for EAS builds (removed during dev as they crash Expo Go).
 - **`react-native-view-shot`**: For capturing screenshots of UI components (e.g., Squad Cards).
 - **`expo-sharing`**: For sharing functionality (e.g., sharing generated squad cards).
 - **`expo-media-library`**: For saving generated images to the user's photo library.

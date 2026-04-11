@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef } from "react";
 import {
   ActivityIndicator,
   Keyboard,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { fetchTeamName } from "@/services/fpl";
+import { supabase } from "@/services/supabase";
 
 interface Props {
   onNext: (managerId: number | null, teamName: string | null) => void;
@@ -28,6 +30,7 @@ export default function ConnectFPLScreen({ onNext }: Props) {
   const [teamName, setTeamName] = useState<string | null>(null);
   const [validatedId, setValidatedId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
   const handleLookup = useCallback(async () => {
@@ -246,26 +249,81 @@ export default function ConnectFPLScreen({ onNext }: Props) {
       </View>
 
       <View style={styles.bottomButtons}>
+        <Pressable
+          onPress={() => setPrivacyAccepted(!privacyAccepted)}
+          style={styles.checkboxRow}
+        >
+          <View
+            style={[
+              styles.checkbox,
+              {
+                borderColor: privacyAccepted ? colors.accent : colors.mutedForeground,
+                backgroundColor: privacyAccepted ? colors.accent : "transparent",
+              },
+            ]}
+          >
+            {privacyAccepted && (
+              <Feather name="check" size={14} color={colors.primary} />
+            )}
+          </View>
+          <Text style={[styles.checkboxText, { color: colors.mutedForeground }]}>
+            I agree to the{" "}
+            <Text
+              style={{ color: colors.accent, textDecorationLine: "underline" }}
+              onPress={() => Linking.openURL("https://superscout.pro/privacy")}
+            >
+              Privacy Policy
+            </Text>
+            {" "}and{" "}
+            <Text
+              style={{ color: colors.accent, textDecorationLine: "underline" }}
+              onPress={() => Linking.openURL("https://superscout.pro/terms")}
+            >
+              Terms of Service
+            </Text>
+          </Text>
+        </Pressable>
+
         {teamName && validatedId && (
           <Pressable
-            onPress={() => onNext(validatedId, teamName)}
+            onPress={() => {
+              supabase
+                .from("consent_events")
+                .insert({ event_type: "privacy_accepted", fpl_manager_id: String(validatedId) })
+                .then(() => {})
+                .catch(() => {});
+              onNext(validatedId, teamName);
+            }}
+            disabled={!privacyAccepted}
             style={({ pressed }) => [
               styles.button,
               {
-                backgroundColor: colors.primary,
+                backgroundColor: privacyAccepted ? colors.primary : colors.muted,
                 opacity: pressed ? 0.9 : 1,
               },
             ]}
           >
             <Text
-              style={[styles.buttonText, { color: colors.primaryForeground }]}
+              style={[styles.buttonText, { color: privacyAccepted ? colors.primaryForeground : colors.mutedForeground }]}
             >
               That's my team
             </Text>
           </Pressable>
         )}
-        <Pressable onPress={() => onNext(null, null)}>
-          <Text style={[styles.skipText, { color: colors.mutedForeground }]}>
+        <Pressable
+          onPress={() => {
+            if (privacyAccepted) {
+              supabase
+                .from("consent_events")
+                .insert({ event_type: "privacy_accepted" })
+                .then(() => {})
+                .catch(() => {});
+            }
+            onNext(null, null);
+          }}
+          disabled={!privacyAccepted}
+        >
+          <Text style={[styles.skipText, { color: privacyAccepted ? colors.mutedForeground : colors.muted }]}>
             Skip for now
           </Text>
         </Pressable>
@@ -398,5 +456,27 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Inter_500Medium",
     paddingVertical: 8,
+  },
+  checkboxRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    paddingHorizontal: 4,
+    marginBottom: 8,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+  },
+  checkboxText: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 20,
+    flex: 1,
   },
 });

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -318,6 +319,69 @@ export default function SettingsScreen() {
           <Text
             style={[styles.sectionTitle, { color: colors.mutedForeground }]}
           >
+            Legal
+          </Text>
+
+          <Pressable
+            onPress={() => Linking.openURL("https://superscout.pro/privacy")}
+            style={({ pressed }) => [
+              styles.settingRow,
+              { opacity: pressed ? 0.7 : 1 },
+            ]}
+          >
+            <View style={styles.settingLeft}>
+              <Feather name="shield" size={18} color={colors.foreground} />
+              <Text
+                style={[styles.settingLabel, { color: colors.foreground }]}
+              >
+                Privacy Policy
+              </Text>
+            </View>
+            <Feather
+              name="external-link"
+              size={16}
+              color={colors.mutedForeground}
+            />
+          </Pressable>
+
+          <View style={[styles.legalDivider, { backgroundColor: colors.border }]} />
+
+          <Pressable
+            onPress={() => Linking.openURL("https://superscout.pro/terms")}
+            style={({ pressed }) => [
+              styles.settingRow,
+              { opacity: pressed ? 0.7 : 1 },
+            ]}
+          >
+            <View style={styles.settingLeft}>
+              <Feather name="file-text" size={18} color={colors.foreground} />
+              <Text
+                style={[styles.settingLabel, { color: colors.foreground }]}
+              >
+                Terms of Service
+              </Text>
+            </View>
+            <Feather
+              name="external-link"
+              size={16}
+              color={colors.mutedForeground}
+            />
+          </Pressable>
+        </View>
+
+        <View
+          style={[
+            styles.section,
+            {
+              backgroundColor: colors.card,
+              borderRadius: colors.radius,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <Text
+            style={[styles.sectionTitle, { color: colors.mutedForeground }]}
+          >
             About
           </Text>
           <View style={styles.aboutRow}>
@@ -478,6 +542,10 @@ const styles = StyleSheet.create({
   },
   settingIcon: {
     width: 20,
+  },
+  legalDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginVertical: 4,
   },
   fplConnectHeader: {
     flexDirection: "row",

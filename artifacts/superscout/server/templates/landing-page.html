@@ -261,6 +261,28 @@
         }
       }
 
+      .footer {
+        margin-top: 32px;
+        text-align: center;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+      }
+      .footer-link {
+        font-size: 13px;
+        color: #888;
+        text-decoration: none;
+      }
+      .footer-link:hover {
+        color: #555;
+        text-decoration: underline;
+      }
+      .footer-dot {
+        color: #ccc;
+        font-size: 12px;
+      }
+
       /* Dark mode */
       @media (prefers-color-scheme: dark) {
         body {
@@ -325,6 +347,15 @@
         }
         .open-button:hover {
           background: #e0e0e0;
+        }
+        .footer-link {
+          color: #666;
+        }
+        .footer-link:hover {
+          color: #aaa;
+        }
+        .footer-dot {
+          color: #444;
         }
       }
     </style>
@@ -391,6 +422,12 @@
             >
           </div>
         </div>
+      </div>
+
+      <div class="footer">
+        <a href="https://superscout.pro/privacy" class="footer-link" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
+        <span class="footer-dot">&middot;</span>
+        <a href="https://superscout.pro/terms" class="footer-link" target="_blank" rel="noopener noreferrer">Terms of Service</a>
       </div>
     </div>
 

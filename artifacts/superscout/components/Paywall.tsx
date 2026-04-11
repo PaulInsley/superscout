@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Platform,
+  Linking,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -159,6 +160,23 @@ export default function Paywall({ visible, onClose }: PaywallProps) {
               <Text style={styles.restoreText}>Restore purchases</Text>
             )}
           </Pressable>
+
+          <Text style={styles.legalText}>
+            By subscribing you agree to our{" "}
+            <Text
+              style={styles.legalLink}
+              onPress={() => Linking.openURL("https://superscout.pro/privacy")}
+            >
+              Privacy Policy
+            </Text>
+            {" "}and{" "}
+            <Text
+              style={styles.legalLink}
+              onPress={() => Linking.openURL("https://superscout.pro/terms")}
+            >
+              Terms of Service
+            </Text>
+          </Text>
         </ScrollView>
       </View>
     </Modal>
@@ -303,6 +321,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#8888aa",
     fontFamily: "Inter_400Regular",
+    textDecorationLine: "underline",
+  },
+  legalText: {
+    fontSize: 11,
+    color: "#666680",
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    marginTop: 16,
+    lineHeight: 16,
+    paddingHorizontal: 12,
+  },
+  legalLink: {
+    color: "#8888aa",
     textDecorationLine: "underline",
   },
 });
