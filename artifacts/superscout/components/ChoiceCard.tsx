@@ -25,6 +25,26 @@ export default function ChoiceCard({ recommendation }: ChoiceCardProps) {
   };
   const hasLineupChanges = recommendation.lineup_changes && recommendation.lineup_changes.length > 0;
 
+  const ownershipPct = recommendation.ownership_pct;
+  const hasOwnership = ownershipPct != null && ownershipPct > 0;
+  const haulPts = 24;
+  const impactVsField = hasOwnership ? haulPts * (1 - ownershipPct / 100) : 0;
+
+  let impactText = "";
+  if (hasOwnership) {
+    if (ownershipPct > 50) {
+      impactText = `At ${ownershipPct.toFixed(1)}% ownership, NOT captaining ${recommendation.player_name} is the bigger risk.`;
+    } else if (ownershipPct > 30) {
+      impactText = `If ${recommendation.player_name} hauls, most managers benefit too — this protects your rank.`;
+    } else if (ownershipPct >= 10) {
+      impactText = `At ${ownershipPct.toFixed(1)}% ownership, a haul here gains you ground on most managers.`;
+    } else if (ownershipPct >= 3) {
+      impactText = `Only ${ownershipPct.toFixed(1)}% of managers own ${recommendation.player_name}. A haul here is a massive rank swing.`;
+    } else {
+      impactText = `Just ${ownershipPct.toFixed(1)}% ownership. If ${recommendation.player_name} delivers, this is a season-defining differential.`;
+    }
+  }
+
   return (
     <Pressable onPress={() => setExpanded((prev) => !prev)}>
       <View
@@ -92,6 +112,17 @@ export default function ChoiceCard({ recommendation }: ChoiceCardProps) {
             {recommendation.ownership_pct.toFixed(1)}% owned
           </Text>
         </View>
+
+        {hasOwnership && (
+          <View style={styles.impactContainer}>
+            <Text style={[styles.impactText, { color: colors.mutedForeground }]}>
+              {impactText}
+            </Text>
+            <Text style={styles.impactPts}>
+              Captain haul impact: +{impactVsField.toFixed(1)} pts vs field
+            </Text>
+          </View>
+        )}
 
         <View style={styles.reasoningContainer}>
           <View style={styles.reasonRow}>
@@ -261,6 +292,20 @@ const styles = StyleSheet.create({
   },
   ownership: {
     fontSize: 12,
+  },
+  impactContainer: {
+    marginBottom: 10,
+    gap: 2,
+  },
+  impactText: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontStyle: "italic",
+  },
+  impactPts: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#4CAF7D",
   },
   reasoningContainer: {
     gap: 6,

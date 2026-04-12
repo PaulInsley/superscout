@@ -1,0 +1,71 @@
+# REPLIT AGENT PROMPT — SuperScout: Ownership-Adjusted Captain Impact on Captain Picker Cards
+
+## CONTEXT
+
+SuperScout’s Captain Picker already shows ownership percentage on each card (e.g. “45.5% owned”, “2.9% owned”). But users — especially veterans — want to understand the IMPACT of that ownership on their rank. The key FPL concept is: captaining a highly-owned player protects your rank (if he hauls, everyone benefits so you don’t fall behind). Captaining a low-ownership player is a differential — if he hauls, you gain massively on the field because most managers don’t have him as captain.
+
+We need to add a single line to each captain card that translates ownership into a plain-English impact statement.
+
+## TASK
+
+### 1. Add a captain impact line to each Captain Picker card
+
+Below the existing ownership percentage display on each captain card, add a short impact statement. The calculation is simple:
+
+**Effective captain ownership (ECO)** = the player’s `selected_by_percent` from the FPL API bootstrap data. This is already being fetched and displayed.
+
+The impact line should say:
+
+- If ownership is **above 30%**: “If [player] hauls, most managers benefit too — this protects your rank.”
+- If ownership is **between 10% and 30%**: “At [X]% ownership, a haul here gains you ground on most managers.”
+- If ownership is **below 10%**: “Only [X]% of managers own [player]. A haul here is a massive rank swing.”
+- If ownership is **below 3%**: “Just [X]% ownership. If [player] delivers, this is a season-defining differential.”
+
+Use the player’s web_name (short display name) in the text.
+
+### 2. Add a points impact estimate
+
+After the text line, show a small calculated number:
+
+**“Captain haul impact: +X pts vs field”**
+
+The calculation:
+
+- Assume a “haul” = 12 points (a goal, assist, and bonus for a midfielder — reasonable benchmark)
+- Captain doubles this = 24 points
+- Points gained vs field = 24 × (1 - ownership/100)
+- Round to 1 decimal place
+
+So for a player at 45% ownership: 24 × 0.55 = 13.2 pts vs field
+For a player at 3% ownership: 24 × 0.97 = 23.3 pts vs field
+
+This makes the differential advantage tangible. “23.3 pts vs field” is a number veterans immediately understand.
+
+### 3. Styling
+
+- The impact text line should be in Inter Regular at caption size, using the text-secondary colour
+- The points impact number should be in Inter Medium, slightly more prominent — use Scout Green (#4CAF7D) for positive values
+- Position both below the existing ownership percentage, above the Upside/Risk section
+- Keep it compact — two short lines maximum
+
+### 4. Where it appears
+
+- Captain Picker cards ONLY — not on Transfer Advisor cards
+- Show on all captain options (SuperScout Pick and alternatives)
+- Show for Free tier users too (this is informational, not a Pro feature)
+
+### 5. Handle edge cases
+
+- If `selected_by_percent` is not available or zero, hide the impact section entirely
+- If the player is owned by more than 50%, change the framing slightly: “At [X]% ownership, NOT captaining [player] is the bigger risk.”
+
+### 6. Do NOT change anything else
+
+- Do NOT modify the fixture ticker on captain cards
+- Do NOT modify the confidence badges, upside/risk text, or commentary
+- Do NOT modify the Transfer Advisor
+- Do NOT modify the cache or AI generation — this is purely a front-end calculation using data already on the card
+
+## GIT SAFETY
+
+Do not run git reset –hard, orphan commits, or force pushes rewriting history without stopping and explaining the consequences first.
