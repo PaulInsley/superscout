@@ -64,7 +64,6 @@ function SingleSwapRow({ playerOut, playerOutTeam, playerOutPrice, playerIn, pla
             {playerOutTeam}
             {typeof playerOutPrice === "number" ? ` · £${playerOutPrice.toFixed(1)}m` : ""}
           </Text>
-          <FixtureTicker teamShortName={playerOutTeam} />
         </View>
         <Text style={[styles.arrow, { color: colors.accent }]}>→</Text>
         <View style={styles.playerBlock}>
@@ -166,6 +165,32 @@ export default function TransferCard({ recommendation }: { recommendation: Trans
                 />
               </View>
             ))}
+          </View>
+        </View>
+      ) : Array.isArray(recommendation.player_out) ? (
+        <View style={styles.packageHeader}>
+          <View style={styles.packageSwaps}>
+            {(recommendation.player_out as string[]).map((pOut, i) => {
+              const pOutTeam = Array.isArray(recommendation.player_out_team) ? (recommendation.player_out_team as string[])[i] : recommendation.player_out_team;
+              const pOutPrice = Array.isArray(recommendation.player_out_selling_price) ? (recommendation.player_out_selling_price as number[])[i] : recommendation.player_out_selling_price;
+              const pIn = Array.isArray(recommendation.player_in) ? (recommendation.player_in as string[])[i] : recommendation.player_in;
+              const pInTeam = Array.isArray(recommendation.player_in_team) ? (recommendation.player_in_team as string[])[i] : recommendation.player_in_team;
+              const pInPrice = Array.isArray(recommendation.player_in_price) ? (recommendation.player_in_price as number[])[i] : recommendation.player_in_price;
+              return (
+                <View key={`${pOut}-${pIn}-${i}`}>
+                  {i > 0 && <View style={[styles.swapDivider, { backgroundColor: colors.border }]} />}
+                  <SingleSwapRow
+                    playerOut={pOut ?? ""}
+                    playerOutTeam={(pOutTeam as string) ?? ""}
+                    playerOutPrice={typeof pOutPrice === "number" ? pOutPrice : null}
+                    playerIn={(pIn as string) ?? ""}
+                    playerInTeam={(pInTeam as string) ?? ""}
+                    playerInPrice={typeof pInPrice === "number" ? pInPrice : null}
+                    colors={colors}
+                  />
+                </View>
+              );
+            })}
           </View>
         </View>
       ) : (

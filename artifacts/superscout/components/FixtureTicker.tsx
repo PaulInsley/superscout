@@ -25,18 +25,14 @@ function FixturePill({ fixture }: { fixture: FixtureInfo }) {
   );
 }
 
-function DgwStack({ fixtures }: { fixtures: FixtureInfo[] }) {
+function DgwPill({ fixtures }: { fixtures: FixtureInfo[] }) {
+  const worstFdr = Math.max(...fixtures.map((f) => f.fdr));
+  const bg = FDR_COLORS[worstFdr] ?? "#888";
+  const label = fixtures.map((f) => f.opponentShortName).join("/");
   return (
-    <View style={styles.dgwStack}>
-      {fixtures.map((f, i) => (
-        <View
-          key={`${f.opponentShortName}-${i}`}
-          style={[styles.dgwPill, { backgroundColor: FDR_COLORS[f.fdr] ?? "#888" }]}
-        >
-          <Text style={styles.dgwTeam}>{f.opponentShortName}</Text>
-          <Text style={styles.dgwVenue}>{f.isHome ? "h" : "a"}</Text>
-        </View>
-      ))}
+    <View style={[styles.dgwPill, { backgroundColor: bg }]}>
+      <Text style={styles.dgwTeam} numberOfLines={1}>{label}</Text>
+      <Text style={styles.dgwLabel}>DGW</Text>
     </View>
   );
 }
@@ -78,7 +74,7 @@ export default function FixtureTicker({ teamShortName }: FixtureTickerProps) {
       <View style={styles.row}>
         {slots.map((group, i) =>
           group.length > 1 ? (
-            <DgwStack key={`gw-${group[0].event}-${i}`} fixtures={group} />
+            <DgwPill key={`gw-${group[0].event}-${i}`} fixtures={group} />
           ) : (
             <FixturePill key={`gw-${group[0].event}-${i}`} fixture={group[0]} />
           ),
@@ -123,26 +119,24 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.8)",
     marginTop: -1,
   },
-  dgwStack: {
-    gap: 2,
-  },
   dgwPill: {
-    width: 44,
-    paddingVertical: 2,
-    borderRadius: 5,
+    width: 52,
+    paddingVertical: 3,
+    borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
   },
   dgwTeam: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "700",
     color: "#fff",
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
-  dgwVenue: {
-    fontSize: 8,
-    fontWeight: "500",
-    color: "rgba(255,255,255,0.8)",
+  dgwLabel: {
+    fontSize: 7,
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.7)",
+    letterSpacing: 0.5,
     marginTop: -1,
   },
 });

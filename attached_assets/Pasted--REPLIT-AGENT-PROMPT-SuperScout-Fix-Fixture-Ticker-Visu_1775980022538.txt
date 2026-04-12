@@ -1,0 +1,38 @@
+# REPLIT AGENT PROMPT — SuperScout: Fix Fixture Ticker Visual Issues
+
+## CONTEXT
+
+The FixtureTicker component is working correctly — right data, right colours, no crashes. But the visual presentation needs tidying up. It’s adding too much clutter to the recommendation cards, especially on package transfers where two players each have a ticker.
+
+## TASK
+
+### 1. Remove the ticker from OUT players on Transfer Advisor cards
+
+The fixture ticker currently shows on BOTH the OUT player (being sold) and the IN player (being bought). Remove it from the OUT player entirely. The user is selling that player — their future fixtures don’t matter. Only show the ticker on the IN player. This halves the visual noise on every transfer card.
+
+For package transfers (multi-player swaps like “The Double Gameweek Raid”), only show tickers on the IN players, not the OUT players.
+
+### 2. Fix DGW double-fixture display
+
+When a team plays twice in one gameweek, the two fixtures currently stack vertically (one on top of the other). This makes that slot much taller than the single-fixture slots and looks uneven.
+
+Change the DGW display: put the two fixtures side-by-side horizontally in the same row as the other pills, but make them slightly narrower (about 75% of normal pill width each) and separate them with a tiny 1px divider or a very small gap. They should sit at the same height as the single-fixture pills — no vertical stacking.
+
+If side-by-side doesn’t fit cleanly, an alternative: show only one combined pill with both opponent codes separated by a slash (e.g. “TOT/CHE”) with the higher FDR colour as the background. Either approach is fine — pick whichever looks cleaner.
+
+### 3. Fix player name spacing on package transfers
+
+On package transfer cards (where two players are being swapped out and two swapped in), the player names are running together without spaces — showing as “BernardoGyökeres” instead of “Bernardo  Gyökeres” and “WiefferThiago” instead of “Wieffer  Thiago”.
+
+Find where the package transfer card renders the player names and make sure there’s proper spacing or line breaks between the two OUT players and the two IN players. Each player name should be on its own line or clearly separated.
+
+### 4. Do NOT change anything else
+
+- Do NOT modify the ticker colours or FDR mapping
+- Do NOT modify the cache, staleness check, or AI generation
+- Do NOT remove the ticker from Captain Picker cards (it stays on those)
+- Do NOT change the “Next 5” label or the ticker on single-transfer cards (other than removing it from the OUT player)
+
+## GIT SAFETY
+
+Do not run git reset –hard, orphan commits, or force pushes rewriting history without stopping and explaining the consequences first.
