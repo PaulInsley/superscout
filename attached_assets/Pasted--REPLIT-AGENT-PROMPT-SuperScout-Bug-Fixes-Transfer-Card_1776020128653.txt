@@ -1,0 +1,35 @@
+# REPLIT AGENT PROMPT — SuperScout Bug Fixes + Transfer Card Expandability (12 April)
+
+## Context
+
+SuperScout is a personality-driven AI fantasy football coach built in React Native with Supabase backend. We have three outstanding issues from the 12 April build session that need fixing before live testing this week. GW33 (Double Gameweek) deadline is Saturday 18 April at 11:00 BST — these fixes must land before then.
+
+## Task
+
+Fix all three issues below. Do them in order.
+
+-----
+
+## FIX 1 — Transfer card commentary mismatch (CRITICAL)
+
+The transfer recommendation cards are showing vibe commentary that references the wrong players. Example: the card displays Bernardo → Wieffer as the transfer, but the commentary text references Bijol and Mavropanos instead. This means either (a) the commentary from one transfer card is being matched to a different card, or (b) the AI is generating commentary about a package of transfers but the card is only showing one swap from that package.
+
+Investigate the transfer recommendation rendering pipeline. Check that each transfer card’s displayed OUT player, IN player, and commentary text all come from the same recommendation object. If the AI returns a multi-transfer package, each individual swap within that package must have its own commentary that references only the players in that specific swap — not players from other swaps in the package. The commentary field on each card must match the players shown on that card. Test by generating a fresh set of transfer recommendations and verifying every card’s commentary mentions only the players displayed on that card.
+
+-----
+
+## FIX 2 — Transfer cards not expandable
+
+Captain picker cards have a “Show more / Show less” toggle that lets users tap to read the full upside, risk, and commentary text when it’s too long for the card. Transfer recommendation cards do NOT have this — long text is truncated with no way to read it. Add the same expandable text behaviour to transfer cards that captain cards already have. Match the existing captain card pattern exactly — same component, same animation, same styling.
+
+-----
+
+## FIX 3 — Beginner mode jargon
+
+The beginner mode coaching text (the 4-round coaching programme for new users) currently uses FPL jargon without explanation. Beginner mode is specifically for people who are new to FPL, so every coaching tip must explain concepts from first principles. No assumed knowledge. For example, don’t say “your FDR looks tough” — say “your players have difficult matches coming up (that’s called Fixture Difficulty Rating — it measures how hard each opponent is)”. Review every piece of beginner mode coaching text across all 4 rounds (Captain coaching GW1, Transfers coaching GW1, Fixtures coaching GW2, Ownership coaching GW3, Graduation GW4) and rewrite any text that assumes FPL knowledge. The tone should still match the user’s chosen vibe — just explain things simply.
+
+-----
+
+## Git Safety
+
+Do NOT run any destructive git operations (git reset –hard, orphan commits, force pushes rewriting history) without stopping and explaining the consequences first. Commit after each fix with a clear message.
