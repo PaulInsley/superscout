@@ -10,6 +10,7 @@ import preGenerateRouter from "./preGenerate";
 import banterRouter from "./banter";
 import notificationsRouter from "./notifications";
 import streaksRouter from "./streaks";
+import reportCardRouter from "./reportCard";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(preGenerateRouter);
 router.use(banterRouter);
 router.use(notificationsRouter);
 router.use(streaksRouter);
+router.use(reportCardRouter);
 
 export default router;

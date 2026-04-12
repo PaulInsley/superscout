@@ -80,7 +80,7 @@ function getCurrentGameweek(data: FPLBootstrapResponse): number {
   return 1;
 }
 
-function getLastFinishedGameweek(data: FPLBootstrapResponse): number | null {
+export function getLastFinishedGameweek(data: FPLBootstrapResponse): number | null {
   const finished = data.events.filter((e) => e.finished);
   if (finished.length === 0) return null;
   return Math.max(...finished.map((e) => e.id));

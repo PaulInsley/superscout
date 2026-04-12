@@ -11,21 +11,31 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { useColors } from "@/hooks/useColors";
 import { useStreak } from "@/hooks/useStreak";
-import { fetchPlayers } from "@/services/fpl";
+import { useManagerId } from "@/hooks/useManagerId";
+import { fetchPlayers, getBootstrapData, getLastFinishedGameweek } from "@/services/fpl";
 import type { NormalizedPlayer } from "@/services/fpl";
 import config from "@/constants/config";
 import StreakBadge from "@/components/StreakBadge";
 import StreakDetailSheet from "@/components/StreakDetailSheet";
 import MilestoneCelebration from "@/components/MilestoneCelebration";
+import ReportCardSheet from "@/components/ReportCardSheet";
+
+const REPORT_DISMISSED_KEY = (mid: number, gw: number) =>
+  `superscout_report_dismissed_${mid}_gw_${gw}`;
 
 export default function PlayersScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { streak, pendingMilestone, dismissMilestone } = useStreak();
   const [showStreakDetail, setShowStreakDetail] = useState(false);
+  const [showReportCard, setShowReportCard] = useState(false);
+  const { managerId } = useManagerId();
+
+  const [reportDismissedGw, setReportDismissedGw] = useState<number | null>(null);
 
   const {
     data: players,
@@ -37,6 +47,31 @@ export default function PlayersScreen() {
     queryKey: ["fpl", "players"],
     queryFn: fetchPlayers,
   });
+
+  const { data: lastFinishedGw } = useQuery({
+    queryKey: ["fpl", "lastFinishedGw", managerId],
+    queryFn: async () => {
+      const bootstrap = await getBootstrapData();
+      const gw = getLastFinishedGameweek(bootstrap);
+      if (gw && managerId) {
+        const key = REPORT_DISMISSED_KEY(managerId, gw);
+        const dismissed = await AsyncStorage.getItem(key);
+        if (dismissed) setReportDismissedGw(gw);
+      }
+      return gw;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const showReportBanner =
+    !!lastFinishedGw && !!managerId && reportDismissedGw !== lastFinishedGw;
+
+  const handleDismissReportBanner = async () => {
+    if (!lastFinishedGw || !managerId) return;
+    const key = REPORT_DISMISSED_KEY(managerId, lastFinishedGw);
+    await AsyncStorage.setItem(key, "1");
+    setReportDismissedGw(lastFinishedGw);
+  };
 
   const renderPlayer = ({ item }: { item: NormalizedPlayer }) => (
     <View
@@ -153,6 +188,38 @@ export default function PlayersScreen() {
           {players?.length ?? 0} players
         </Text>
       </View>
+
+      {showReportBanner && (
+        <Pressable
+          style={[styles.reportBanner, { backgroundColor: "#1a472a" }]}
+          onPress={() => setShowReportCard(true)}
+        >
+          <View style={styles.reportBannerLeft}>
+            <Feather name="award" size={20} color="#00ff87" />
+            <View>
+              <Text style={styles.reportBannerTitle}>
+                Your GW{lastFinishedGw} report is ready
+              </Text>
+              <Text style={styles.reportBannerSub}>
+                See how your decisions scored
+              </Text>
+            </View>
+          </View>
+          <View style={styles.reportBannerActions}>
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation();
+                handleDismissReportBanner();
+              }}
+              hitSlop={8}
+            >
+              <Feather name="x" size={16} color="#ffffffaa" />
+            </Pressable>
+            <Feather name="chevron-right" size={18} color="#00ff87" />
+          </View>
+        </Pressable>
+      )}
+
       <FlatList
         data={players}
         renderItem={renderPlayer}
@@ -186,6 +253,17 @@ export default function PlayersScreen() {
           milestone={pendingMilestone}
           currentStreak={streak.current_streak}
           onDismiss={dismissMilestone}
+        />
+      )}
+
+      {lastFinishedGw && managerId && (
+        <ReportCardSheet
+          visible={showReportCard}
+          onClose={() => setShowReportCard(false)}
+          gameweek={lastFinishedGw}
+          managerId={managerId}
+          vibe="expert"
+          streakCount={streak?.current_streak}
         />
       )}
     </View>
@@ -289,5 +367,37 @@ const styles = StyleSheet.create({
   retryText: {
     fontSize: 15,
     fontFamily: "Inter_600SemiBold",
+  },
+  reportBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginHorizontal: 16,
+    marginTop: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  reportBannerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+  },
+  reportBannerTitle: {
+    color: "#00ff87",
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+  },
+  reportBannerSub: {
+    color: "#ffffffcc",
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    marginTop: 1,
+  },
+  reportBannerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
 });
