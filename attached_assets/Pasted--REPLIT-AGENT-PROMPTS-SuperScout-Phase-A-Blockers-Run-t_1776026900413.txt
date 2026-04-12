@@ -1,0 +1,249 @@
+# REPLIT AGENT PROMPTS — SuperScout Phase A Blockers
+
+Run these 4 prompts in order. Each one builds on the previous. Commit after each with a clear message.
+
+-----
+
+## PROMPT A1 — Real Authentication + Email Sign-Up (CRITICAL — DO THIS FIRST)
+
+### Context
+
+SuperScout is a personality-driven AI fantasy football coach built in React Native (Expo) with Supabase backend and an Express API server. Currently there is NO real authentication — every user falls back to a hardcoded placeholder UUID (`00000000-0000-0000-0000-000000000000`). This means all users share the same data: decision logs, streaks, notifications, and cached recommendations are all mixed together. This is the single most critical issue in the entire app and must be fixed before any beta testing.
+
+The onboarding flow currently goes: Welcome → Connect FPL → Choose Vibe → Beginner Check → What We Do → You’re In. There is no email collection or account creation anywhere.
+
+### Task
+
+Build real Supabase Auth with email/password sign-up. This has 4 parts.
+
+#### PART 1 — Add a Sign-Up screen to the onboarding flow
+
+Create a new screen `app/onboarding/SignUpScreen.tsx` that collects:
+
+- Email address (text input, keyboard type “email-address”)
+- Password (text input, secure text entry, minimum 8 characters)
+- “Create Account” button
+- “Already have an account? Sign in” link that toggles between sign-up and sign-in mode
+- Error display for invalid email, weak password, or duplicate account
+- Loading state while account is being created
+
+Insert this screen into the onboarding flow in `OnboardingFlow.tsx` AFTER the Choose Vibe screen and BEFORE the Beginner Check screen. The privacy policy checkbox already exists on the ConnectFPLScreen — that’s fine where it is. The new flow order should be:
+
+1. Welcome
+1. Connect FPL (with privacy checkbox)
+1. Choose Vibe
+1. **Sign Up (NEW)**
+1. Beginner Check
+1. What We Do
+1. You’re In
+
+When the user taps “Create Account”:
+
+1. Call `supabase.auth.signUp({ email, password })`
+1. On success, update the `users` table with the authenticated user’s ID, setting: `fpl_manager_id`, `default_persona` (the vibe they chose), `email`
+1. Store the auth session so subsequent `supabase.auth.getUser()` calls return the real user
+1. Proceed to the next onboarding screen
+
+When the user taps “Sign in” (returning user):
+
+1. Call `supabase.auth.signInWithPassword({ email, password })`
+1. On success, load their existing data and skip to the main app
+
+#### PART 2 — Replace all placeholder UUID fallbacks
+
+Search the ENTIRE codebase for the pattern:
+
+```
+let userId = "00000000-0000-0000-0000-000000000000";
+try { const { data: { user } } = await supabase.auth.getUser(); if (user?.id) userId = user.id; } catch {}
+```
+
+This pattern appears in at least these files:
+
+- `app/(tabs)/captain.tsx`
+- `app/(tabs)/transfers.tsx`
+- `app/(tabs)/banter.tsx`
+- `app/(tabs)/settings.tsx`
+- `services/streaks/trackActivity.ts`
+- `services/subscriptionEvents.ts`
+- `app/_layout.tsx`
+
+Replace every instance with a shared utility function:
+
+```typescript
+// services/auth.ts
+import { supabase } from './supabase';
+
+export async function getAuthenticatedUserId(): Promise<string | null> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    return user?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+```
+
+Every screen and service that currently uses the placeholder pattern should:
+
+1. Import `getAuthenticatedUserId`
+1. Call it and get the real user ID
+1. If `null` is returned (user not authenticated), show a “Please sign in” prompt or redirect to the sign-in screen — do NOT fall back to the placeholder UUID
+
+#### PART 3 — Protect the Supabase client
+
+Update `services/supabase.ts` to properly handle the auth session. The current Proxy pattern that returns mock data when Supabase is not configured should be kept for development, but in production (when Supabase credentials exist), the client must use real auth sessions.
+
+Ensure that after sign-up or sign-in, the auth session is persisted. On app restart, `supabase.auth.getUser()` should return the previously authenticated user without requiring sign-in again. Use `@react-native-async-storage/async-storage` as the storage adapter for Supabase auth persistence (this is already a dependency in the project):
+
+```typescript
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storage: AsyncStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+  },
+});
+```
+
+#### PART 4 — Add sign-out to Settings
+
+Add a “Sign Out” button to the Settings screen (at the bottom, above “Reset Onboarding”). When tapped:
+
+1. Call `supabase.auth.signOut()`
+1. Clear AsyncStorage for onboarding, persona, manager ID
+1. Return to the Welcome/Sign-In screen
+
+### Important Notes
+
+- The `users` table in Supabase should already have RLS policies. After this change, make sure the RLS policies use `auth.uid()` to restrict users to their own rows. If the RLS policies currently reference the placeholder UUID, they need updating.
+- Do NOT delete or modify the existing placeholder user’s data — Paul has been testing with it. Just ensure new accounts get their own data.
+- The email field in the `users` table may not exist yet. Add it if missing (text, nullable).
+- Supabase Auth handles email verification by default. For beta testing, you can disable email confirmation in the Supabase dashboard (Auth → Settings → Disable email confirmations). This is a dashboard setting, not a code change.
+
+### Git Safety
+
+Do NOT run any destructive git operations (git reset –hard, orphan commits, force pushes rewriting history) without stopping and explaining the consequences first. Commit with message: “feat: add real Supabase Auth with email sign-up, replace all placeholder UUIDs”
+
+-----
+
+## PROMPT A2 — Fix FPL Data Mismatch
+
+**NOTE: This prompt was already sent to Replit on 12 April. If the fix is already in progress or complete, skip this prompt. If it hasn’t been started, send the original prompt from `replit-prompt-fpl-data-mismatch-bug.md`.**
+
+### Verification
+
+After the fix, confirm with Manager ID 13042160:
+
+- Bank balance matches FPL app exactly
+- Free transfer count matches FPL app exactly
+- If recommending more transfers than available free transfers, the -4 point hit cost is acknowledged in the AI commentary
+
+-----
+
+## PROMPT A3 — Add API Rate Limiting
+
+### Context
+
+SuperScout’s Express API server has no rate limiting on its own endpoints. The FPL API calls are properly rate-limited (via fplRateLimiter.ts), but SuperScout’s endpoints (captain-picks, transfer-advice, banter, notifications, squad-card, report-card) can be hit unlimited times. This is a security risk — an attacker or misconfigured client could burn Anthropic API credits or cause denial of service.
+
+### Task
+
+1. Install express-rate-limit:
+
+```
+npm install express-rate-limit
+```
+
+1. Add rate limiting middleware to `artifacts/api-server/src/app.ts`. Create TWO rate limiters:
+
+```typescript
+import rateLimit from 'express-rate-limit';
+
+// Strict limit for AI-generation endpoints (these cost money per call)
+const aiRateLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 20, // 20 requests per minute per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please wait a moment before trying again.' },
+});
+
+// Looser limit for data endpoints
+const dataRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60, // 60 requests per minute per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please wait a moment before trying again.' },
+});
+```
+
+1. Apply the AI rate limiter to these routes (in the route files or via path matching in app.ts):
+
+- POST /api/captain-picks
+- POST /api/transfer-advice
+- POST /api/banter/generate
+- POST /api/report-card/generate/:gameweek
+- POST /api/squad-card/generate
+
+1. Apply the data rate limiter to all other /api/ routes.
+1. Do NOT rate limit:
+
+- GET /api/health
+- /api/admin/* (already has its own auth + lockout)
+
+### Git Safety
+
+Do NOT run any destructive git operations. Commit with message: “security: add express-rate-limit to API endpoints”
+
+-----
+
+## PROMPT A4 — Add Helmet Security Headers
+
+### Context
+
+SuperScout’s Express API server does not set standard security headers. This is a basic security hygiene issue.
+
+### Task
+
+1. Install helmet:
+
+```
+npm install helmet
+```
+
+1. Add helmet to `artifacts/api-server/src/app.ts`, BEFORE the CORS middleware:
+
+```typescript
+import helmet from 'helmet';
+
+// Add security headers
+app.use(helmet());
+```
+
+That’s it. Helmet’s defaults set X-Frame-Options, X-Content-Type-Options, X-Download-Options, Strict-Transport-Security, and other standard headers automatically.
+
+1. If any headers conflict with the app’s functionality (unlikely for an API server), adjust specific helmet options. But start with defaults.
+
+### Git Safety
+
+Do NOT run any destructive git operations. Commit with message: “security: add helmet for standard security headers”
+
+-----
+
+## AFTER ALL 4 PROMPTS ARE COMPLETE
+
+Run the notification + streaks migration SQL in Supabase if not already done. Then test:
+
+1. **Auth test:** Create a new account through onboarding. Sign out. Sign in again. Confirm your data persists.
+1. **Multi-user test:** Create a second account. Confirm it has separate data from the first.
+1. **FPL data test:** Open Transfer Advisor and confirm bank balance + free transfers match the FPL app.
+1. **Rate limit test:** Rapidly tap “Regenerate” 25 times. Confirm you get rate-limited after ~20 attempts.
+1. **Headers test:** Use browser dev tools or curl to check response headers include X-Frame-Options.
+
+Report back on all 5 tests.

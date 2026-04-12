@@ -6,6 +6,7 @@ import { supabase } from "@/services/supabase";
 import WelcomeScreen from "./WelcomeScreen";
 import ConnectFPLScreen from "./ConnectFPLScreen";
 import ChooseVibeScreen from "./ChooseVibeScreen";
+import SignUpScreen from "./SignUpScreen";
 import BeginnerCheckScreen from "./BeginnerCheckScreen";
 import WhatWeDoScreen from "./WhatWeDoScreen";
 import YoureInScreen from "./YoureInScreen";
@@ -26,6 +27,7 @@ export default function OnboardingFlow({ onComplete }: Props) {
   const [managerId, setManagerId] = useState<number | null>(null);
   const [vibe, setVibe] = useState<"expert" | "critic" | "fanboy" | null>(null);
   const [isBeginner, setIsBeginner] = useState(false);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
 
   const handleFPLConnect = (id: number | null, name: string | null) => {
     if (id && name) {
@@ -43,6 +45,18 @@ export default function OnboardingFlow({ onComplete }: Props) {
     setStep(3);
   };
 
+  const handleSignUpComplete = (userId: string) => {
+    setAuthUserId(userId);
+    setStep(4);
+  };
+
+  const handleSignInSkipToMain = async () => {
+    try {
+      await AsyncStorage.setItem(ONBOARDING_COMPLETE_KEY, "true");
+    } catch {}
+    onComplete();
+  };
+
   const handleBeginnerCheck = (beginner: boolean) => {
     setIsBeginner(beginner);
     AsyncStorage.setItem(BEGINNER_KEY, beginner ? "true" : "false").catch(() => {});
@@ -50,7 +64,7 @@ export default function OnboardingFlow({ onComplete }: Props) {
       AsyncStorage.setItem("superscout_beginner_rounds", "0").catch(() => {});
       AsyncStorage.setItem("superscout_beginner_lessons", "").catch(() => {});
     }
-    setStep(4);
+    setStep(5);
   };
 
   const handleFinish = async () => {
@@ -80,7 +94,7 @@ export default function OnboardingFlow({ onComplete }: Props) {
           .eq("id", user.id);
       }
     } catch {
-      console.error("[Onboarding] Failed to update Supabase user — auth not yet configured");
+      console.error("[Onboarding] Failed to update Supabase user");
     }
 
     onComplete();
@@ -91,9 +105,17 @@ export default function OnboardingFlow({ onComplete }: Props) {
       {step === 0 && <WelcomeScreen onNext={() => setStep(1)} />}
       {step === 1 && <ConnectFPLScreen onNext={handleFPLConnect} />}
       {step === 2 && <ChooseVibeScreen onNext={handleVibeSelect} />}
-      {step === 3 && <BeginnerCheckScreen onNext={handleBeginnerCheck} />}
-      {step === 4 && <WhatWeDoScreen onNext={() => setStep(5)} />}
-      {step === 5 && (
+      {step === 3 && (
+        <SignUpScreen
+          managerId={managerId}
+          vibe={vibe}
+          onSignUpComplete={handleSignUpComplete}
+          onSkipToMain={handleSignInSkipToMain}
+        />
+      )}
+      {step === 4 && <BeginnerCheckScreen onNext={handleBeginnerCheck} />}
+      {step === 5 && <WhatWeDoScreen onNext={() => setStep(6)} />}
+      {step === 6 && (
         <YoureInScreen teamName={teamName} onFinish={handleFinish} />
       )}
     </View>

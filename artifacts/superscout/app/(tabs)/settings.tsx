@@ -21,6 +21,7 @@ import { useStreak } from "@/hooks/useStreak";
 import { useSubscription } from "@/lib/revenuecat";
 import { useBeginnerMode } from "@/hooks/useBeginnerMode";
 import { supabase } from "@/services/supabase";
+import { getAuthenticatedUserId, signOut as authSignOut } from "@/services/auth";
 import { fetchManagerLeagues } from "@/services/fpl/api";
 import config from "@/constants/config";
 import ChooseVibeScreen, {
@@ -110,8 +111,8 @@ export default function SettingsScreen() {
     setNotifPrefs(updated);
     await AsyncStorage.setItem("superscout_notif_prefs", JSON.stringify(updated));
     try {
-      let userId = "00000000-0000-0000-0000-000000000000";
-      try { const { data: { user } } = await supabase.auth.getUser(); if (user?.id) userId = user.id; } catch {}
+      const userId = await getAuthenticatedUserId();
+      if (!userId) return;
       const apiBase = getApiBaseUrl();
       await fetch(`${apiBase}/notifications/preferences`, {
         method: "PUT",
@@ -123,8 +124,8 @@ export default function SettingsScreen() {
 
   const loadSavedLeagues = useCallback(async () => {
     try {
-      let userId = "00000000-0000-0000-0000-000000000000";
-      try { const { data: { user } } = await supabase.auth.getUser(); if (user?.id) userId = user.id; } catch {}
+      const userId = await getAuthenticatedUserId();
+      if (!userId) return;
       const apiBase = getApiBaseUrl();
       const res = await fetch(`${apiBase}/banter/leagues/${userId}`);
       if (res.ok) {
@@ -170,8 +171,8 @@ export default function SettingsScreen() {
   const saveLeagues = useCallback(async () => {
     setLeaguesSaving(true);
     try {
-      let userId = "00000000-0000-0000-0000-000000000000";
-      try { const { data: { user } } = await supabase.auth.getUser(); if (user?.id) userId = user.id; } catch {}
+      const userId = await getAuthenticatedUserId();
+      if (!userId) { setLeaguesSaving(false); return; }
 
       const leaguesToSave = availableLeagues
         .filter((l) => selectedLeagueIds.has(l.id))
@@ -1022,6 +1023,47 @@ export default function SettingsScreen() {
               />
             </View>
           )}
+
+          <Pressable
+            onPress={async () => {
+              await authSignOut();
+              await AsyncStorage.multiRemove([
+                ONBOARDING_COMPLETE_KEY,
+                "superscout_manager_id",
+                "superscout_team_name",
+                PERSONA_KEY,
+                "superscout_is_beginner",
+                "superscout_beginner_rounds",
+                "superscout_beginner_lessons",
+              ]);
+              if (Platform.OS === "web") {
+                window.location.reload();
+              }
+            }}
+            style={({ pressed }) => [
+              styles.settingRow,
+              { opacity: pressed ? 0.5 : 1 },
+            ]}
+          >
+            <View style={styles.settingRowInner}>
+              <Feather
+                name="log-out"
+                size={18}
+                color="#ef4444"
+                style={styles.settingIcon}
+              />
+              <Text
+                style={[styles.settingLabel, { color: "#ef4444" }]}
+              >
+                Sign Out
+              </Text>
+            </View>
+            <Feather
+              name="chevron-right"
+              size={18}
+              color={colors.mutedForeground}
+            />
+          </Pressable>
 
           <Pressable
             onPress={async () => {

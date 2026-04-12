@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { supabase } from "@/services/supabase";
+import { getAuthenticatedUserId } from "@/services/auth";
 
 const CATEGORIES = [
   { key: "bug", label: "Bug" },
@@ -42,11 +43,8 @@ export function FeedbackModal({
     if (!text.trim()) return;
     setSubmitting(true);
     try {
-      let userId = "00000000-0000-0000-0000-000000000000";
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user?.id) userId = user.id;
-      } catch {}
+      const userId = await getAuthenticatedUserId();
+      if (!userId) { setSubmitting(false); return; }
 
       await supabase.from("feedback_responses").insert({
         user_id: userId,

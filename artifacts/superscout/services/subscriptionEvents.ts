@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { getAuthenticatedUserId } from "./auth";
 import { Platform } from "react-native";
 
 export type SubscriptionEventType =
@@ -24,17 +25,6 @@ function getPlatformSource(): "app_store" | "google_play" | "web_stripe" {
   return "web_stripe";
 }
 
-// TODO: Replace placeholder with real user auth before public launch
-const PLACEHOLDER_USER_ID = "00000000-0000-0000-0000-000000000000";
-
-async function getUserId(): Promise<string> {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user?.id) return user.id;
-  } catch {}
-  return PLACEHOLDER_USER_ID;
-}
-
 export async function logSubscriptionEvent({
   eventType,
   fromTier,
@@ -42,8 +32,8 @@ export async function logSubscriptionEvent({
   gameweek,
 }: LogSubscriptionEventParams) {
   try {
-    const userId = await getUserId();
-    if (userId === PLACEHOLDER_USER_ID) {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) {
       return;
     }
     const { error } = await supabase.from("subscription_events").insert({
@@ -65,8 +55,8 @@ export async function logSubscriptionEvent({
 
 export async function updateUserSubscriptionTier(tier: string) {
   try {
-    const userId = await getUserId();
-    if (userId === PLACEHOLDER_USER_ID) {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) {
       return;
     }
     const { error } = await supabase

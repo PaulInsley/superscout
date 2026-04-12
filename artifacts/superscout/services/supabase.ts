@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 let _supabase: SupabaseClient | null = null;
 
@@ -23,7 +24,14 @@ function getSupabaseClient(): SupabaseClient | null {
     return null;
   }
 
-  _supabase = createClient(supabaseUrl, supabaseAnonKey);
+  _supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      storage: AsyncStorage,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false,
+    },
+  });
   return _supabase;
 }
 
@@ -41,6 +49,10 @@ export const supabase = new Proxy({} as SupabaseClient, {
       if (prop === "auth") {
         return {
           getUser: () => Promise.resolve({ data: { user: null }, error: null }),
+          signUp: () => Promise.resolve({ data: { user: null }, error: { message: "Supabase not configured" } }),
+          signInWithPassword: () => Promise.resolve({ data: { user: null }, error: { message: "Supabase not configured" } }),
+          signOut: () => Promise.resolve({ error: null }),
+          onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
         };
       }
       return undefined;

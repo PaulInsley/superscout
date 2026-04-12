@@ -16,7 +16,7 @@ import { useFocusEffect } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 import { useManagerId } from "@/hooks/useManagerId";
 import { useSubscription } from "@/lib/revenuecat";
-import { supabase } from "@/services/supabase";
+import { getAuthenticatedUserId } from "@/services/auth";
 import BanterCard from "@/components/BanterCard";
 import type { BanterCardData } from "@/components/BanterCard";
 import BlurredCard from "@/components/BlurredCard";
@@ -111,8 +111,8 @@ export default function BanterScreen() {
 
     try {
       const apiBase = getApiBaseUrl();
-      let userId = "00000000-0000-0000-0000-000000000000";
-      try { const { data: { user } } = await supabase.auth.getUser(); if (user?.id) userId = user.id; } catch {}
+      const userId = await getAuthenticatedUserId();
+      if (!userId) return;
 
       const res = await fetch(
         `${apiBase}/banter/current?user_id=${userId}&vibe=${vibe}&manager_id=${managerId}`,
@@ -168,8 +168,8 @@ export default function BanterScreen() {
 
   const handleShare = async (card: BanterCardData) => {
     try {
-      let userId = "00000000-0000-0000-0000-000000000000";
-      try { const { data: { user } } = await supabase.auth.getUser(); if (user?.id) userId = user.id; } catch {}
+      const userId = await getAuthenticatedUserId();
+      if (!userId) return;
 
       const apiBase = getApiBaseUrl();
       await fetch(`${apiBase}/squad-card`, {

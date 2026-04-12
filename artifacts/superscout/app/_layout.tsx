@@ -21,6 +21,7 @@ import {
   getExpoPushToken,
   registerTokenWithServer,
 } from "@/services/notifications/pushNotificationService";
+import { supabase } from "@/services/supabase";
 import OnboardingFlow, {
   ONBOARDING_COMPLETE_KEY,
 } from "./onboarding/OnboardingFlow";
@@ -68,6 +69,21 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (!session) {
+          AsyncStorage.getItem(ONBOARDING_COMPLETE_KEY).then((val) => {
+            if (val !== "true") {
+              setShowOnboarding(true);
+            }
+          });
+        }
+      },
+    );
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
     if ((fontsLoaded || fontError) && onboardingChecked) {
       SplashScreen.hideAsync();
     }
@@ -93,11 +109,15 @@ export default function RootLayout() {
                           if (token) {
                             const domain = process.env.EXPO_PUBLIC_DOMAIN;
                             if (domain) {
-                              await registerTokenWithServer(
-                                `https://${domain}/api`,
-                                "00000000-0000-0000-0000-000000000000",
-                                token,
-                              );
+                              const { getAuthenticatedUserId } = await import("@/services/auth");
+                              const authUserId = await getAuthenticatedUserId();
+                              if (authUserId) {
+                                await registerTokenWithServer(
+                                  `https://${domain}/api`,
+                                  authUserId,
+                                  token,
+                                );
+                              }
                             }
                           }
                         }

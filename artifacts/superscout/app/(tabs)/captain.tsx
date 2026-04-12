@@ -16,7 +16,7 @@ import { useFocusEffect } from "expo-router";
 import { useColors } from "@/hooks/useColors";
 import { useManagerId } from "@/hooks/useManagerId";
 import { useSubscription } from "@/lib/revenuecat";
-import { supabase } from "@/services/supabase";
+import { getAuthenticatedUserId } from "@/services/auth";
 import ChoiceCard from "@/components/ChoiceCard";
 import BlurredCard from "@/components/BlurredCard";
 import Paywall from "@/components/Paywall";
@@ -155,8 +155,8 @@ export default function CaptainPickerScreen() {
     try {
       const apiBase = getApiBaseUrl();
 
-      let userId = "00000000-0000-0000-0000-000000000000";
-      try { const { data: { user } } = await supabase.auth.getUser(); if (user?.id) userId = user.id; } catch {}
+      const userId = await getAuthenticatedUserId();
+      if (!userId) return;
 
       if (!skipCache) {
         const preGenUrl = `${apiBase}/pre-generated/${candidateData.gameweek}?user_id=${userId}&decision_type=captain&vibe=${vibe}`;

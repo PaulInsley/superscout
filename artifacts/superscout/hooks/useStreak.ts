@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { supabase } from "@/services/supabase";
+import { getAuthenticatedUserId } from "@/services/auth";
 import {
   fetchStreak,
   markActive,
@@ -18,20 +18,14 @@ export function useStreak(sport: string = "fpl") {
   const [pendingMilestone, setPendingMilestone] = useState<number | null>(null);
   const [shieldJustUsed, setShieldJustUsed] = useState(false);
 
-  const getUserId = useCallback(async (): Promise<string> => {
-    let userId = "00000000-0000-0000-0000-000000000000";
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user?.id) userId = user.id;
-    } catch {}
-    return userId;
+  const getUserId = useCallback(async (): Promise<string | null> => {
+    return await getAuthenticatedUserId();
   }, []);
 
   const refresh = useCallback(async () => {
     try {
       const userId = await getUserId();
+      if (!userId) { setLoading(false); return; }
       const data = await fetchStreak(userId, sport);
       setStreak(data);
       await AsyncStorage.setItem(STREAK_CACHE_KEY, JSON.stringify(data));
@@ -48,6 +42,7 @@ export function useStreak(sport: string = "fpl") {
   const recordActivity = useCallback(async (): Promise<MarkActiveResult | null> => {
     try {
       const userId = await getUserId();
+      if (!userId) return null;
       const result = await markActive(userId, sport);
       setStreak({
         current_streak: result.current_streak,

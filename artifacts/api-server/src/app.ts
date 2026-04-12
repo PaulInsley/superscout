@@ -1,12 +1,18 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import adminRouter from "./routes/admin";
 import { logger } from "./lib/logger";
 
 const app: Express = express();
+
+app.set("trust proxy", 1);
+
+app.use(helmet());
 
 app.use(
   pinoHttp({
@@ -57,7 +63,29 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+const aiRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please wait a moment before trying again.' },
+});
+
+const dataRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please wait a moment before trying again.' },
+});
+
+app.use("/api/captain-picks", aiRateLimiter);
+app.use("/api/transfer-advice", aiRateLimiter);
+app.use("/api/banter/generate", aiRateLimiter);
+app.use("/api/report-card/generate", aiRateLimiter);
+app.use("/api/squad-card/generate", aiRateLimiter);
+
 app.use("/api/admin", adminRouter);
-app.use("/api", router);
+app.use("/api", dataRateLimiter, router);
 
 export default app;
