@@ -162,7 +162,7 @@ function checkCaptainStaleness(
 
 router.post("/captain-picks", async (req: Request, res: Response) => {
   try {
-    const { vibe, context, user_id: clientUserId } = req.body;
+    const { vibe, context, user_id: clientUserId, skip_cache: skipCache } = req.body;
 
     if (!vibe || !context) {
       res.status(400).json({ error: "Missing vibe or context" });
@@ -190,7 +190,11 @@ router.post("/captain-picks", async (req: Request, res: Response) => {
       req.log.warn("Could not fetch FPL data for hallucination check — skipping");
     }
 
-    if (clientUserId && gameweek && bootstrap) {
+    if (skipCache) {
+      req.log.info("skip_cache=true — bypassing pre-generated cache for captain picks");
+    }
+
+    if (!skipCache && clientUserId && gameweek && bootstrap) {
       const supabase = getSupabase();
       if (supabase) {
         try {

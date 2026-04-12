@@ -108,7 +108,7 @@ export default function TransferAdvisorScreen() {
     logRecommendationSilently(data);
   }, [vibe, isPro]);
 
-  const requestAdvice = useCallback(async () => {
+  const requestAdvice = useCallback(async (skipCache = false) => {
     if (!managerId) return;
 
     setAiLoading(true);
@@ -133,22 +133,25 @@ export default function TransferAdvisorScreen() {
 
       let userId = "00000000-0000-0000-0000-000000000000";
       try { const { data: { user } } = await supabase.auth.getUser(); if (user?.id) userId = user.id; } catch {}
-      const preGenUrl = `${apiBase}/pre-generated/current?user_id=${userId}&decision_type=transfer&vibe=${vibe}`;
-      try {
-        const preGenRes = await fetch(preGenUrl, { signal: controller.signal });
-        if (preGenRes.ok) {
-          const preGenData = await preGenRes.json();
-          if (preGenData.found && preGenData.response) {
-            const resultData = preGenData.response as TransferAdviceResponse;
-            await waitForMinLoading();
-            clearStageTimers();
-            setLoadingStage("done");
-            applyTransferResult(resultData);
-            return;
+
+      if (!skipCache) {
+        const preGenUrl = `${apiBase}/pre-generated/current?user_id=${userId}&decision_type=transfer&vibe=${vibe}`;
+        try {
+          const preGenRes = await fetch(preGenUrl, { signal: controller.signal });
+          if (preGenRes.ok) {
+            const preGenData = await preGenRes.json();
+            if (preGenData.found && preGenData.response) {
+              const resultData = preGenData.response as TransferAdviceResponse;
+              await waitForMinLoading();
+              clearStageTimers();
+              setLoadingStage("done");
+              applyTransferResult(resultData);
+              return;
+            }
           }
+        } catch (e: any) {
+          if (e?.name === "AbortError") throw e;
         }
-      } catch (e: any) {
-        if (e?.name === "AbortError") throw e;
       }
 
       const response = await fetch(`${apiBase}/transfer-advice`, {
@@ -159,6 +162,7 @@ export default function TransferAdvisorScreen() {
         body: JSON.stringify({
           manager_id: managerId,
           vibe,
+          skip_cache: skipCache,
         }),
         signal: controller.signal,
       });
@@ -392,7 +396,7 @@ export default function TransferAdvisorScreen() {
             </Text>
 
             <Pressable
-              onPress={requestAdvice}
+              onPress={() => requestAdvice(true)}
               style={[styles.regenerateButton, { borderColor: colors.border }]}
             >
               <Text style={[styles.regenerateText, { color: colors.mutedForeground }]}>

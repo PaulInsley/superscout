@@ -126,7 +126,7 @@ export default function CaptainPickerScreen() {
     }, 600);
   }, [clearStageTimers]);
 
-  const requestPicks = useCallback(async () => {
+  const requestPicks = useCallback(async (skipCache = false) => {
     if (!candidateData) return;
 
     setAiLoading(true);
@@ -150,25 +150,28 @@ export default function CaptainPickerScreen() {
 
       let userId = "00000000-0000-0000-0000-000000000000";
       try { const { data: { user } } = await supabase.auth.getUser(); if (user?.id) userId = user.id; } catch {}
-      const preGenUrl = `${apiBase}/pre-generated/${candidateData.gameweek}?user_id=${userId}&decision_type=captain&vibe=${vibe}`;
-      try {
-        const preGenRes = await fetch(preGenUrl);
-        if (preGenRes.ok) {
-          const preGenData = await preGenRes.json();
-          if (preGenData.found && preGenData.response) {
-            const recs = preGenData.response.recommendations ?? preGenData.response;
-            const recsArray = Array.isArray(recs) ? recs : [];
-            await waitForMinLoading();
-            clearStageTimers();
-            setLoadingStage("done");
-            setGameweek(candidateData.gameweek);
-            setDeadlineTime(candidateData.deadlineTime);
-            setRecommendations(recsArray);
-            logRecommendationSilently({ recommendations: recsArray } as CaptainPicksResponse, candidateData.gameweek);
-            return;
+
+      if (!skipCache) {
+        const preGenUrl = `${apiBase}/pre-generated/${candidateData.gameweek}?user_id=${userId}&decision_type=captain&vibe=${vibe}`;
+        try {
+          const preGenRes = await fetch(preGenUrl);
+          if (preGenRes.ok) {
+            const preGenData = await preGenRes.json();
+            if (preGenData.found && preGenData.response) {
+              const recs = preGenData.response.recommendations ?? preGenData.response;
+              const recsArray = Array.isArray(recs) ? recs : [];
+              await waitForMinLoading();
+              clearStageTimers();
+              setLoadingStage("done");
+              setGameweek(candidateData.gameweek);
+              setDeadlineTime(candidateData.deadlineTime);
+              setRecommendations(recsArray);
+              logRecommendationSilently({ recommendations: recsArray } as CaptainPicksResponse, candidateData.gameweek);
+              return;
+            }
           }
-        }
-      } catch {}
+        } catch {}
+      }
 
       const response = await fetch(`${apiBase}/captain-picks`, {
         method: "POST",
@@ -176,6 +179,7 @@ export default function CaptainPickerScreen() {
         body: JSON.stringify({
           vibe,
           user_id: userId,
+          skip_cache: skipCache,
           context: buildContext(
             candidateData.candidates,
             candidateData.gameweek,
@@ -472,7 +476,7 @@ export default function CaptainPickerScreen() {
             </Text>
 
             <Pressable
-              onPress={requestPicks}
+              onPress={() => requestPicks(true)}
               style={[styles.regenerateButton, { borderColor: colors.border }]}
             >
               <Text style={[styles.regenerateText, { color: colors.mutedForeground }]}>

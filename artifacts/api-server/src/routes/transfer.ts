@@ -378,7 +378,7 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
   }
 
   try {
-    const { manager_id, vibe } = req.body;
+    const { manager_id, vibe, skip_cache: skipCache } = req.body;
 
     if (!manager_id || !vibe) {
       sendError(400, { error: "Missing manager_id or vibe" });
@@ -401,7 +401,7 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
     }
 
     sendStage("squad");
-    req.log.info({ manager_id, vibe }, "Transfer advice started");
+    req.log.info({ manager_id, vibe, skipCache: !!skipCache }, "Transfer advice started");
 
     const managerId = String(manager_id);
 
@@ -444,8 +444,12 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
       return;
     }
 
+    if (skipCache) {
+      req.log.info("skip_cache=true — bypassing pre-generated cache for transfer advice");
+    }
+
     const supabase = getSupabase();
-    if (supabase) {
+    if (!skipCache && supabase) {
       try {
         const cacheTimeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000));
 
