@@ -243,7 +243,7 @@ export default function TransferAdvisorScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 32 },
+          { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 100 },
         ]}
         showsVerticalScrollIndicator={false}
       >
