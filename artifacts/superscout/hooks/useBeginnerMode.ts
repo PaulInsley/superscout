@@ -154,16 +154,24 @@ export function useBeginnerMode() {
       if (!state.isBeginner || state.roundsCompleted >= 4) return null;
 
       const { COACHING_LESSONS } = require("@/lib/coachingLessons");
-      const nextRound = state.roundsCompleted + 1;
+      const seen = state.lessonsSeen;
 
       for (const lesson of COACHING_LESSONS) {
-        if (lesson.round !== nextRound) continue;
-        if (state.lessonsSeen.includes(lesson.key)) continue;
-        if (
-          lesson.screen === "either" ||
-          lesson.screen === screen
-        ) {
-          return lesson;
+        if (seen.includes(lesson.key)) continue;
+
+        if (lesson.key === "captain" && screen === "captain") return lesson;
+        if (lesson.key === "transfers" && screen === "transfers") return lesson;
+
+        if (lesson.key === "fixtures") {
+          if (seen.includes("captain") && seen.includes("transfers")) {
+            if (lesson.screen === "either" || lesson.screen === screen) return lesson;
+          }
+        }
+
+        if (lesson.key === "ownership") {
+          if (seen.includes("captain") && seen.includes("transfers") && seen.includes("fixtures")) {
+            if (lesson.screen === "either" || lesson.screen === screen) return lesson;
+          }
         }
       }
 

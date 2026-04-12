@@ -560,7 +560,7 @@ export default function SettingsScreen() {
                   ]}
                 >
                   {beginner.isBeginner
-                    ? `Round ${beginner.roundsCompleted + 1} of 4`
+                    ? `${beginner.roundsCompleted} of 4 lessons completed`
                     : "Completed"}
                 </Text>
               </View>
