@@ -166,6 +166,7 @@ export default function CaptainPickerScreen() {
             if (preGenData.found && preGenData.response) {
               const recs = preGenData.response.recommendations ?? preGenData.response;
               const recsArray = Array.isArray(recs) ? recs : [];
+              await waitForMinLoading();
               clearStageTimers();
               setLoadingStage("done");
               setGameweek(candidateData.gameweek);

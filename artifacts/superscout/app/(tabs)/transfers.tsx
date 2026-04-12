@@ -148,6 +148,7 @@ export default function TransferAdvisorScreen() {
             const preGenData = await preGenRes.json();
             if (preGenData.found && preGenData.response) {
               const resultData = preGenData.response as TransferAdviceResponse;
+              await waitForMinLoading();
               clearStageTimers();
               setLoadingStage("done");
               applyTransferResult(resultData);
