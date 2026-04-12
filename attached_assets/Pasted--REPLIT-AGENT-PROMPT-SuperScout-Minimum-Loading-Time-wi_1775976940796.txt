@@ -1,0 +1,73 @@
+# REPLIT AGENT PROMPT — SuperScout: Minimum Loading Time with Vibe-Voiced Messages
+
+## CONTEXT
+
+The Transfer Advisor and Captain Picker now load almost instantly from pre-generated cache (under 3 seconds). The problem: it’s TOO fast. Users don’t trust that real analysis happened when results appear in under a second. We need a minimum display time for the loading sequence so users see the vibe-voiced loading messages and feel confident that their squad was properly analysed.
+
+The app already has vibe-voiced loading messages built. This task is about making sure they’re shown for a minimum amount of time, even when the data comes back instantly from cache.
+
+## TASK
+
+### 1. Transfer Advisor — minimum 3.5 seconds loading
+
+When the user taps “Get Transfer Recommendations”:
+
+- Start showing the vibe-voiced loading messages immediately (cycle through them as already built)
+- Fire the data request at the same time (don’t wait — fetch in parallel)
+- When the data comes back, do NOT show it immediately
+- Wait until at least 3.5 seconds have passed since the loading started
+- THEN reveal the results
+
+So if the cache returns in 0.5 seconds, the user still sees 3.5 seconds of loading messages before results appear. If the live fallback takes 30 seconds, show loading messages the whole time (no change to current behaviour — the minimum only matters when data arrives faster than 3.5 seconds).
+
+Show at least 3 different loading messages during the sequence, cycling every ~1 second. The messages should feel like a progression of analysis steps, not random. Example for the Critic vibe:
+
+- “Judging your squad choices…” (0-1.2s)
+- “Cross-referencing DGW fixtures…” (1.2-2.4s)
+- “Ranking 200+ alternatives by form…” (2.4-3.5s)
+- Results appear
+
+The messages should use the existing vibe-voiced loading message system already in the codebase. If there are already enough messages, just make sure at least 3 are shown in sequence. If there aren’t enough that feel like analysis steps, add a few per vibe that reference specific actions:
+
+**Expert vibe examples:**
+
+- “Analysing fixture difficulty ratings…”
+- “Comparing expected points projections…”
+- “Evaluating ownership differentials…”
+
+**Critic vibe examples:**
+
+- “Finding the weak links in your squad…”
+- “Checking which of your picks are actually justified…”
+- “Preparing some uncomfortable truths…”
+
+**Fanboy vibe examples:**
+
+- “SCANNING FOR ABSOLUTE BARGAINS…”
+- “Looking for your next GAME-CHANGER…”
+- “Getting HYPED about your options…”
+
+### 2. Captain Picker — minimum 2.5 seconds loading
+
+Same pattern as above but with a 2.5 second minimum. Captain picks are a simpler output so the shorter time feels right.
+
+Use the same approach: show vibe-voiced loading messages, fetch data in parallel, wait for the minimum time, then reveal.
+
+### 3. Implementation notes
+
+- The minimum time is measured from when the loading starts, NOT from when the data arrives
+- Fetch the data in parallel with the loading animation — do NOT add a fake delay before making the request. The data should be ready and waiting when the minimum time is up.
+- If data takes longer than the minimum time (live fallback), just keep showing loading messages until it arrives — no change needed there
+- The Regenerate button on Transfer Advisor should use the same minimum loading time
+
+### 4. Do NOT change anything else
+
+- Do NOT modify the cache lookup logic
+- Do NOT modify the staleness check
+- Do NOT modify the AI generation
+- Do NOT change the card layout or design
+- This is purely a front-end loading experience change
+
+## GIT SAFETY
+
+Do not run git reset –hard, orphan commits, or force pushes rewriting history without stopping and explaining the consequences first.

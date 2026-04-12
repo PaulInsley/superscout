@@ -19,6 +19,21 @@ const STAGE_MESSAGES: Record<
     critic: "Let's have a look at what you're working with...",
     fanboy: "LOADING YOUR SQUAD — let's see the TEAM!!",
   },
+  analyse_fixtures: {
+    expert: "Analysing fixture difficulty ratings...",
+    critic: "Finding the weak links in your squad...",
+    fanboy: "SCANNING FOR ABSOLUTE BARGAINS...",
+  },
+  analyse_form: {
+    expert: "Comparing expected points projections...",
+    critic: "Checking which of your picks are actually justified...",
+    fanboy: "Looking for your next GAME-CHANGER...",
+  },
+  analyse_differentials: {
+    expert: "Evaluating ownership differentials...",
+    critic: "Preparing some uncomfortable truths...",
+    fanboy: "Getting HYPED about your options...",
+  },
   market: {
     expert: "Scanning 500+ players, filtering by form and fixtures...",
     critic: "Trawling through every available player. You're welcome.",
@@ -58,21 +73,26 @@ export interface ProgressStage {
 }
 
 const TRANSFER_STAGES: ProgressStage[] = [
-  { key: "squad", label: "Loading your squad", targetPercent: 15 },
-  { key: "market", label: "Scanning the transfer market", targetPercent: 30 },
-  { key: "rules", label: "Checking rules and budget", targetPercent: 45 },
-  { key: "ai", label: "Analysing options", targetPercent: 70 },
-  { key: "ai_deep", label: "Analysing options", targetPercent: 85 },
-  { key: "validating", label: "Validating recommendations", targetPercent: 95 },
+  { key: "squad", label: "Loading your squad", targetPercent: 10 },
+  { key: "analyse_fixtures", label: "Analysing fixtures", targetPercent: 25 },
+  { key: "analyse_form", label: "Evaluating form", targetPercent: 40 },
+  { key: "analyse_differentials", label: "Checking differentials", targetPercent: 55 },
+  { key: "market", label: "Scanning the transfer market", targetPercent: 65 },
+  { key: "rules", label: "Checking rules and budget", targetPercent: 75 },
+  { key: "ai", label: "Analysing options", targetPercent: 85 },
+  { key: "ai_deep", label: "Analysing options", targetPercent: 92 },
+  { key: "validating", label: "Validating recommendations", targetPercent: 97 },
   { key: "done", label: "Done!", targetPercent: 100 },
 ];
 
 const CAPTAIN_STAGES: ProgressStage[] = [
-  { key: "squad", label: "Loading your squad", targetPercent: 20 },
-  { key: "rules", label: "Checking fixtures and form", targetPercent: 40 },
-  { key: "ai", label: "Analysing options", targetPercent: 70 },
-  { key: "ai_deep", label: "Analysing options", targetPercent: 85 },
-  { key: "validating", label: "Ranking captain picks", targetPercent: 95 },
+  { key: "squad", label: "Loading your squad", targetPercent: 15 },
+  { key: "analyse_fixtures", label: "Analysing fixtures", targetPercent: 35 },
+  { key: "analyse_form", label: "Evaluating form", targetPercent: 55 },
+  { key: "analyse_differentials", label: "Checking differentials", targetPercent: 70 },
+  { key: "ai", label: "Analysing options", targetPercent: 85 },
+  { key: "ai_deep", label: "Analysing options", targetPercent: 92 },
+  { key: "validating", label: "Ranking captain picks", targetPercent: 97 },
   { key: "done", label: "Done!", targetPercent: 100 },
 ];
 

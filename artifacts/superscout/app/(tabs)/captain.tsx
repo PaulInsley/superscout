@@ -105,6 +105,27 @@ export default function CaptainPickerScreen() {
     }
   }, [candidateData?.deadlinePassed, recommendations, gameweek]);
 
+  const MIN_LOADING_MS = 2500;
+
+  const startCaptainStageTimers = useCallback(() => {
+    clearStageTimers();
+    stageTimerRef.current = setTimeout(() => {
+      setLoadingStage("analyse_fixtures");
+      stageTimerRef.current = setTimeout(() => {
+        setLoadingStage("analyse_form");
+        stageTimerRef.current = setTimeout(() => {
+          setLoadingStage("analyse_differentials");
+          stageTimerRef.current = setTimeout(() => {
+            setLoadingStage("ai");
+            stageTimerRef.current = setTimeout(() => {
+              setLoadingStage("ai_deep");
+            }, 8000);
+          }, 1200);
+        }, 800);
+      }, 700);
+    }, 600);
+  }, [clearStageTimers]);
+
   const requestPicks = useCallback(async () => {
     if (!candidateData) return;
 
@@ -114,22 +135,19 @@ export default function CaptainPickerScreen() {
     setLoadingStage("squad");
     setGameweek(candidateData.gameweek);
     setDeadlineTime(candidateData.deadlineTime);
-    clearStageTimers();
 
-    stageTimerRef.current = setTimeout(() => {
-      setLoadingStage("rules");
-      stageTimerRef.current = setTimeout(() => {
-        setLoadingStage("ai");
-        stageTimerRef.current = setTimeout(() => {
-          setLoadingStage("ai_deep");
-        }, 8000);
-      }, 1500);
-    }, 1000);
+    const loadingStart = Date.now();
+    startCaptainStageTimers();
+
+    const waitForMinLoading = () => {
+      const elapsed = Date.now() - loadingStart;
+      const remaining = MIN_LOADING_MS - elapsed;
+      return remaining > 0 ? new Promise<void>((r) => setTimeout(r, remaining)) : Promise.resolve();
+    };
 
     try {
       const apiBase = getApiBaseUrl();
 
-      // TODO: Replace placeholder with real user auth before public launch
       let userId = "00000000-0000-0000-0000-000000000000";
       try { const { data: { user } } = await supabase.auth.getUser(); if (user?.id) userId = user.id; } catch {}
       const preGenUrl = `${apiBase}/pre-generated/${candidateData.gameweek}?user_id=${userId}&decision_type=captain&vibe=${vibe}`;
@@ -138,14 +156,15 @@ export default function CaptainPickerScreen() {
         if (preGenRes.ok) {
           const preGenData = await preGenRes.json();
           if (preGenData.found && preGenData.response) {
+            const recs = preGenData.response.recommendations ?? preGenData.response;
+            const recsArray = Array.isArray(recs) ? recs : [];
+            await waitForMinLoading();
             clearStageTimers();
             setLoadingStage("done");
             setGameweek(candidateData.gameweek);
             setDeadlineTime(candidateData.deadlineTime);
-            await new Promise((r) => setTimeout(r, 300));
-            const recs = preGenData.response.recommendations ?? preGenData.response;
-            setRecommendations(Array.isArray(recs) ? recs : []);
-            logRecommendationSilently({ recommendations: Array.isArray(recs) ? recs : [] } as CaptainPicksResponse, candidateData.gameweek);
+            setRecommendations(recsArray);
+            logRecommendationSilently({ recommendations: recsArray } as CaptainPicksResponse, candidateData.gameweek);
             return;
           }
         }
@@ -171,16 +190,17 @@ export default function CaptainPickerScreen() {
         throw new Error(`API error: ${response.status}`);
       }
 
-      clearStageTimers();
-      setLoadingStage("validating");
-
       const data: CaptainPicksResponse = await response.json();
 
-      setLoadingStage("done");
-      await new Promise((r) => setTimeout(r, 400));
-      setRecommendations(data.recommendations);
-
-      logRecommendationSilently(data, candidateData.gameweek);
+      if (data.recommendations) {
+        await waitForMinLoading();
+        clearStageTimers();
+        setLoadingStage("done");
+        setRecommendations(data.recommendations);
+        logRecommendationSilently(data, candidateData.gameweek);
+      } else {
+        throw new Error("No recommendations returned");
+      }
     } catch (err) {
       console.error("[SuperScout] Captain picks error:", err);
       setAiError(
@@ -190,7 +210,7 @@ export default function CaptainPickerScreen() {
       clearStageTimers();
       setAiLoading(false);
     }
-  }, [candidateData, vibe, clearStageTimers]);
+  }, [candidateData, vibe, clearStageTimers, startCaptainStageTimers]);
 
   const logRecommendationSilently = async (
     data: CaptainPicksResponse,

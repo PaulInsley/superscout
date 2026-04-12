@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -77,6 +77,37 @@ export default function TransferAdvisorScreen() {
     }, [isPro]),
   );
 
+  const MIN_LOADING_MS = 3500;
+  const stageTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const clearStageTimers = useCallback(() => {
+    stageTimersRef.current.forEach(clearTimeout);
+    stageTimersRef.current = [];
+  }, []);
+
+  const startStageTimers = useCallback(() => {
+    clearStageTimers();
+    const t1 = setTimeout(() => setLoadingStage("analyse_fixtures"), 800);
+    const t2 = setTimeout(() => setLoadingStage("analyse_form"), 1600);
+    const t3 = setTimeout(() => setLoadingStage("analyse_differentials"), 2400);
+    const t4 = setTimeout(() => setLoadingStage("market"), 3200);
+    const t5 = setTimeout(() => setLoadingStage("ai"), 5000);
+    const t6 = setTimeout(() => setLoadingStage("ai_deep"), 20000);
+    stageTimersRef.current = [t1, t2, t3, t4, t5, t6];
+  }, [clearStageTimers]);
+
+  const applyTransferResult = useCallback((data: TransferAdviceResponse) => {
+    setRecommendations(data.recommendations ?? []);
+    setGameweek(data.gameweek ?? 0);
+    setFreeTransfers(data.free_transfers ?? 0);
+    setBudget(data.budget_remaining ?? 0);
+    setGwType(data.gw_type ?? null);
+    setBlankTeams(data.blank_teams ?? []);
+    setDoubleTeams(data.double_teams ?? []);
+    setActiveChip(data.active_chip ?? null);
+    logRecommendationSilently(data);
+  }, [vibe, isPro]);
+
   const requestAdvice = useCallback(async () => {
     if (!managerId) return;
 
@@ -85,20 +116,13 @@ export default function TransferAdvisorScreen() {
     setRecommendations(null);
     setLoadingStage("squad");
 
-    const stageTimerRef1 = setTimeout(() => {
-      setLoadingStage("market");
-    }, 1500);
-    const stageTimerRef2 = setTimeout(() => {
-      setLoadingStage("ai");
-    }, 4000);
-    const stageTimerRef3 = setTimeout(() => {
-      setLoadingStage("ai_deep");
-    }, 20000);
+    const loadingStart = Date.now();
+    startStageTimers();
 
-    const clearStageTimers = () => {
-      clearTimeout(stageTimerRef1);
-      clearTimeout(stageTimerRef2);
-      clearTimeout(stageTimerRef3);
+    const waitForMinLoading = () => {
+      const elapsed = Date.now() - loadingStart;
+      const remaining = MIN_LOADING_MS - elapsed;
+      return remaining > 0 ? new Promise<void>((r) => setTimeout(r, remaining)) : Promise.resolve();
     };
 
     const controller = new AbortController();
@@ -115,18 +139,11 @@ export default function TransferAdvisorScreen() {
         if (preGenRes.ok) {
           const preGenData = await preGenRes.json();
           if (preGenData.found && preGenData.response) {
+            const resultData = preGenData.response as TransferAdviceResponse;
+            await waitForMinLoading();
             clearStageTimers();
             setLoadingStage("done");
-            const resultData = preGenData.response as TransferAdviceResponse;
-            setRecommendations(resultData.recommendations ?? []);
-            setGameweek(resultData.gameweek ?? 0);
-            setFreeTransfers(resultData.free_transfers ?? 0);
-            setBudget(resultData.budget_remaining ?? 0);
-            setGwType(resultData.gw_type ?? null);
-            setBlankTeams(resultData.blank_teams ?? []);
-            setDoubleTeams(resultData.double_teams ?? []);
-            setActiveChip(resultData.active_chip ?? null);
-            logRecommendationSilently(resultData);
+            applyTransferResult(resultData);
             return;
           }
         }
@@ -162,21 +179,12 @@ export default function TransferAdvisorScreen() {
         return;
       }
 
-      clearStageTimers();
-      setLoadingStage("validating");
-
       const json = await response.json() as TransferAdviceResponse;
       if (json.recommendations) {
+        await waitForMinLoading();
+        clearStageTimers();
         setLoadingStage("done");
-        setRecommendations(json.recommendations);
-        setGameweek(json.gameweek);
-        setFreeTransfers(json.free_transfers);
-        setBudget(json.budget_remaining);
-        setGwType(json.gw_type ?? null);
-        setBlankTeams(json.blank_teams ?? []);
-        setDoubleTeams(json.double_teams ?? []);
-        setActiveChip(json.active_chip ?? null);
-        logRecommendationSilently(json);
+        applyTransferResult(json);
       } else {
         setAiError("Couldn't load transfer advice. Tap to try again.");
       }
@@ -193,7 +201,7 @@ export default function TransferAdvisorScreen() {
       clearStageTimers();
       setAiLoading(false);
     }
-  }, [managerId, vibe]);
+  }, [managerId, vibe, startStageTimers, clearStageTimers, applyTransferResult]);
 
   const logRecommendationSilently = async (data: TransferAdviceResponse) => {
     try {
