@@ -20,6 +20,9 @@ import TransferCard from "@/components/TransferCard";
 import BlurredCard from "@/components/BlurredCard";
 import Paywall from "@/components/Paywall";
 import ProgressLoadingIndicator from "@/components/ProgressLoadingIndicator";
+import CoachingCard from "@/components/CoachingCard";
+import { useBeginnerMode } from "@/hooks/useBeginnerMode";
+import { GRADUATION_CONTENT } from "@/lib/coachingLessons";
 import type { TransferRecommendation } from "@/components/TransferCard";
 
 const PERSONA_KEY = "superscout_persona";
@@ -45,6 +48,7 @@ export default function TransferAdvisorScreen() {
   const insets = useSafeAreaInsets();
   const { managerId, loading: managerLoading, refresh: refreshManagerId } = useManagerId();
   const { isPro } = useSubscription();
+  const beginner = useBeginnerMode();
   const [recommendations, setRecommendations] = useState<TransferRecommendation[] | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
@@ -58,6 +62,8 @@ export default function TransferAdvisorScreen() {
   const [blankTeams, setBlankTeams] = useState<string[]>([]);
   const [doubleTeams, setDoubleTeams] = useState<string[]>([]);
   const [activeChip, setActiveChip] = useState<string | null>(null);
+  const [coachingDismissed, setCoachingDismissed] = useState(false);
+  const [showGraduation, setShowGraduation] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -368,12 +374,42 @@ export default function TransferAdvisorScreen() {
 
         {recommendations && (
           <>
+            {!coachingDismissed && !showGraduation && (() => {
+              const lesson = beginner.getNextLesson("transfers");
+              if (!lesson) return null;
+              return (
+                <CoachingCard
+                  headline={lesson.headline}
+                  body={lesson.content[vibe]}
+                  onDismiss={async () => {
+                    const isGraduating = await beginner.dismissLesson(lesson.key);
+                    setCoachingDismissed(true);
+                    if (isGraduating) setShowGraduation(true);
+                  }}
+                />
+              );
+            })()}
+
+            {showGraduation && (
+              <CoachingCard
+                headline={GRADUATION_CONTENT[vibe].headline}
+                body={GRADUATION_CONTENT[vibe].body}
+                isGraduation
+                onDismiss={() => {
+                  setShowGraduation(false);
+                  beginner.graduate();
+                }}
+              />
+            )}
+
             <View style={styles.cardsContainer}>
               {isPro ? (
                 recommendations.map((rec, index) => (
                   <TransferCard
                     key={rec.is_hold_recommendation ? "hold" : `${rec.player_out}-${rec.player_in}-${index}`}
                     recommendation={rec}
+                    isBeginner={beginner.isBeginner}
+                    vibe={vibe}
                   />
                 ))
               ) : (
@@ -382,6 +418,8 @@ export default function TransferAdvisorScreen() {
                     <TransferCard
                       key={recommendations[0].is_hold_recommendation ? "hold" : `${recommendations[0].player_out}-${recommendations[0].player_in}-0`}
                       recommendation={recommendations[0]}
+                      isBeginner={beginner.isBeginner}
+                      vibe={vibe}
                     />
                   )}
                   {recommendations.slice(1).map((_, i) => (

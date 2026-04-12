@@ -6,6 +6,7 @@ import { supabase } from "@/services/supabase";
 import WelcomeScreen from "./WelcomeScreen";
 import ConnectFPLScreen from "./ConnectFPLScreen";
 import ChooseVibeScreen from "./ChooseVibeScreen";
+import BeginnerCheckScreen from "./BeginnerCheckScreen";
 import WhatWeDoScreen from "./WhatWeDoScreen";
 import YoureInScreen from "./YoureInScreen";
 
@@ -13,6 +14,7 @@ import { MANAGER_ID_KEY, TEAM_NAME_KEY } from "@/hooks/useManagerId";
 
 const ONBOARDING_COMPLETE_KEY = "superscout_onboarding_complete";
 const PERSONA_KEY = "superscout_persona";
+const BEGINNER_KEY = "superscout_is_beginner";
 
 interface Props {
   onComplete: () => void;
@@ -23,6 +25,7 @@ export default function OnboardingFlow({ onComplete }: Props) {
   const [teamName, setTeamName] = useState<string | null>(null);
   const [managerId, setManagerId] = useState<number | null>(null);
   const [vibe, setVibe] = useState<"expert" | "critic" | "fanboy" | null>(null);
+  const [isBeginner, setIsBeginner] = useState(false);
 
   const handleFPLConnect = (id: number | null, name: string | null) => {
     if (id && name) {
@@ -40,6 +43,16 @@ export default function OnboardingFlow({ onComplete }: Props) {
     setStep(3);
   };
 
+  const handleBeginnerCheck = (beginner: boolean) => {
+    setIsBeginner(beginner);
+    AsyncStorage.setItem(BEGINNER_KEY, beginner ? "true" : "false").catch(() => {});
+    if (beginner) {
+      AsyncStorage.setItem("superscout_beginner_rounds", "0").catch(() => {});
+      AsyncStorage.setItem("superscout_beginner_lessons", "").catch(() => {});
+    }
+    setStep(4);
+  };
+
   const handleFinish = async () => {
     try {
       await AsyncStorage.setItem(ONBOARDING_COMPLETE_KEY, "true");
@@ -52,9 +65,14 @@ export default function OnboardingFlow({ onComplete }: Props) {
       if (user) {
         const updates: Record<string, unknown> = {
           onboarding_completed: true,
+          is_beginner: isBeginner,
         };
         if (vibe) updates.default_persona = vibe;
         if (managerId) updates.fpl_manager_id = String(managerId);
+        if (isBeginner) {
+          updates.beginner_rounds_completed = 0;
+          updates.beginner_lessons_seen = "";
+        }
 
         await supabase
           .from("users")
@@ -73,8 +91,9 @@ export default function OnboardingFlow({ onComplete }: Props) {
       {step === 0 && <WelcomeScreen onNext={() => setStep(1)} />}
       {step === 1 && <ConnectFPLScreen onNext={handleFPLConnect} />}
       {step === 2 && <ChooseVibeScreen onNext={handleVibeSelect} />}
-      {step === 3 && <WhatWeDoScreen onNext={() => setStep(4)} />}
-      {step === 4 && (
+      {step === 3 && <BeginnerCheckScreen onNext={handleBeginnerCheck} />}
+      {step === 4 && <WhatWeDoScreen onNext={() => setStep(5)} />}
+      {step === 5 && (
         <YoureInScreen teamName={teamName} onFinish={handleFinish} />
       )}
     </View>

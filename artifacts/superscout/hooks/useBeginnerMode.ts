@@ -1,0 +1,183 @@
+import { useState, useEffect, useCallback } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { supabase } from "@/services/supabase";
+import type { LessonKey } from "@/lib/coachingLessons";
+
+const BEGINNER_KEY = "superscout_is_beginner";
+const ROUNDS_KEY = "superscout_beginner_rounds";
+const LESSONS_KEY = "superscout_beginner_lessons";
+
+interface BeginnerState {
+  isBeginner: boolean;
+  roundsCompleted: number;
+  lessonsSeen: LessonKey[];
+  loading: boolean;
+}
+
+export function useBeginnerMode() {
+  const [state, setState] = useState<BeginnerState>({
+    isBeginner: false,
+    roundsCompleted: 0,
+    lessonsSeen: [],
+    loading: true,
+  });
+
+  useEffect(() => {
+    loadState();
+  }, []);
+
+  const loadState = async () => {
+    try {
+      const [beginner, rounds, lessons] = await AsyncStorage.multiGet([
+        BEGINNER_KEY,
+        ROUNDS_KEY,
+        LESSONS_KEY,
+      ]);
+
+      const isBeginner = beginner[1] === "true";
+      const roundsCompleted = parseInt(rounds[1] ?? "0", 10) || 0;
+      const lessonsSeen = lessons[1]
+        ? (lessons[1].split(",").filter(Boolean) as LessonKey[])
+        : [];
+
+      setState({ isBeginner, roundsCompleted, lessonsSeen, loading: false });
+    } catch {
+      setState((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
+  const setBeginnerFlag = useCallback(async (value: boolean) => {
+    await AsyncStorage.setItem(BEGINNER_KEY, value ? "true" : "false");
+    if (value) {
+      await AsyncStorage.setItem(ROUNDS_KEY, "0");
+      await AsyncStorage.setItem(LESSONS_KEY, "");
+      setState({
+        isBeginner: true,
+        roundsCompleted: 0,
+        lessonsSeen: [],
+        loading: false,
+      });
+    } else {
+      setState((prev) => ({ ...prev, isBeginner: false }));
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const updates: Record<string, unknown> = { is_beginner: value };
+        if (value) {
+          updates.beginner_rounds_completed = 0;
+          updates.beginner_lessons_seen = "";
+        }
+        await supabase.from("users").update(updates).eq("id", user.id);
+      }
+    } catch {}
+  }, []);
+
+  const dismissLesson = useCallback(
+    async (lessonKey: LessonKey) => {
+      const newLessons = [...state.lessonsSeen, lessonKey];
+      const newRounds = state.roundsCompleted + 1;
+      const isGraduating = newRounds >= 4;
+
+      await AsyncStorage.setItem(ROUNDS_KEY, String(newRounds));
+      await AsyncStorage.setItem(LESSONS_KEY, newLessons.join(","));
+
+      setState((prev) => ({
+        ...prev,
+        roundsCompleted: newRounds,
+        lessonsSeen: newLessons,
+        isBeginner: !isGraduating ? prev.isBeginner : prev.isBeginner,
+      }));
+
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase
+            .from("users")
+            .update({
+              beginner_rounds_completed: newRounds,
+              beginner_lessons_seen: newLessons.join(","),
+            })
+            .eq("id", user.id);
+        }
+      } catch {}
+
+      return isGraduating;
+    },
+    [state.lessonsSeen, state.roundsCompleted],
+  );
+
+  const graduate = useCallback(async () => {
+    await AsyncStorage.setItem(BEGINNER_KEY, "false");
+    setState((prev) => ({ ...prev, isBeginner: false }));
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from("users")
+          .update({ is_beginner: false })
+          .eq("id", user.id);
+      }
+    } catch {}
+  }, []);
+
+  const resetCoaching = useCallback(async () => {
+    await AsyncStorage.setItem(BEGINNER_KEY, "true");
+    await AsyncStorage.setItem(ROUNDS_KEY, "0");
+    await AsyncStorage.setItem(LESSONS_KEY, "");
+    setState({
+      isBeginner: true,
+      roundsCompleted: 0,
+      lessonsSeen: [],
+      loading: false,
+    });
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from("users")
+          .update({
+            is_beginner: true,
+            beginner_rounds_completed: 0,
+            beginner_lessons_seen: "",
+          })
+          .eq("id", user.id);
+      }
+    } catch {}
+  }, []);
+
+  const getNextLesson = useCallback(
+    (screen: "captain" | "transfers") => {
+      if (!state.isBeginner || state.roundsCompleted >= 4) return null;
+
+      const { COACHING_LESSONS } = require("@/lib/coachingLessons");
+      const nextRound = state.roundsCompleted + 1;
+
+      for (const lesson of COACHING_LESSONS) {
+        if (lesson.round !== nextRound) continue;
+        if (state.lessonsSeen.includes(lesson.key)) continue;
+        if (
+          lesson.screen === "either" ||
+          lesson.screen === screen
+        ) {
+          return lesson;
+        }
+      }
+
+      return null;
+    },
+    [state.isBeginner, state.roundsCompleted, state.lessonsSeen],
+  );
+
+  return {
+    ...state,
+    setBeginnerFlag,
+    dismissLesson,
+    graduate,
+    resetCoaching,
+    getNextLesson,
+  };
+}

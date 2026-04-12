@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useManagerId } from "@/hooks/useManagerId";
 import { useSubscription } from "@/lib/revenuecat";
+import { useBeginnerMode } from "@/hooks/useBeginnerMode";
 import { supabase } from "@/services/supabase";
 import config from "@/constants/config";
 import ChooseVibeScreen, {
@@ -40,6 +41,7 @@ export default function SettingsScreen() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const { managerId, teamName, setManager } = useManagerId();
+  const beginner = useBeginnerMode();
 
   useEffect(() => {
     AsyncStorage.getItem(PERSONA_KEY)
@@ -247,6 +249,89 @@ export default function SettingsScreen() {
               />
             </View>
           </Pressable>
+        </View>
+
+        <View
+          style={[
+            styles.section,
+            {
+              backgroundColor: colors.card,
+              borderRadius: colors.radius,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <Text
+            style={[styles.sectionTitle, { color: colors.mutedForeground }]}
+          >
+            Coaching Mode
+          </Text>
+
+          <View style={styles.settingRow}>
+            <View style={styles.settingLeft}>
+              <Feather name="book-open" size={18} color={colors.accent} />
+              <View>
+                <Text
+                  style={[styles.settingLabel, { color: colors.foreground }]}
+                >
+                  Beginner Coaching
+                </Text>
+                <Text
+                  style={[
+                    styles.settingValue,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  {beginner.isBeginner
+                    ? `Round ${beginner.roundsCompleted + 1} of 4`
+                    : "Completed"}
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={beginner.isBeginner}
+              onValueChange={(val) => beginner.setBeginnerFlag(val)}
+              trackColor={{ false: "#3e3e5e", true: colors.accent }}
+              thumbColor="#ffffff"
+            />
+          </View>
+
+          {!beginner.isBeginner && (
+            <>
+              <View style={[styles.legalDivider, { backgroundColor: colors.border }]} />
+              <Pressable
+                onPress={() => beginner.resetCoaching()}
+                style={({ pressed }) => [
+                  styles.settingRow,
+                  { opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <View style={styles.settingLeft}>
+                  <Feather name="rotate-ccw" size={18} color={colors.mutedForeground} />
+                  <View>
+                    <Text
+                      style={[styles.settingLabel, { color: colors.foreground }]}
+                    >
+                      Restart Coaching
+                    </Text>
+                    <Text
+                      style={[
+                        styles.settingValue,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      Start the beginner lessons from scratch
+                    </Text>
+                  </View>
+                </View>
+                <Feather
+                  name="chevron-right"
+                  size={18}
+                  color={colors.mutedForeground}
+                />
+              </Pressable>
+            </>
+          )}
         </View>
 
         <View
@@ -497,6 +582,9 @@ export default function SettingsScreen() {
                 "superscout_manager_id",
                 "superscout_team_name",
                 PERSONA_KEY,
+                "superscout_is_beginner",
+                "superscout_beginner_rounds",
+                "superscout_beginner_lessons",
               ]);
               if (Platform.OS === "web") {
                 window.location.reload();

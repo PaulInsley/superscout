@@ -22,6 +22,9 @@ import BlurredCard from "@/components/BlurredCard";
 import Paywall from "@/components/Paywall";
 import PulseCheck from "@/components/PulseCheck";
 import ProgressLoadingIndicator from "@/components/ProgressLoadingIndicator";
+import CoachingCard from "@/components/CoachingCard";
+import { useBeginnerMode } from "@/hooks/useBeginnerMode";
+import { GRADUATION_CONTENT } from "@/lib/coachingLessons";
 import { fetchCaptainCandidates } from "@/services/fpl/api";
 import type { CaptainCandidateResult } from "@/services/fpl/api";
 import type {
@@ -41,6 +44,7 @@ export default function CaptainPickerScreen() {
   const insets = useSafeAreaInsets();
   const { managerId, loading: managerLoading, refresh: refreshManagerId } = useManagerId();
   const { isPro } = useSubscription();
+  const beginner = useBeginnerMode();
   const [recommendations, setRecommendations] = useState<
     CaptainRecommendation[] | null
   >(null);
@@ -52,6 +56,8 @@ export default function CaptainPickerScreen() {
   const [vibe, setVibe] = useState<"expert" | "critic" | "fanboy">("expert");
   const [showPaywall, setShowPaywall] = useState(false);
   const [showPulse, setShowPulse] = useState(false);
+  const [coachingDismissed, setCoachingDismissed] = useState(false);
+  const [showGraduation, setShowGraduation] = useState(false);
   const stageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useFocusEffect(
@@ -448,12 +454,42 @@ export default function CaptainPickerScreen() {
 
         {recommendations && (
           <>
+            {!coachingDismissed && !showGraduation && (() => {
+              const lesson = beginner.getNextLesson("captain");
+              if (!lesson) return null;
+              return (
+                <CoachingCard
+                  headline={lesson.headline}
+                  body={lesson.content[vibe]}
+                  onDismiss={async () => {
+                    const isGraduating = await beginner.dismissLesson(lesson.key);
+                    setCoachingDismissed(true);
+                    if (isGraduating) setShowGraduation(true);
+                  }}
+                />
+              );
+            })()}
+
+            {showGraduation && (
+              <CoachingCard
+                headline={GRADUATION_CONTENT[vibe].headline}
+                body={GRADUATION_CONTENT[vibe].body}
+                isGraduation
+                onDismiss={() => {
+                  setShowGraduation(false);
+                  beginner.graduate();
+                }}
+              />
+            )}
+
             <View style={styles.cardsContainer}>
               {isPro ? (
                 recommendations.map((rec) => (
                   <ChoiceCard
                     key={rec.player_name}
                     recommendation={rec}
+                    isBeginner={beginner.isBeginner}
+                    vibe={vibe}
                   />
                 ))
               ) : (
@@ -462,6 +498,8 @@ export default function CaptainPickerScreen() {
                     <ChoiceCard
                       key={superscoutPick.player_name}
                       recommendation={superscoutPick}
+                      isBeginner={beginner.isBeginner}
+                      vibe={vibe}
                     />
                   )}
                   {otherPicks.map((_, i) => (

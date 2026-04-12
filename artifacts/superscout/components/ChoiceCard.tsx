@@ -4,10 +4,14 @@ import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import FixtureTicker from "@/components/FixtureTicker";
 import OwnershipSpectrum from "@/components/OwnershipSpectrum";
+import ExplainIcon from "@/components/ExplainIcon";
+import { EXPLAIN_TIPS } from "@/lib/coachingLessons";
 import type { CaptainRecommendation } from "@/services/fpl/types";
 
 interface ChoiceCardProps {
   recommendation: CaptainRecommendation;
+  isBeginner?: boolean;
+  vibe?: "expert" | "critic" | "fanboy";
 }
 
 const CONFIDENCE_CONFIG: Record<string, { label: string; color: string }> = {
@@ -16,7 +20,7 @@ const CONFIDENCE_CONFIG: Record<string, { label: string; color: string }> = {
   BOLD_PUNT: { label: "Bold Punt", color: "#f97316" },
 };
 
-export default function ChoiceCard({ recommendation }: ChoiceCardProps) {
+export default function ChoiceCard({ recommendation, isBeginner = false, vibe = "expert" }: ChoiceCardProps) {
   const colors = useColors();
   const isSuperScoutPick = recommendation.is_superscout_pick;
   const [expanded, setExpanded] = useState(isSuperScoutPick);
@@ -64,7 +68,13 @@ export default function ChoiceCard({ recommendation }: ChoiceCardProps) {
             <Text style={[styles.teamLine, { color: colors.mutedForeground }]}>
               {recommendation.team} vs {recommendation.opponent}
             </Text>
-            <FixtureTicker teamShortName={recommendation.team} />
+            <View style={styles.inlineRow}>
+              <FixtureTicker teamShortName={recommendation.team} />
+              <ExplainIcon
+                tipText={EXPLAIN_TIPS.fixtures[vibe]}
+                isBeginner={isBeginner}
+              />
+            </View>
           </View>
           <View style={styles.pointsContainer}>
             <Text style={[styles.expectedPoints, { color: colors.accent }]}>
@@ -79,15 +89,21 @@ export default function ChoiceCard({ recommendation }: ChoiceCardProps) {
         </View>
 
         <View style={styles.metaRow}>
-          <View
-            style={[
-              styles.confidenceBadge,
-              { backgroundColor: conf.color + "20", borderColor: conf.color },
-            ]}
-          >
-            <Text style={[styles.confidenceText, { color: conf.color }]}>
-              {conf.label}
-            </Text>
+          <View style={styles.inlineRow}>
+            <View
+              style={[
+                styles.confidenceBadge,
+                { backgroundColor: conf.color + "20", borderColor: conf.color },
+              ]}
+            >
+              <Text style={[styles.confidenceText, { color: conf.color }]}>
+                {conf.label}
+              </Text>
+            </View>
+            <ExplainIcon
+              tipText={EXPLAIN_TIPS.confidence[vibe]}
+              isBeginner={isBeginner}
+            />
           </View>
           <Text style={[styles.ownership, { color: colors.mutedForeground }]}>
             {recommendation.ownership_pct.toFixed(1)}% owned
@@ -95,10 +111,18 @@ export default function ChoiceCard({ recommendation }: ChoiceCardProps) {
         </View>
 
         {recommendation.ownership_context && recommendation.ownership_pct > 0 ? (
-          <OwnershipSpectrum
-            ownershipPct={recommendation.ownership_pct}
-            ownershipContext={recommendation.ownership_context}
-          />
+          <View style={styles.inlineRow}>
+            <View style={{ flex: 1 }}>
+              <OwnershipSpectrum
+                ownershipPct={recommendation.ownership_pct}
+                ownershipContext={recommendation.ownership_context}
+              />
+            </View>
+            <ExplainIcon
+              tipText={EXPLAIN_TIPS.ownership[vibe]}
+              isBeginner={isBeginner}
+            />
+          </View>
         ) : null}
 
         <View style={styles.reasoningContainer}>
@@ -178,7 +202,7 @@ export default function ChoiceCard({ recommendation }: ChoiceCardProps) {
 
         <View style={styles.expandRow}>
           <Text style={[styles.expandText, { color: colors.accent }]}>
-            {expanded ? "Show less ▲" : "Read more ▼"}
+            {expanded ? "Show less \u25B2" : "Read more \u25BC"}
           </Text>
         </View>
       </View>
@@ -255,6 +279,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10,
     gap: 10,
+  },
+  inlineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   confidenceBadge: {
     paddingHorizontal: 8,

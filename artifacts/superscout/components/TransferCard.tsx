@@ -1,6 +1,8 @@
 import { View, Text, StyleSheet } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import FixtureTicker from "@/components/FixtureTicker";
+import ExplainIcon from "@/components/ExplainIcon";
+import { EXPLAIN_TIPS } from "@/lib/coachingLessons";
 
 export interface TransferSwap {
   player_out: string;
@@ -43,7 +45,7 @@ const CONFIDENCE_CONFIG: Record<string, { label: string; color: string }> = {
   BOLD_PUNT: { label: "Bold Punt", color: "#f97316" },
 };
 
-function SingleSwapRow({ playerOut, playerOutTeam, playerOutPrice, playerIn, playerInTeam, playerInPrice, colors }: {
+function SingleSwapRow({ playerOut, playerOutTeam, playerOutPrice, playerIn, playerInTeam, playerInPrice, colors, isBeginner, vibe }: {
   playerOut: string;
   playerOutTeam: string;
   playerOutPrice?: number | null;
@@ -51,6 +53,8 @@ function SingleSwapRow({ playerOut, playerOutTeam, playerOutPrice, playerIn, pla
   playerInTeam: string;
   playerInPrice?: number | null;
   colors: ReturnType<typeof useColors>;
+  isBeginner?: boolean;
+  vibe?: "expert" | "critic" | "fanboy";
 }) {
   return (
     <View>
@@ -89,13 +93,17 @@ function SingleSwapRow({ playerOut, playerOutTeam, playerOutPrice, playerIn, pla
           <View style={{ flex: 1 }}>
             <FixtureTicker teamShortName={playerInTeam} compact />
           </View>
+          <ExplainIcon
+            tipText={EXPLAIN_TIPS.fixtures[vibe ?? "expert"]}
+            isBeginner={isBeginner ?? false}
+          />
         </View>
       </View>
     </View>
   );
 }
 
-export default function TransferCard({ recommendation }: { recommendation: TransferRecommendation }) {
+export default function TransferCard({ recommendation, isBeginner = false, vibe = "expert" }: { recommendation: TransferRecommendation; isBeginner?: boolean; vibe?: "expert" | "critic" | "fanboy" }) {
   const colors = useColors();
   const conf = CONFIDENCE_CONFIG[recommendation.confidence] ?? {
     label: recommendation.confidence,
@@ -175,6 +183,8 @@ export default function TransferCard({ recommendation }: { recommendation: Trans
                   playerInTeam={swap.player_in_team}
                   playerInPrice={swap.player_in_price}
                   colors={colors}
+                  isBeginner={isBeginner}
+                  vibe={vibe}
                 />
               </View>
             ))}
@@ -200,6 +210,8 @@ export default function TransferCard({ recommendation }: { recommendation: Trans
                     playerInTeam={(pInTeam as string) ?? ""}
                     playerInPrice={typeof pInPrice === "number" ? pInPrice : null}
                     colors={colors}
+                    isBeginner={isBeginner}
+                    vibe={vibe}
                   />
                 </View>
               );
@@ -217,21 +229,29 @@ export default function TransferCard({ recommendation }: { recommendation: Trans
               playerInTeam={recommendation.player_in_team ?? ""}
               playerInPrice={recommendation.player_in_price ?? null}
               colors={colors}
+              isBeginner={isBeginner}
+              vibe={vibe}
             />
           </View>
         </View>
       )}
 
       <View style={styles.metaRow}>
-        <View
-          style={[
-            styles.confidenceBadge,
-            { backgroundColor: conf.color + "20", borderColor: conf.color },
-          ]}
-        >
-          <Text style={[styles.confidenceText, { color: conf.color }]}>
-            {conf.label}
-          </Text>
+        <View style={styles.inlineRow}>
+          <View
+            style={[
+              styles.confidenceBadge,
+              { backgroundColor: conf.color + "20", borderColor: conf.color },
+            ]}
+          >
+            <Text style={[styles.confidenceText, { color: conf.color }]}>
+              {conf.label}
+            </Text>
+          </View>
+          <ExplainIcon
+            tipText={EXPLAIN_TIPS.confidence[vibe]}
+            isBeginner={isBeginner}
+          />
         </View>
 
         {!isHold && (
@@ -422,6 +442,11 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     gap: 8,
     flexWrap: "wrap",
+  },
+  inlineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   confidenceBadge: {
     paddingHorizontal: 8,
