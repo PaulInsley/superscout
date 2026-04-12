@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet } from "react-native";
+import { useState } from "react";
+import { View, Text, Pressable, StyleSheet } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import FixtureTicker from "@/components/FixtureTicker";
 import ExplainIcon from "@/components/ExplainIcon";
@@ -105,11 +106,12 @@ function SingleSwapRow({ playerOut, playerOutTeam, playerOutPrice, playerIn, pla
 
 export default function TransferCard({ recommendation, isBeginner = false, vibe = "expert" }: { recommendation: TransferRecommendation; isBeginner?: boolean; vibe?: "expert" | "critic" | "fanboy" }) {
   const colors = useColors();
+  const isSuperScoutPick = recommendation.is_superscout_pick;
+  const [expanded, setExpanded] = useState(isSuperScoutPick);
   const conf = CONFIDENCE_CONFIG[recommendation.confidence] ?? {
     label: recommendation.confidence,
     color: colors.mutedForeground,
   };
-  const isSuperScoutPick = recommendation.is_superscout_pick;
   const isHold = recommendation.is_hold_recommendation;
   const isPackage = recommendation.is_package && Array.isArray(recommendation.transfers) && recommendation.transfers.length > 0;
 
@@ -126,6 +128,7 @@ export default function TransferCard({ recommendation, isBeginner = false, vibe 
     : recommendation.hit_cost ?? 0;
 
   return (
+    <Pressable onPress={() => setExpanded((prev) => !prev)}>
     <View
       style={[
         styles.card,
@@ -301,24 +304,31 @@ export default function TransferCard({ recommendation, isBeginner = false, vibe 
       <View style={styles.reasoningContainer}>
         <View style={styles.reasonRow}>
           <Text style={[styles.reasonLabel, { color: "#22c55e" }]}>Upside</Text>
-          <Text style={[styles.reasonText, { color: colors.foreground }]} numberOfLines={2}>
+          <Text style={[styles.reasonText, { color: colors.foreground }]} numberOfLines={expanded ? undefined : 2}>
             {recommendation.upside}
           </Text>
         </View>
         <View style={styles.reasonRow}>
           <Text style={[styles.reasonLabel, { color: "#ef4444" }]}>Risk</Text>
-          <Text style={[styles.reasonText, { color: colors.foreground }]} numberOfLines={2}>
+          <Text style={[styles.reasonText, { color: colors.foreground }]} numberOfLines={expanded ? undefined : 2}>
             {recommendation.risk}
           </Text>
         </View>
       </View>
 
       <View style={[styles.caseContainer, { backgroundColor: colors.primary + "15" }]}>
-        <Text style={[styles.caseText, { color: colors.foreground, fontStyle: "italic" }]}>
+        <Text style={[styles.caseText, { color: colors.foreground, fontStyle: "italic" }]} numberOfLines={expanded ? undefined : 2}>
           "{recommendation.case}"
         </Text>
       </View>
+
+      <View style={styles.expandRow}>
+        <Text style={[styles.expandText, { color: colors.accent }]}>
+          {expanded ? "Show less \u25B2" : "Read more \u25BC"}
+        </Text>
+      </View>
     </View>
+    </Pressable>
   );
 }
 
@@ -523,5 +533,13 @@ const styles = StyleSheet.create({
   caseText: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  expandRow: {
+    alignItems: "center",
+    paddingTop: 8,
+  },
+  expandText: {
+    fontSize: 12,
+    fontWeight: "600",
   },
 });
