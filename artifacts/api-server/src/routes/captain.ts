@@ -288,12 +288,23 @@ router.post("/captain-picks", async (req: Request, res: Response) => {
       chipPrompt = "FREE HIT ACTIVE: The manager has activated their Free Hit chip — they can pick any squad for this single gameweek. Captain recommendations should consider ALL available players since the squad will revert next week. Prioritise the absolute best captain pick regardless of current squad composition.";
     }
 
+    const ownershipPrompt = `OWNERSHIP CONTEXT RULE:
+For each captain option, include an "ownership_context" field. This is a single short sentence (max 20 words) telling the user what the ownership percentage means for their rank if they captain this player.
+Guidelines by ownership band:
+- 50%+: NOT captaining this player is the risk. Most of the field benefits if he hauls.
+- 30-49%: Popular pick. A haul helps you but helps many others too. Protects rank, doesn't gain ground.
+- 10-29%: Differential territory. A haul gains ground on most managers.
+- 3-9%: Strong differential. Very few managers benefit if he delivers.
+- Below 3%: Extreme differential. Almost nobody benefits but you.
+NEVER imply low ownership is automatically better. If a differential pick has 3+ fewer expected points than the top option, acknowledge the trade-off. If expected points are below 4, gently discourage regardless of ownership. Write in the active vibe voice. If ownership data is unavailable, omit the field.`;
+
     const systemPrompt = [
       vibePrompt,
       rulesContext,
       gwAnalysisPrompt,
       chipPrompt,
       transferContextPrompt,
+      ownershipPrompt,
       `IMPORTANT: You MUST respond with valid JSON only. No markdown, no backticks, no preamble. Follow the EXACT JSON structure specified in the user message — use the exact field names provided (player_name, team, opponent, expected_points, confidence, ownership_pct, ownership_context, upside, risk, case, is_superscout_pick, is_on_bench, lineup_changes, lineup_note). Do not rename fields.`,
       `LINEUP OPTIMISATION: Each player has a position number (1-11 starting XI, 12-15 bench). If a captain pick is on the bench set is_on_bench: true and include lineup_changes showing which bench player to start and which starter to bench, with a reason. For starting XI picks, include lineup_changes only if there is a clearly better lineup. If no changes needed, omit lineup_changes and lineup_note.`,
       `CRITICAL PERSONA REQUIREMENT: You MUST write the "case" field in your assigned persona voice. The Expert is calm and analytical — no emojis, no exclamation marks, references data. The Critic is sharp and sarcastic — dry wit, rhetorical questions, no emojis. The Fanboy uses CAPITALS for emphasis, slang like BRO and DUDE, 1-2 emojis (🔥🚀🚨), and extreme hype. If the case text could have been written by any of the three personas, you have failed the task.`,
