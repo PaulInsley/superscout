@@ -115,7 +115,7 @@ export default function BanterScreen() {
       try { const { data: { user } } = await supabase.auth.getUser(); if (user?.id) userId = user.id; } catch {}
 
       const res = await fetch(
-        `${apiBase}/banter/current?user_id=${userId}&vibe=${vibe}`,
+        `${apiBase}/banter/current?user_id=${userId}&vibe=${vibe}&manager_id=${managerId}`,
       );
 
       if (!res.ok) {

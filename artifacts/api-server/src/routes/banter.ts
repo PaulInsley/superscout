@@ -97,7 +97,7 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
     }
 
     const gwParam = String(req.params.gameweek);
-    const { user_id, vibe = "expert" } = req.query;
+    const { user_id, vibe = "expert", manager_id: qManagerId } = req.query;
 
     if (!user_id) {
       res.status(400).json({ error: "Missing user_id" });
@@ -159,12 +159,15 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
       .eq("id", String(user_id))
       .single();
 
-    if (!userData?.fpl_manager_id) {
+    let managerId: number;
+    if (userData?.fpl_manager_id) {
+      managerId = Number(userData.fpl_manager_id);
+    } else if (qManagerId) {
+      managerId = Number(qManagerId);
+    } else {
       res.status(400).json({ error: "No FPL manager linked" });
       return;
     }
-
-    const managerId = Number(userData.fpl_manager_id);
     const playerMap = new Map(bootstrap.elements.map((p) => [p.id, p]));
     const teamMap = new Map(bootstrap.teams.map((t) => [t.id, t]));
 
