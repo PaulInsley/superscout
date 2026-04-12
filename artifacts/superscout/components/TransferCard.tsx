@@ -79,12 +79,16 @@ function SingleSwapRow({ playerOut, playerOutTeam, playerOutPrice, playerIn, pla
       </View>
       <View style={styles.tickerStack}>
         <View style={styles.tickerRow}>
-          <Text style={[styles.tickerLabel, { color: "#ef4444" }]}>OUT</Text>
-          <FixtureTicker teamShortName={playerOutTeam} compact />
+          <View style={[styles.tickerDot, { backgroundColor: "#ef4444" }]} />
+          <View style={{ flex: 1 }}>
+            <FixtureTicker teamShortName={playerOutTeam} compact />
+          </View>
         </View>
         <View style={styles.tickerRow}>
-          <Text style={[styles.tickerLabel, { color: "#22c55e" }]}>IN</Text>
-          <FixtureTicker teamShortName={playerInTeam} compact />
+          <View style={[styles.tickerDot, { backgroundColor: "#22c55e" }]} />
+          <View style={{ flex: 1 }}>
+            <FixtureTicker teamShortName={playerInTeam} compact />
+          </View>
         </View>
       </View>
     </View>
@@ -399,11 +403,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
-  tickerLabel: {
-    fontSize: 9,
-    fontWeight: "800",
-    letterSpacing: 0.5,
-    width: 20,
+  tickerDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   playerName: {
     fontSize: 16,

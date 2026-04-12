@@ -157,7 +157,7 @@ const compactStyles = StyleSheet.create({
   },
   row: {
     flexDirection: "row",
-    gap: 2,
+    justifyContent: "space-between",
   },
   pill: {
     width: 35,
