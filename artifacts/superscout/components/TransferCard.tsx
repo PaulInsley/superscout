@@ -4,10 +4,10 @@ import { useColors } from "@/hooks/useColors";
 export interface TransferSwap {
   player_out: string;
   player_out_team: string;
-  player_out_selling_price: number;
+  player_out_selling_price?: number | null;
   player_in: string;
   player_in_team: string;
-  player_in_price: number;
+  player_in_price?: number | null;
 }
 
 export interface TransferRecommendation {
@@ -45,10 +45,10 @@ const CONFIDENCE_CONFIG: Record<string, { label: string; color: string }> = {
 function SingleSwapRow({ playerOut, playerOutTeam, playerOutPrice, playerIn, playerInTeam, playerInPrice, colors }: {
   playerOut: string;
   playerOutTeam: string;
-  playerOutPrice: number | null;
+  playerOutPrice?: number | null;
   playerIn: string;
   playerInTeam: string;
-  playerInPrice: number | null;
+  playerInPrice?: number | null;
   colors: ReturnType<typeof useColors>;
 }) {
   return (
@@ -60,7 +60,7 @@ function SingleSwapRow({ playerOut, playerOutTeam, playerOutPrice, playerIn, pla
         </Text>
         <Text style={[styles.teamLine, { color: colors.mutedForeground }]}>
           {playerOutTeam}
-          {playerOutPrice != null ? ` · £${playerOutPrice.toFixed(1)}m` : ""}
+          {typeof playerOutPrice === "number" ? ` · £${playerOutPrice.toFixed(1)}m` : ""}
         </Text>
       </View>
       <Text style={[styles.arrow, { color: colors.accent }]}>→</Text>
@@ -71,7 +71,7 @@ function SingleSwapRow({ playerOut, playerOutTeam, playerOutPrice, playerIn, pla
         </Text>
         <Text style={[styles.teamLine, { color: colors.mutedForeground }]}>
           {playerInTeam}
-          {playerInPrice != null ? ` · £${playerInPrice.toFixed(1)}m` : ""}
+          {typeof playerInPrice === "number" ? ` · £${playerInPrice.toFixed(1)}m` : ""}
         </Text>
       </View>
     </View>
@@ -193,14 +193,14 @@ export default function TransferCard({ recommendation }: { recommendation: Trans
 
         {!isHold && (
           <>
-            {netCost !== 0 && (
+            {typeof netCost === "number" && netCost !== 0 && (
               <Text style={[styles.costText, { color: colors.mutedForeground }]}>
                 {netCost > 0
                   ? `Costs £${netCost.toFixed(1)}m`
                   : `Saves £${Math.abs(netCost).toFixed(1)}m`}
               </Text>
             )}
-            {netCost === 0 && !isPackage && (
+            {(netCost === 0 || netCost == null) && !isPackage && (
               <Text style={[styles.costText, { color: colors.mutedForeground }]}>
                 Free swap
               </Text>
@@ -228,9 +228,9 @@ export default function TransferCard({ recommendation }: { recommendation: Trans
           <Text style={[styles.impactLabel, { color: colors.mutedForeground }]}>
             {isPackage ? "Combined 3GW impact" : "Expected 3GW impact"}
           </Text>
-          <Text style={[styles.impactValue, { color: pointsImpact >= 0 ? "#22c55e" : "#ef4444" }]}>
-            {pointsImpact >= 0 ? "+" : ""}
-            {pointsImpact.toFixed(1)} pts
+          <Text style={[styles.impactValue, { color: typeof pointsImpact === "number" && pointsImpact >= 0 ? "#22c55e" : "#ef4444" }]}>
+            {typeof pointsImpact === "number" && pointsImpact >= 0 ? "+" : ""}
+            {typeof pointsImpact === "number" ? pointsImpact.toFixed(1) : "0.0"} pts
           </Text>
         </View>
       )}
