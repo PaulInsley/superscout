@@ -359,6 +359,71 @@ function checkStaleness(
   return { stale: false };
 }
 
+function getCardPlayerNames(rec: Record<string, unknown>): Set<string> {
+  const names = new Set<string>();
+  if (rec.is_hold_recommendation) return names;
+
+  if (rec.is_package && Array.isArray(rec.transfers)) {
+    for (const t of rec.transfers as Array<Record<string, string>>) {
+      if (t.player_out) names.add(t.player_out);
+      if (t.player_in) names.add(t.player_in);
+    }
+  } else {
+    if (rec.player_out) names.add(String(rec.player_out));
+    if (rec.player_in) names.add(String(rec.player_in));
+  }
+  return names;
+}
+
+function sanitiseCommentary(
+  recs: Array<Record<string, unknown>>,
+  logger: Request["log"],
+): Array<Record<string, unknown>> {
+  const allCardNames = recs.map((r) => getCardPlayerNames(r));
+
+  return recs.map((rec, idx) => {
+    if (rec.is_hold_recommendation) return rec;
+
+    const ownNames = allCardNames[idx];
+    const foreignNames = new Set<string>();
+    for (let i = 0; i < allCardNames.length; i++) {
+      if (i === idx) continue;
+      for (const name of allCardNames[i]) {
+        if (!ownNames.has(name)) foreignNames.add(name);
+      }
+    }
+
+    if (foreignNames.size === 0) return rec;
+
+    const patternParts = [...foreignNames]
+      .sort((a, b) => b.length - a.length)
+      .map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    const foreignPattern = new RegExp(`\\b(${patternParts.join("|")})\\b`, "i");
+
+    let changed = false;
+    const cleaned = { ...rec };
+
+    for (const field of ["upside", "risk", "case"] as const) {
+      const text = rec[field];
+      if (typeof text !== "string") continue;
+      if (!foreignPattern.test(text)) continue;
+
+      const sentences = text.split(/(?<=[.!?])\s+/);
+      const kept = sentences.filter((s) => !foreignPattern.test(s));
+      if (kept.length < sentences.length) {
+        cleaned[field] = kept.length > 0 ? kept.join(" ") : text.split(/(?<=[.!?])\s+/)[0];
+        changed = true;
+        logger.info(
+          { field, removed: sentences.length - kept.length, foreignHits: sentences.filter((s) => foreignPattern.test(s)).map((s) => s.substring(0, 60)) },
+          "Stripped cross-card player references from commentary",
+        );
+      }
+    }
+
+    return changed ? cleaned : rec;
+  });
+}
+
 router.post("/transfer-advice", async (req: Request, res: Response) => {
   const isSSE = (req.headers.accept ?? "").includes("text/event-stream");
 
@@ -497,6 +562,13 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
             req.log.info({ reason: staleness.reason }, "Cache discarded — stale data detected");
           } else {
             req.log.info({ cacheId: cacheRow.id, gameweek: currentGw }, "Serving cached transfer advice");
+
+            if (Array.isArray(responseJson.recommendations)) {
+              responseJson.recommendations = sanitiseCommentary(
+                responseJson.recommendations as Array<Record<string, unknown>>,
+                req.log,
+              );
+            }
 
             const result = { ...responseJson, source: "cached" };
 
@@ -1113,13 +1185,15 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
 
     req.log.info({ finalCount: halChecked.length }, "Hallucination check done");
 
+    const sanitised = sanitiseCommentary(halChecked, req.log);
+
     const chipName = isWildcardActive ? "wildcard" : isFreeHitActive ? "freehit" : isTripleCaptainActive ? "3xc" : isBenchBoostActive ? "bboost" : null;
 
     const result: Record<string, unknown> = {
       gameweek: parsed.gameweek ?? currentGw,
       free_transfers: parsed.free_transfers ?? freeTransfers,
       budget_remaining: parsed.budget_remaining ?? bank,
-      recommendations: halChecked,
+      recommendations: sanitised,
       source: "live",
       ...(gwAnalysis.type !== "normal" && {
         gw_type: gwAnalysis.type,

@@ -344,6 +344,57 @@ NEVER imply low ownership is automatically better. If a differential pick has 3+
   return parsed;
 }
 
+function sanitiseTransferCommentary(
+  recs: Array<Record<string, unknown>>,
+): Array<Record<string, unknown>> {
+  const allCardNames = recs.map((r) => {
+    const names = new Set<string>();
+    if (r.is_hold_recommendation) return names;
+    if (r.is_package && Array.isArray(r.transfers)) {
+      for (const t of r.transfers as Array<Record<string, string>>) {
+        if (t.player_out) names.add(t.player_out);
+        if (t.player_in) names.add(t.player_in);
+      }
+    } else {
+      if (r.player_out) names.add(String(r.player_out));
+      if (r.player_in) names.add(String(r.player_in));
+    }
+    return names;
+  });
+
+  return recs.map((rec, idx) => {
+    if (rec.is_hold_recommendation) return rec;
+    const ownNames = allCardNames[idx];
+    const foreignNames = new Set<string>();
+    for (let i = 0; i < allCardNames.length; i++) {
+      if (i === idx) continue;
+      for (const name of allCardNames[i]) {
+        if (!ownNames.has(name)) foreignNames.add(name);
+      }
+    }
+    if (foreignNames.size === 0) return rec;
+
+    const patternParts = [...foreignNames]
+      .sort((a, b) => b.length - a.length)
+      .map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    const foreignPattern = new RegExp(`\\b(${patternParts.join("|")})\\b`, "i");
+
+    let changed = false;
+    const cleaned = { ...rec };
+    for (const field of ["upside", "risk", "case"] as const) {
+      const text = rec[field];
+      if (typeof text !== "string" || !foreignPattern.test(text)) continue;
+      const sentences = text.split(/(?<=[.!?])\s+/);
+      const kept = sentences.filter((s) => !foreignPattern.test(s));
+      if (kept.length < sentences.length) {
+        cleaned[field] = kept.length > 0 ? kept.join(" ") : sentences[0];
+        changed = true;
+      }
+    }
+    return changed ? cleaned : rec;
+  });
+}
+
 async function generateTransferAdvice(
   managerId: string,
   gameweek: number,
@@ -650,7 +701,7 @@ ${transferInstructions}`;
   if (recs) {
     const halCtx = { players: bootstrap.elements, teams: bootstrap.teams, fixtures, gameweek };
     const { filtered } = checkTransferHallucinations(recs, halCtx);
-    parsed.recommendations = filtered;
+    parsed.recommendations = sanitiseTransferCommentary(filtered);
   }
 
   if (gwAnalysis.type !== "normal") {
