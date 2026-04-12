@@ -9,6 +9,7 @@ import {
   ANTI_HALLUCINATION_PROMPT_SUFFIX,
 } from "../services/validation/hallucination-check";
 import { analyseGameweek } from "../lib/gameweekAnalysis";
+import { getSupabase } from "../lib/supabase";
 
 loadRules("fpl");
 
@@ -25,6 +26,8 @@ interface BootstrapData {
     element_type: number;
     status: string;
     chance_of_playing_next_round: number | null;
+    news: string;
+    news_added: string | null;
   }>;
   teams: Array<{ id: number; name: string; short_name: string }>;
   events: Array<{ id: number; is_current: boolean; is_next: boolean; finished: boolean; deadline_time: string }>;
@@ -116,9 +119,49 @@ async function generateCaptainPicks(
   return { parsed, rawText: block.text };
 }
 
+const STALE_KEYWORDS = /injured|knock|doubt|ruled out|suspended|illness|not in squad/i;
+
+function checkCaptainStaleness(
+  cachedResponse: Record<string, unknown>,
+  players: BootstrapData["elements"],
+  generatedAt: string,
+  logger: Request["log"],
+): { stale: boolean; reason?: string } {
+  const recs = cachedResponse.recommendations as Array<Record<string, unknown>> | undefined;
+  if (!Array.isArray(recs)) return { stale: false };
+
+  const playerMap = new Map(players.map((p) => [p.web_name.toLowerCase(), p]));
+  const generatedTime = new Date(generatedAt).getTime();
+
+  for (const rec of recs) {
+    const name = rec.player_name ? String(rec.player_name) : null;
+    if (!name) continue;
+
+    const player = playerMap.get(name.toLowerCase());
+    if (!player) continue;
+
+    if (player.status === "i" || player.status === "s" || player.status === "u") {
+      return { stale: true, reason: `${name}: status changed to '${player.status}'` };
+    }
+
+    if (player.chance_of_playing_next_round !== null && player.chance_of_playing_next_round <= 25) {
+      return { stale: true, reason: `${name}: chance_of_playing dropped to ${player.chance_of_playing_next_round}%` };
+    }
+
+    if (player.news && player.news_added) {
+      const newsTime = new Date(player.news_added).getTime();
+      if (newsTime > generatedTime && STALE_KEYWORDS.test(player.news)) {
+        return { stale: true, reason: `${name}: news updated after cache — "${player.news}"` };
+      }
+    }
+  }
+
+  return { stale: false };
+}
+
 router.post("/captain-picks", async (req: Request, res: Response) => {
   try {
-    const { vibe, context } = req.body;
+    const { vibe, context, user_id: clientUserId } = req.body;
 
     if (!vibe || !context) {
       res.status(400).json({ error: "Missing vibe or context" });
@@ -144,6 +187,53 @@ router.post("/captain-picks", async (req: Request, res: Response) => {
       ]);
     } catch {
       req.log.warn("Could not fetch FPL data for hallucination check — skipping");
+    }
+
+    if (clientUserId && gameweek && bootstrap) {
+      const supabase = getSupabase();
+      if (supabase) {
+        try {
+          const stalenessTimeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 500));
+
+          const cacheCheck = (async () => {
+            const { data: cached } = await supabase
+              .from("pre_generated_recommendations")
+              .select("id, response_json, generated_at")
+              .eq("user_id", clientUserId)
+              .eq("gameweek", gameweek)
+              .eq("decision_type", "captain")
+              .eq("vibe", vibe)
+              .eq("used", false)
+              .gt("expires_at", new Date().toISOString())
+              .order("generated_at", { ascending: false })
+              .limit(1)
+              .single();
+
+            return cached;
+          })();
+
+          const cached = await Promise.race([cacheCheck, stalenessTimeout]);
+
+          if (cached) {
+            const responseJson = cached.response_json as Record<string, unknown>;
+            const staleness = checkCaptainStaleness(responseJson, bootstrap.elements, cached.generated_at, req.log);
+
+            if (staleness.stale) {
+              req.log.info({ reason: staleness.reason }, "Cache discarded — stale data detected");
+              supabase.from("pre_generated_recommendations").update({ used: true }).eq("id", cached.id).then(() => {});
+            } else {
+              req.log.info({ cacheId: cached.id, gameweek }, "Serving cached captain picks");
+              supabase.from("pre_generated_recommendations").update({ used: true }).eq("id", cached.id).then(() => {});
+              res.json({ ...responseJson, source: "cached" });
+              return;
+            }
+          } else {
+            req.log.info("No cached captain picks found — using live generation");
+          }
+        } catch (cacheErr) {
+          req.log.warn({ err: cacheErr }, "Cache lookup failed — falling through to live generation");
+        }
+      }
     }
 
     let gwAnalysisPrompt = "";
@@ -243,7 +333,7 @@ router.post("/captain-picks", async (req: Request, res: Response) => {
       }
     }
 
-    res.json(parsed);
+    res.json({ ...parsed, source: "live" });
   } catch (error: any) {
     if (error?.status === 408 || error?.code === "ETIMEDOUT" || error?.message?.includes("timed out") || error?.message?.includes("timeout")) {
       req.log.warn({ err: error }, "Claude API timeout during captain picks");

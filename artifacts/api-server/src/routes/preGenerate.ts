@@ -816,7 +816,7 @@ router.get("/pre-generated/:gameweek", async (req: Request, res: Response) => {
 
     const { data, error } = await supabase
       .from("pre_generated_recommendations")
-      .select("id, response_json")
+      .select("id, response_json, generated_at")
       .eq("user_id", user_id)
       .eq("gameweek", gw)
       .eq("decision_type", decision_type)
@@ -832,13 +832,79 @@ router.get("/pre-generated/:gameweek", async (req: Request, res: Response) => {
       return;
     }
 
+    let bootstrap: BootstrapData | null = null;
+    try {
+      bootstrap = await fetchCachedData<BootstrapData>(
+        cacheKey("bootstrap-static"),
+        "/bootstrap-static/",
+        TTL.STATIC,
+      );
+    } catch {}
+
+    if (bootstrap) {
+      const responseJson = data.response_json as Record<string, unknown>;
+      const recs = responseJson.recommendations as Array<Record<string, unknown>> | undefined;
+      if (Array.isArray(recs)) {
+        const playerMap = new Map(bootstrap.elements.map((p) => [p.web_name.toLowerCase(), p]));
+        const nameField = String(decision_type) === "captain" ? "player_name" : "player_in";
+
+        let stale = false;
+        let staleReason = "";
+
+        for (const rec of recs) {
+          const names: string[] = [];
+          const mainName = rec[nameField] ? String(rec[nameField]) : null;
+          if (mainName) names.push(mainName);
+          if (rec.is_package && Array.isArray(rec.transfers)) {
+            for (const t of rec.transfers as Array<Record<string, unknown>>) {
+              if (t.player_in) names.push(String(t.player_in));
+            }
+          }
+
+          const generatedTime = new Date(data.generated_at).getTime();
+          const staleKeywords = /injured|knock|doubt|ruled out|suspended|illness|not in squad/i;
+
+          for (const name of names) {
+            const player = playerMap.get(name.toLowerCase());
+            if (!player) continue;
+            if (player.status === "i" || player.status === "s" || player.status === "u") {
+              stale = true;
+              staleReason = `${name}: status '${player.status}'`;
+              break;
+            }
+            if (player.chance_of_playing_next_round !== null && player.chance_of_playing_next_round <= 25) {
+              stale = true;
+              staleReason = `${name}: chance_of_playing ${player.chance_of_playing_next_round}%`;
+              break;
+            }
+            if ((player as any).news && (player as any).news_added) {
+              const newsTime = new Date((player as any).news_added).getTime();
+              if (newsTime > generatedTime && staleKeywords.test((player as any).news)) {
+                stale = true;
+                staleReason = `${name}: news updated — "${(player as any).news}"`;
+                break;
+              }
+            }
+          }
+          if (stale) break;
+        }
+
+        if (stale) {
+          req.log.info({ reason: staleReason }, "Pre-gen cache discarded — stale data detected");
+          supabase.from("pre_generated_recommendations").update({ used: true }).eq("id", data.id).then(() => {});
+          res.json({ found: false });
+          return;
+        }
+      }
+    }
+
     supabase
       .from("pre_generated_recommendations")
       .update({ used: true })
       .eq("id", data.id)
       .then(() => {});
 
-    res.json({ found: true, response: data.response_json });
+    res.json({ found: true, response: data.response_json, source: "cached" });
   } catch (error) {
     req.log.error({ err: error }, "Pre-gen check failed");
     res.json({ found: false });

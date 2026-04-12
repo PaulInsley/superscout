@@ -156,6 +156,7 @@ export default function CaptainPickerScreen() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           vibe,
+          user_id: userId,
           context: buildContext(
             candidateData.candidates,
             candidateData.gameweek,

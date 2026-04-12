@@ -9,6 +9,7 @@ import {
   ANTI_HALLUCINATION_PROMPT_SUFFIX,
 } from "../services/validation/hallucination-check";
 import { analyseGameweek } from "../lib/gameweekAnalysis";
+import { getSupabase } from "../lib/supabase";
 
 const router = Router();
 
@@ -32,6 +33,8 @@ interface FPLPlayer {
   transfers_out_event: number;
   points_per_game: string;
   minutes: number;
+  news: string;
+  news_added: string | null;
 }
 
 interface FPLTeam {
@@ -301,6 +304,60 @@ function preFilterCandidates(
   return result;
 }
 
+const STALE_KEYWORDS = /injured|knock|doubt|ruled out|suspended|illness|not in squad/i;
+
+interface CachedResponse {
+  recommendations?: Array<Record<string, unknown>>;
+  [key: string]: unknown;
+}
+
+function checkStaleness(
+  cachedResponse: CachedResponse,
+  players: FPLPlayer[],
+  generatedAt: string,
+  logger: Request["log"],
+): { stale: boolean; reason?: string } {
+  const recs = cachedResponse.recommendations;
+  if (!Array.isArray(recs)) return { stale: false };
+
+  const playerMap = new Map(players.map((p) => [p.web_name.toLowerCase(), p]));
+  const generatedTime = new Date(generatedAt).getTime();
+
+  for (const rec of recs) {
+    const inNames: string[] = [];
+
+    if (rec.player_in) inNames.push(String(rec.player_in));
+
+    if (rec.is_package && Array.isArray(rec.transfers)) {
+      for (const t of rec.transfers as Array<Record<string, unknown>>) {
+        if (t.player_in) inNames.push(String(t.player_in));
+      }
+    }
+
+    for (const name of inNames) {
+      const player = playerMap.get(name.toLowerCase());
+      if (!player) continue;
+
+      if (player.status === "i" || player.status === "s" || player.status === "u") {
+        return { stale: true, reason: `${name}: status changed to '${player.status}'` };
+      }
+
+      if (player.chance_of_playing_next_round !== null && player.chance_of_playing_next_round <= 25) {
+        return { stale: true, reason: `${name}: chance_of_playing dropped to ${player.chance_of_playing_next_round}%` };
+      }
+
+      if (player.news && player.news_added) {
+        const newsTime = new Date(player.news_added).getTime();
+        if (newsTime > generatedTime && STALE_KEYWORDS.test(player.news)) {
+          return { stale: true, reason: `${name}: news updated after cache — "${player.news}"` };
+        }
+      }
+    }
+  }
+
+  return { stale: false };
+}
+
 router.post("/transfer-advice", async (req: Request, res: Response) => {
   const isSSE = (req.headers.accept ?? "").includes("text/event-stream");
 
@@ -384,6 +441,73 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
         message: "Your FPL team hasn't played any gameweeks yet. Transfer advice will be available once you've entered a gameweek.",
       });
       return;
+    }
+
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        const stalenessTimeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 500));
+
+        const cacheCheck = (async () => {
+          const { data: userRow } = await supabase
+            .from("users")
+            .select("id")
+            .eq("fpl_manager_id", parseInt(managerId, 10))
+            .limit(1)
+            .single();
+
+          if (!userRow) return null;
+
+          const { data: cached } = await supabase
+            .from("pre_generated_recommendations")
+            .select("id, response_json, generated_at")
+            .eq("user_id", userRow.id)
+            .eq("gameweek", currentGw)
+            .eq("decision_type", "transfer")
+            .eq("vibe", vibe)
+            .eq("used", false)
+            .gt("expires_at", new Date().toISOString())
+            .order("generated_at", { ascending: false })
+            .limit(1)
+            .single();
+
+          if (!cached) return null;
+
+          return { cacheRow: cached, userId: userRow.id };
+        })();
+
+        const cacheResult = await Promise.race([cacheCheck, stalenessTimeout]);
+
+        if (cacheResult) {
+          const { cacheRow, userId } = cacheResult;
+          const responseJson = cacheRow.response_json as CachedResponse;
+
+          const staleness = checkStaleness(responseJson, bootstrap.elements as FPLPlayer[], cacheRow.generated_at, req.log);
+
+          if (staleness.stale) {
+            req.log.info({ reason: staleness.reason }, "Cache discarded — stale data detected");
+            supabase.from("pre_generated_recommendations").update({ used: true }).eq("id", cacheRow.id).then(() => {});
+          } else {
+            req.log.info({ cacheId: cacheRow.id, gameweek: currentGw }, "Serving cached transfer advice");
+            supabase.from("pre_generated_recommendations").update({ used: true }).eq("id", cacheRow.id).then(() => {});
+
+            const result = { ...responseJson, source: "cached" };
+
+            if (isSSE) {
+              sendStage("done");
+              res.write(`data: ${JSON.stringify({ stage: "result", ...result })}\n\n`);
+              res.end();
+            } else {
+              res.json(result);
+            }
+            return;
+          }
+        } else {
+          req.log.info("No cached transfer advice found — using live generation");
+        }
+      } catch (cacheErr) {
+        req.log.warn({ err: cacheErr }, "Cache lookup failed — falling through to live generation");
+      }
     }
 
     const picksGw = currentEvent && !currentEvent.finished ? currentEvent.id : (currentGw > 1 ? currentGw - 1 : 1);
@@ -950,6 +1074,7 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
       free_transfers: parsed.free_transfers ?? freeTransfers,
       budget_remaining: parsed.budget_remaining ?? bank,
       recommendations: halChecked,
+      source: "live",
       ...(gwAnalysis.type !== "normal" && {
         gw_type: gwAnalysis.type,
         blank_teams: gwAnalysis.blankTeams.map((t) => t.short_name),

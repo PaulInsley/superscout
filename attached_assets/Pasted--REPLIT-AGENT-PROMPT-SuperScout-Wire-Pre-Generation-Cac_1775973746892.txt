@@ -1,0 +1,100 @@
+# REPLIT AGENT PROMPT — SuperScout: Wire Pre-Generation Cache Into Screens
+
+## CONTEXT
+
+SuperScout has a pre-generation pipeline that generates AI recommendations in advance and stores them in a Supabase table called `pre_generated_recommendations`. The table and the generation endpoint (`POST /api/pre-generate/:gameweek`) already exist and are working.
+
+The problem: the Captain Picker and Transfer Advisor screens are NOT checking this table. They still call the Claude API live every time the user opens the screen. This means 30+ second load times for Transfer Advisor. The fix is simple — check the cache first, use it if it’s there, only call Claude live if it’s not.
+
+## TASK
+
+### 1. Update the Transfer Advisor screen/route
+
+Find the server route that generates transfer recommendations (it will be calling the Claude API with the user’s squad data). Add a cache check BEFORE the AI call:
+
+- Query `pre_generated_recommendations` for a row matching:
+  - `user_id` = the current user
+  - `gameweek` = the current gameweek
+  - `decision_type` = ‘transfer’
+  - `vibe` = the user’s selected vibe
+  - `expires_at` > now() (not expired)
+- If a matching row is found:
+  - Return the `response_json` immediately (this is the pre-generated recommendation)
+  - Mark the row as `used = true`
+  - Log that a cached response was served (console log is fine)
+  - The response format should be identical to what the live AI call returns — the pre-gen pipeline uses the same prompt functions, so `response_json` is already in the right format
+- If NO matching row is found:
+  - Fall back to the existing live AI generation — change nothing about how it currently works
+  - Log that a live generation was triggered (so we can monitor cache hit rates)
+
+### 2. Update the Captain Picker screen/route
+
+Same pattern as above, but:
+
+- `decision_type` = ‘captain’
+- Everything else identical
+
+### 3. Add a “cached” indicator (optional but helpful)
+
+When serving a pre-generated response, add a small field to the response: `source: "cached"`. When serving a live response, add `source: "live"`. This doesn’t need to show in the UI — it’s for debugging so Paul can tell which path was used.
+
+### 4. Staleness Check — CRITICAL FOR TRUST
+
+Before serving a cached response, run a quick freshness check against live FPL API data. This prevents SuperScout from recommending a player who has been injured, suspended, or had a major status change since the cache was generated. This is the single most important safety net in the caching system.
+
+**How it works:**
+
+When a cached response is found in step 1 or 2, BEFORE returning it to the user:
+
+a. Fetch the current FPL bootstrap-static data (this is already cached in the app’s 3-tier caching layer, so it’s fast — no extra API call needed in most cases)
+
+b. Extract every player mentioned in the cached `response_json` — both the recommended “IN” players and the “OUT” players. Match them by FPL player ID or web_name.
+
+c. For each player mentioned, check these fields from the live FPL data:
+
+- `status` — if it has changed to “i” (injured), “s” (suspended), or “u” (unavailable) since the cache was generated, the cache is STALE
+- `chance_of_playing_next_round` — if this has dropped to 0 or 25 (was higher when cached), the cache is STALE
+- `news` — if this field has been updated more recently than the cache’s `generated_at` timestamp AND contains injury/suspension keywords (“injured”, “knock”, “doubt”, “ruled out”, “suspended”, “illness”, “not in squad”), the cache is STALE
+
+d. If ANY recommended “IN” player fails the staleness check:
+
+- Do NOT serve the cached response
+- Discard it (mark `used = true` so it’s not tried again)
+- Fall back to live AI generation instead
+- Log: “Cache discarded — stale data detected for [player name]: [reason]”
+
+e. If ALL players pass the check:
+
+- Serve the cached response as normal (instant load)
+
+**Important notes:**
+
+- Only check “IN” players (the ones being recommended). If an “OUT” player’s status changed, that doesn’t invalidate the advice — it might actually strengthen the case to sell them.
+- The bootstrap-static data refreshes frequently on the FPL API (every few minutes on deadline day). The app’s caching layer already handles this. Do NOT add a separate API call — use whatever cached bootstrap data the app already has.
+- This check should add less than 100ms to the response time. It’s just comparing a few fields in data we already have. If for any reason it takes longer, set a 500ms timeout on the staleness check and serve the cached response anyway (better to show slightly stale data than make the user wait 30 seconds).
+- Price changes alone should NOT invalidate the cache. A £0.1m price rise doesn’t change whether someone is a good pick. Only health/availability status changes should trigger a discard.
+
+### 5. Do NOT change anything else
+
+- Do NOT modify the pre-generation endpoint itself
+- Do NOT modify the AI prompt logic
+- Do NOT modify the hallucination check or validation layer
+- Do NOT change the UI layout or card design
+- The only change is: check the cache table first, use it if available, fall back to live if not
+
+### 5. Test it
+
+After making the changes:
+
+- Manually insert a test row into `pre_generated_recommendations` via Supabase dashboard with `decision_type = 'transfer'`, a valid `response_json`, and `expires_at` set to tomorrow
+- Open the Transfer Advisor — it should load instantly from cache
+- Delete the test row — open Transfer Advisor again — it should fall back to live generation (30s as before)
+- Same test for Captain Picker
+
+## WHY THIS MATTERS
+
+This is the difference between a 30-second load and an instant load. When the pre-generation pipeline runs before each gameweek deadline, all recommendations will be sitting in the database ready to go. Users tap the screen and see results immediately. The live fallback is the safety net for users who sign up after pre-gen has run, or if pre-gen fails for any reason.
+
+## GIT SAFETY
+
+Do not run git reset –hard, orphan commits, or force pushes rewriting history without stopping and explaining the consequences first.
