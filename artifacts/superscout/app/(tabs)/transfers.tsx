@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -148,7 +148,6 @@ export default function TransferAdvisorScreen() {
             const preGenData = await preGenRes.json();
             if (preGenData.found && preGenData.response) {
               const resultData = preGenData.response as TransferAdviceResponse;
-              await waitForMinLoading();
               clearStageTimers();
               setLoadingStage("done");
               applyTransferResult(resultData);
@@ -212,6 +211,21 @@ export default function TransferAdvisorScreen() {
       setAiLoading(false);
     }
   }, [managerId, vibe, startStageTimers, clearStageTimers, applyTransferResult]);
+
+  const autoLoadedVibeRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (
+      managerId &&
+      !recommendations &&
+      !aiLoading &&
+      !aiError &&
+      autoLoadedVibeRef.current !== vibe
+    ) {
+      autoLoadedVibeRef.current = vibe;
+      requestAdvice(false);
+    }
+  }, [managerId, recommendations, aiLoading, aiError, vibe, requestAdvice]);
 
   const logRecommendationSilently = async (data: TransferAdviceResponse) => {
     try {

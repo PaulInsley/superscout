@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -166,7 +166,6 @@ export default function CaptainPickerScreen() {
             if (preGenData.found && preGenData.response) {
               const recs = preGenData.response.recommendations ?? preGenData.response;
               const recsArray = Array.isArray(recs) ? recs : [];
-              await waitForMinLoading();
               clearStageTimers();
               setLoadingStage("done");
               setGameweek(candidateData.gameweek);
@@ -221,6 +220,21 @@ export default function CaptainPickerScreen() {
       setAiLoading(false);
     }
   }, [candidateData, vibe, clearStageTimers, startCaptainStageTimers]);
+
+  const autoLoadedVibeRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (
+      candidateData &&
+      !recommendations &&
+      !aiLoading &&
+      !aiError &&
+      autoLoadedVibeRef.current !== vibe
+    ) {
+      autoLoadedVibeRef.current = vibe;
+      requestPicks(false);
+    }
+  }, [candidateData, recommendations, aiLoading, aiError, vibe, requestPicks]);
 
   const logRecommendationSilently = async (
     data: CaptainPicksResponse,
