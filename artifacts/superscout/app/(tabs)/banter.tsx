@@ -48,12 +48,15 @@ export default function BanterScreen() {
   const autoLoadedVibeRef = useRef<string | null>(null);
   const stageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const hasFocusedBefore = useRef(false);
+
   useFocusEffect(
     useCallback(() => {
-      if (noLeagues) {
+      if (hasFocusedBefore.current && noLeagues) {
         setNoLeagues(false);
         autoLoadedVibeRef.current = null;
       }
+      hasFocusedBefore.current = true;
 
       AsyncStorage.getItem(PERSONA_KEY)
         .then((persona) => {
@@ -74,7 +77,7 @@ export default function BanterScreen() {
           }
         })
         .catch(() => {});
-    }, [isPro, noLeagues]),
+    }, [isPro]),
   );
 
   const clearStageTimers = useCallback(() => {
