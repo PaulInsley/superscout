@@ -193,26 +193,24 @@ router.post("/captain-picks", async (req: Request, res: Response) => {
       const supabase = getSupabase();
       if (supabase) {
         try {
-          const stalenessTimeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 500));
+          const cacheTimeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000));
 
           const cacheCheck = (async () => {
-            const { data: cached } = await supabase
+            const { data: rows } = await supabase
               .from("pre_generated_recommendations")
               .select("id, response_json, generated_at")
               .eq("user_id", clientUserId)
               .eq("gameweek", gameweek)
               .eq("decision_type", "captain")
               .eq("vibe", vibe)
-              .eq("used", false)
               .gt("expires_at", new Date().toISOString())
               .order("generated_at", { ascending: false })
-              .limit(1)
-              .single();
+              .limit(1);
 
-            return cached;
+            return rows?.[0] ?? null;
           })();
 
-          const cached = await Promise.race([cacheCheck, stalenessTimeout]);
+          const cached = await Promise.race([cacheCheck, cacheTimeout]);
 
           if (cached) {
             const responseJson = cached.response_json as Record<string, unknown>;
@@ -220,10 +218,8 @@ router.post("/captain-picks", async (req: Request, res: Response) => {
 
             if (staleness.stale) {
               req.log.info({ reason: staleness.reason }, "Cache discarded — stale data detected");
-              supabase.from("pre_generated_recommendations").update({ used: true }).eq("id", cached.id).then(() => {});
             } else {
               req.log.info({ cacheId: cached.id, gameweek }, "Serving cached captain picks");
-              supabase.from("pre_generated_recommendations").update({ used: true }).eq("id", cached.id).then(() => {});
               res.json({ ...responseJson, source: "cached" });
               return;
             }

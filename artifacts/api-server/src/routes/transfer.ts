@@ -446,9 +446,10 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
     const supabase = getSupabase();
     if (supabase) {
       try {
-        const stalenessTimeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 500));
+        const cacheTimeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000));
 
         const cacheCheck = (async () => {
+          const t0 = Date.now();
           const { data: userRow } = await supabase
             .from("users")
             .select("id")
@@ -456,27 +457,30 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
             .limit(1)
             .single();
 
-          if (!userRow) return null;
+          if (!userRow) {
+            req.log.info({ ms: Date.now() - t0 }, "Cache: no user row found for manager");
+            return null;
+          }
 
-          const { data: cached } = await supabase
+          const { data: rows, error: cacheErr } = await supabase
             .from("pre_generated_recommendations")
             .select("id, response_json, generated_at")
             .eq("user_id", userRow.id)
             .eq("gameweek", currentGw)
             .eq("decision_type", "transfer")
             .eq("vibe", vibe)
-            .eq("used", false)
             .gt("expires_at", new Date().toISOString())
             .order("generated_at", { ascending: false })
-            .limit(1)
-            .single();
+            .limit(1);
 
+          const cached = rows?.[0] ?? null;
+          req.log.info({ ms: Date.now() - t0, found: !!cached, userId: userRow.id, rows: rows?.length, err: cacheErr?.message }, "Cache lookup complete");
           if (!cached) return null;
 
           return { cacheRow: cached, userId: userRow.id };
         })();
 
-        const cacheResult = await Promise.race([cacheCheck, stalenessTimeout]);
+        const cacheResult = await Promise.race([cacheCheck, cacheTimeout]);
 
         if (cacheResult) {
           const { cacheRow, userId } = cacheResult;
@@ -486,10 +490,8 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
 
           if (staleness.stale) {
             req.log.info({ reason: staleness.reason }, "Cache discarded — stale data detected");
-            supabase.from("pre_generated_recommendations").update({ used: true }).eq("id", cacheRow.id).then(() => {});
           } else {
             req.log.info({ cacheId: cacheRow.id, gameweek: currentGw }, "Serving cached transfer advice");
-            supabase.from("pre_generated_recommendations").update({ used: true }).eq("id", cacheRow.id).then(() => {});
 
             const result = { ...responseJson, source: "cached" };
 
