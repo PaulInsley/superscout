@@ -28,6 +28,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "arrow.left.arrow.right", selected: "arrow.left.arrow.right" }} />
         <Label>Transfers</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="banter">
+        <Icon sf={{ default: "flame", selected: "flame.fill" }} />
+        <Label>Banter</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="card">
         <Icon sf={{ default: "square.and.arrow.up", selected: "square.and.arrow.up.fill" }} />
         <Label>Card</Label>
@@ -118,6 +122,19 @@ function ClassicTabLayout() {
               <SymbolView name="arrow.left.arrow.right" tintColor={color} size={24} />
             ) : (
               <Feather name="repeat" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="banter"
+        options={{
+          title: "Banter",
+          headerShown: false,
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="flame" tintColor={color} size={24} />
+            ) : (
+              <Feather name="message-circle" size={22} color={color} />
             ),
         }}
       />

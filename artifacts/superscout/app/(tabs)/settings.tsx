@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
+  ActivityIndicator,
   Linking,
   Platform,
   Pressable,
@@ -18,6 +19,7 @@ import { useManagerId } from "@/hooks/useManagerId";
 import { useSubscription } from "@/lib/revenuecat";
 import { useBeginnerMode } from "@/hooks/useBeginnerMode";
 import { supabase } from "@/services/supabase";
+import { fetchManagerLeagues } from "@/services/fpl/api";
 import config from "@/constants/config";
 import ChooseVibeScreen, {
   VIBES,
@@ -28,8 +30,22 @@ import ProBadge from "@/components/ProBadge";
 import { FeedbackModal } from "@/components/FeedbackButton";
 import { ONBOARDING_COMPLETE_KEY } from "@/app/onboarding/OnboardingFlow";
 import type { Vibe } from "@/app/onboarding/ChooseVibeScreen";
+import type { FPLLeague } from "@/services/fpl/types";
 
 const PERSONA_KEY = "superscout_persona";
+
+function getApiBaseUrl(): string {
+  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+  return `https://${domain}/api`;
+}
+
+interface SavedLeague {
+  id: string;
+  mini_league_id: string;
+  mini_league_name: string;
+  league_type: string;
+  current_rank: number | null;
+}
 
 export default function SettingsScreen() {
   const colors = useColors();
@@ -43,6 +59,13 @@ export default function SettingsScreen() {
   const { managerId, teamName, setManager } = useManagerId();
   const beginner = useBeginnerMode();
 
+  const [availableLeagues, setAvailableLeagues] = useState<FPLLeague[]>([]);
+  const [savedLeagues, setSavedLeagues] = useState<SavedLeague[]>([]);
+  const [selectedLeagueIds, setSelectedLeagueIds] = useState<Set<number>>(new Set());
+  const [leaguesLoading, setLeaguesLoading] = useState(false);
+  const [leaguesSaving, setLeaguesSaving] = useState(false);
+  const [showLeaguePicker, setShowLeaguePicker] = useState(false);
+
   useEffect(() => {
     AsyncStorage.getItem(PERSONA_KEY)
       .then((val) => {
@@ -52,6 +75,83 @@ export default function SettingsScreen() {
       })
       .catch(() => {});
   }, []);
+
+  const loadSavedLeagues = useCallback(async () => {
+    try {
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (!userId) return;
+      const apiBase = getApiBaseUrl();
+      const res = await fetch(`${apiBase}/banter/leagues/${userId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSavedLeagues(data.leagues ?? []);
+        setSelectedLeagueIds(new Set((data.leagues ?? []).map((l: SavedLeague) => Number(l.mini_league_id))));
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (managerId) {
+      loadSavedLeagues();
+    }
+  }, [managerId, loadSavedLeagues]);
+
+  const openLeaguePicker = useCallback(async () => {
+    if (!managerId) return;
+    setShowLeaguePicker(true);
+    setLeaguesLoading(true);
+    try {
+      const leagues = await fetchManagerLeagues(managerId);
+      setAvailableLeagues(leagues);
+    } catch {
+      setAvailableLeagues([]);
+    } finally {
+      setLeaguesLoading(false);
+    }
+  }, [managerId]);
+
+  const toggleLeague = useCallback((leagueId: number) => {
+    setSelectedLeagueIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(leagueId)) {
+        next.delete(leagueId);
+      } else if (next.size < 3) {
+        next.add(leagueId);
+      }
+      return next;
+    });
+  }, []);
+
+  const saveLeagues = useCallback(async () => {
+    setLeaguesSaving(true);
+    try {
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (!userId) return;
+
+      const leaguesToSave = availableLeagues
+        .filter((l) => selectedLeagueIds.has(l.id))
+        .map((l) => ({
+          id: l.id,
+          name: l.name,
+          type: l.league_type === "x" ? "h2h" : "classic",
+          rank: l.entry_rank,
+        }));
+
+      const apiBase = getApiBaseUrl();
+      const res = await fetch(`${apiBase}/banter/leagues`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, leagues: leaguesToSave }),
+      });
+
+      if (res.ok) {
+        await loadSavedLeagues();
+        setShowLeaguePicker(false);
+      }
+    } catch {} finally {
+      setLeaguesSaving(false);
+    }
+  }, [availableLeagues, selectedLeagueIds, loadSavedLeagues]);
 
   const handleVibeChange = (v: Vibe) => {
     setCurrentVibe(v);
@@ -81,6 +181,124 @@ export default function SettingsScreen() {
     }
     setShowFPLConnect(false);
   };
+
+  if (showLeaguePicker) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View
+          style={[
+            styles.fplConnectHeader,
+            { paddingTop: Platform.OS === "web" ? 67 : insets.top },
+          ]}
+        >
+          <Pressable
+            onPress={() => setShowLeaguePicker(false)}
+            style={styles.backButton}
+          >
+            <Feather name="arrow-left" size={22} color={colors.foreground} />
+          </Pressable>
+          <Text style={[styles.screenTitle, { color: colors.foreground, marginBottom: 0, flex: 1 }]}>
+            Select Leagues
+          </Text>
+        </View>
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={[styles.leaguePickerHint, { color: colors.mutedForeground }]}>
+            Choose up to 3 mini-leagues for banter generation
+          </Text>
+
+          {leaguesLoading && (
+            <View style={styles.leagueLoadingContainer}>
+              <ActivityIndicator color={colors.accent} />
+              <Text style={[styles.settingValue, { color: colors.mutedForeground, marginTop: 8 }]}>
+                Loading your leagues...
+              </Text>
+            </View>
+          )}
+
+          {!leaguesLoading && availableLeagues.length === 0 && (
+            <View style={[styles.emptyLeagueCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+              <Feather name="info" size={24} color={colors.mutedForeground} />
+              <Text style={[styles.settingLabel, { color: colors.foreground, marginTop: 8 }]}>
+                No leagues found
+              </Text>
+              <Text style={[styles.settingValue, { color: colors.mutedForeground, marginTop: 4 }]}>
+                Join a mini-league on the FPL website first
+              </Text>
+            </View>
+          )}
+
+          {!leaguesLoading && availableLeagues.map((league) => {
+            const isSelected = selectedLeagueIds.has(league.id);
+            const isDisabled = !isSelected && selectedLeagueIds.size >= 3;
+            return (
+              <Pressable
+                key={league.id}
+                onPress={() => !isDisabled && toggleLeague(league.id)}
+                style={({ pressed }) => [
+                  styles.leagueRow,
+                  {
+                    backgroundColor: isSelected ? colors.accent + "15" : colors.card,
+                    borderColor: isSelected ? colors.accent : colors.border,
+                    borderRadius: colors.radius,
+                    opacity: pressed ? 0.7 : isDisabled ? 0.5 : 1,
+                  },
+                ]}
+              >
+                <View style={styles.leagueRowLeft}>
+                  <View
+                    style={[
+                      styles.leagueCheck,
+                      {
+                        backgroundColor: isSelected ? colors.accent : "transparent",
+                        borderColor: isSelected ? colors.accent : colors.mutedForeground,
+                      },
+                    ]}
+                  >
+                    {isSelected && <Feather name="check" size={14} color="#1a472a" />}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.settingLabel, { color: colors.foreground }]} numberOfLines={1}>
+                      {league.name}
+                    </Text>
+                    <Text style={[styles.settingValue, { color: colors.mutedForeground }]}>
+                      Rank {league.entry_rank} · {league.league_type === "x" ? "H2H" : "Classic"}
+                    </Text>
+                  </View>
+                </View>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        {!leaguesLoading && availableLeagues.length > 0 && (
+          <View style={[styles.saveLeagueBar, { paddingBottom: insets.bottom + 16, backgroundColor: colors.background }]}>
+            <Pressable
+              onPress={saveLeagues}
+              disabled={leaguesSaving || selectedLeagueIds.size === 0}
+              style={({ pressed }) => [
+                styles.saveLeagueButton,
+                {
+                  backgroundColor: selectedLeagueIds.size === 0 ? colors.border : colors.accent,
+                  opacity: pressed ? 0.8 : leaguesSaving ? 0.6 : 1,
+                },
+              ]}
+            >
+              {leaguesSaving ? (
+                <ActivityIndicator color="#1a472a" size="small" />
+              ) : (
+                <Text style={styles.saveLeagueText}>
+                  Save {selectedLeagueIds.size} League{selectedLeagueIds.size !== 1 ? "s" : ""}
+                </Text>
+              )}
+            </Pressable>
+          </View>
+        )}
+      </View>
+    );
+  }
 
   if (showVibePicker) {
     return (
@@ -250,6 +468,65 @@ export default function SettingsScreen() {
             </View>
           </Pressable>
         </View>
+
+        {managerId && (
+          <View
+            style={[
+              styles.section,
+              {
+                backgroundColor: colors.card,
+                borderRadius: colors.radius,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <Text
+              style={[styles.sectionTitle, { color: colors.mutedForeground }]}
+            >
+              Banter Leagues
+            </Text>
+
+            <Pressable
+              onPress={openLeaguePicker}
+              style={({ pressed }) => [
+                styles.settingRow,
+                { opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <View style={styles.settingLeft}>
+                <Feather
+                  name="message-circle"
+                  size={18}
+                  color={savedLeagues.length > 0 ? "#22c55e" : colors.foreground}
+                />
+                <View>
+                  <Text
+                    style={[styles.settingLabel, { color: colors.foreground }]}
+                  >
+                    {savedLeagues.length > 0
+                      ? `${savedLeagues.length} League${savedLeagues.length > 1 ? "s" : ""} Connected`
+                      : "Connect Mini-Leagues"}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.settingValue,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    {savedLeagues.length > 0
+                      ? savedLeagues.map((l) => l.mini_league_name).join(", ")
+                      : "Select leagues for banter generation"}
+                  </Text>
+                </View>
+              </View>
+              <Feather
+                name="chevron-right"
+                size={18}
+                color={colors.mutedForeground}
+              />
+            </Pressable>
+          </View>
+        )}
 
         <View
           style={[
@@ -723,5 +1000,61 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 8,
+  },
+  leaguePickerHint: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  leagueLoadingContainer: {
+    alignItems: "center",
+    paddingVertical: 40,
+  },
+  emptyLeagueCard: {
+    padding: 24,
+    borderWidth: 1,
+    alignItems: "center",
+  },
+  leagueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 14,
+    marginBottom: 8,
+    borderWidth: 1,
+  },
+  leagueRowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    flex: 1,
+  },
+  leagueCheck: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  saveLeagueBar: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  saveLeagueButton: {
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  saveLeagueText: {
+    fontSize: 16,
+    fontFamily: "Inter_700Bold",
+    color: "#1a472a",
   },
 });

@@ -1,0 +1,198 @@
+# REPLIT AGENT PROMPT — SuperScout: Mini-League Banter Engine
+
+## CONTEXT
+
+SuperScout’s second viral mechanic (after Squad Cards) is the Mini-League Banter Engine. It generates weekly trash talk between the user and their mini-league rivals, delivered in the user’s chosen vibe voice. Users screenshot this banter and share it in WhatsApp groups — every share is a free ad for SuperScout.
+
+The groundwork is already in the codebase:
+
+- **Banter Sheet** — 232 lines of team-specific banter content for all 20 PL clubs
+- **Rivalry Map** — team rivalry relationships defined
+- **Table 12 (mini_league_context)** — already in the Supabase schema for storing mini-league data
+
+What’s missing: a UI screen, an API route to fetch mini-league data and opponents, and the AI generation that creates personalised banter per matchup.
+
+This is a **Pro-only feature** — free users see a blurred preview with “Unlock Banter with Pro.”
+
+## TASK
+
+### 1. Build the mini-league connection flow
+
+The user needs to connect their mini-leagues. The FPL API provides mini-league data via the manager entry endpoint.
+
+**Step 1 — Fetch the user’s leagues:**
+Using the user’s FPL Manager ID (already stored), call:
+`https://fantasy.premierleague.com/api/entry/{manager_id}/`
+
+This returns a list of the user’s classic and H2H leagues in the `leagues` field. Extract:
+
+- League ID
+- League name
+- League type (classic or h2h)
+
+**Step 2 — Let the user pick their banter leagues:**
+Show a list of the user’s leagues with checkboxes. Let them select up to 3 leagues they want banter for. Most users care about 1-2 mini-leagues (the work league, the mates league). Don’t generate banter for the overall rankings or huge public leagues — only private/small leagues.
+
+Filter: only show leagues with fewer than 50 managers. Leagues larger than that aren’t personal enough for banter to land.
+
+**Step 3 — Store in mini_league_context (Table 12):**
+For each selected league, store the league ID, league name, user’s rank, the rival manager IDs, and the season. Refresh this data weekly after each gameweek finalises.
+
+### 2. Build the banter generation API route
+
+**New endpoint: GET /api/banter/:gameweek**
+
+This route:
+
+1. Looks up the user’s selected mini-leagues from Table 12
+1. For each league, fetches the current standings from the FPL API:
+- Classic: `https://fantasy.premierleague.com/api/leagues-classic/{league_id}/standings/`
+- H2H: `https://fantasy.premierleague.com/api/leagues-h2h/{league_id}/standings/`
+1. Identifies the user’s key rivals:
+- **H2H leagues:** This gameweek’s opponent (if applicable)
+- **Classic leagues:** The manager directly above and directly below in the standings, plus the league leader if the user isn’t in the top 3
+1. For each rival, fetches their squad data:
+- `https://fantasy.premierleague.com/api/entry/{rival_id}/event/{gameweek}/picks/`
+  This gives us their starting XI, captain choice, bench, and active chip
+1. Sends all this data to Claude to generate the banter
+
+### 3. The banter prompt
+
+Add a new AI prompt for banter generation. The prompt receives:
+
+- The user’s squad, captain, and points
+- The rival’s squad, captain, and points (from picks endpoint)
+- The user’s league rank vs the rival’s rank
+- The points gap between them
+- Which players they have in common
+- Which players are different (the differentials)
+- The rival’s team name (from the entry endpoint)
+- The existing Banter Sheet content for relevant clubs
+- The user’s vibe
+
+The prompt instructions:
+
+```
+MINI-LEAGUE BANTER GENERATION
+
+You are generating weekly trash talk between the user and their
+mini-league rival. This is entertainment — fun, personal, specific
+to these two squads.
+
+Generate a "Match Preview" style banter card with:
+
+1. HEADLINE — A punchy one-liner summarising the rivalry this week.
+   Max 10 words. Examples: "The Battle of the Haaland Captainers"
+   or "Dave's Defence vs Your Midfield Gamble"
+
+2. KEY BATTLE — The most interesting squad difference between
+   these two managers. Where does the user have an edge? Where
+   does the rival? Be specific about players and fixtures.
+   2-3 sentences.
+
+3. CAPTAIN CLASH — Compare their captain choices. If they've
+   picked the same captain, note it ("You're both on Salah —
+   this one's decided elsewhere"). If different, this is the
+   decisive moment — play it up. 1-2 sentences.
+
+4. THE VERDICT — Who does SuperScout fancy this week and why?
+   Be bold. Pick a side. 1-2 sentences.
+
+5. SHARE LINE — A single sentence designed to be screenshotted
+   and sent to the rival. This is the money line — it must be
+   funny, specific, and slightly provocative without being mean.
+   Max 15 words.
+
+RULES:
+- Use the rival's actual team name, not their real name (we
+  don't have their real name from the API)
+- Reference specific players, not generic statements
+- The banter should be funny but never cruel or personal
+- For H2H leagues: frame it as a head-to-head matchup
+- For classic leagues: frame it as a standings battle
+- Use the Banter Sheet content for any club-specific references
+  where relevant (e.g. if the rival has 3 Arsenal players,
+  reference Arsenal-specific banter)
+- The vibe voice applies: Expert is wry and analytical, Critic
+  is sharp and provocative, Fanboy is dramatic and excitable
+
+Write in the active vibe voice.
+```
+
+### 4. Build the Banter screen
+
+Add a new screen accessible from the main tab bar or from a “Banter” section in the “More” tab. The screen shows:
+
+**Header:** “Mini-League Banter” with the current gameweek
+
+**League selector:** If the user has multiple leagues connected, tabs or a dropdown to switch between them
+
+**Banter cards:** One card per rival, showing:
+
+- Rival team name + their rank in the league
+- The points gap (“3 points ahead of you” or “12 points behind”)
+- The generated banter (headline, key battle, captain clash, verdict)
+- A prominent **Share** button that copies the share line + a SuperScout branding tag to the clipboard, or opens the native share sheet
+
+**Card design:**
+
+- Use the same card style as recommendation cards (surface background, rounded corners, left border accent in vibe colour)
+- The headline should be in Space Grotesk (display font), larger
+- The share line should be visually distinct — highlighted background, slightly larger text, designed to look good as a screenshot
+
+**Loading:** Use the same minimum loading time pattern (2.5 seconds with vibe-voiced messages: “Scouting your rivals…”, “Analysing squad differences…”, “Preparing the trash talk…”)
+
+**Pro gating:** Free users see one blurred banter card with “Unlock Mini-League Banter with Pro” overlay, same pattern as the blurred transfer options
+
+### 5. Pre-generation for banter
+
+Add banter to the pre-generation pipeline. After generating captain picks and transfer advice for each user, also generate banter for their connected leagues.
+
+- Only generate banter for users who have at least one league connected
+- Generate in the user’s active vibe only (1 call per rival, not 3 vibes)
+- Store in pre_generated_recommendations with decision_type = ‘banter’
+- Max 3 rivals per user per gameweek (to control AI costs)
+
+### 6. Share mechanic
+
+When the user taps Share on a banter card:
+
+- Copy the share line text to clipboard
+- Append: “— SuperScout, your AI fantasy football coach (superscout.pro)”
+- Open the native share sheet (iOS/Android) so the user can send via WhatsApp, iMessage, Twitter, etc.
+- Log the share to the squad_cards table (reuse the share tracking — add a ‘banter’ type) so we can measure at the decision gate whether banter is being shared organically
+
+### 7. Refresh timing
+
+- Banter is most relevant BEFORE the gameweek deadline (it’s a preview, not a review)
+- Generate banter as part of the pre-deadline pre-generation run
+- After the deadline passes, the banter cards should show a “Results pending…” state until scores are finalised
+- After scores finalise, optionally update the card with a one-line result: “You beat Dave’s Destroyers by 12 points. The verdict was correct.” (This is a nice-to-have, not essential for launch)
+
+### 8. Edge cases
+
+- **User has no leagues connected:** Show an empty state: “Connect a mini-league to unlock banter. Go to Settings > Mini-Leagues.”
+- **League has only 1 member (the user):** Skip it — no rival to banter with
+- **H2H league but no opponent this gameweek (bye week):** Show the closest rival in standings instead
+- **FPL API doesn’t return rival squad data:** Generate banter based on standings data only (points gap, rank difference) without squad-specific analysis. Less detailed but still fun.
+- **Rival hasn’t set their team yet (pre-deadline):** Note this in the banter: “Your opponent hasn’t even set their team yet. Either confidence or apathy.”
+
+### 9. Sport-agnostic notes
+
+The Banter Engine architecture should be sport-agnostic:
+
+- The mini_league_context table structure works for any sport that has leagues/competitions between users
+- The banter prompt is sport-specific (it references FPL concepts) and should live in the sport-specific prompt directory (e.g. /sports/fpl/prompts/)
+- The banter card UI component, share mechanic, and pre-generation integration are all sport-agnostic
+- When F1 Fantasy is added, F1 leagues would use the same banter screen with F1-specific prompts
+
+### 10. Do NOT change anything else
+
+- Do NOT modify the Captain Picker or Transfer Advisor
+- Do NOT modify the existing pre-generation logic for captain/transfer — add banter generation as an additional step after them
+- Do NOT modify the Squad Card system
+- Do NOT modify the onboarding flow
+
+## GIT SAFETY
+
+Do not run git reset –hard, orphan commits, or force pushes rewriting history without stopping and explaining the consequences first.

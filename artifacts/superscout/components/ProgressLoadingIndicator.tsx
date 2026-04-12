@@ -64,6 +64,31 @@ const STAGE_MESSAGES: Record<
     critic: "Right. Here's what I've got.",
     fanboy: "DONE!! Let's GO!!",
   },
+  leagues: {
+    expert: "Fetching your mini-league standings...",
+    critic: "Let's see who you're up against...",
+    fanboy: "LOADING THE LEAGUE TABLE — time for BANTER!!",
+  },
+  rivals: {
+    expert: "Identifying your closest rivals...",
+    critic: "Finding someone worth mocking...",
+    fanboy: "SCOUTING YOUR RIVALS' SQUADS!!",
+  },
+  squads: {
+    expert: "Comparing squad compositions and differentials...",
+    critic: "Examining their questionable life choices...",
+    fanboy: "Spotting the KEY DIFFERENCES!!",
+  },
+  banter_ai: {
+    expert: "Crafting your banter cards...",
+    critic: "Preparing some absolute devastation...",
+    fanboy: "Your analyst is COOKING up some HEAT!! 🔥",
+  },
+  banter_done: {
+    expert: "Banter cards ready.",
+    critic: "Ammunition loaded.",
+    fanboy: "BANTER LOCKED AND LOADED!! 🚀",
+  },
 };
 
 export interface ProgressStage {
@@ -96,10 +121,18 @@ const CAPTAIN_STAGES: ProgressStage[] = [
   { key: "done", label: "Done!", targetPercent: 100 },
 ];
 
+const BANTER_STAGES: ProgressStage[] = [
+  { key: "leagues", label: "Loading leagues", targetPercent: 15 },
+  { key: "rivals", label: "Finding rivals", targetPercent: 35 },
+  { key: "squads", label: "Comparing squads", targetPercent: 55 },
+  { key: "banter_ai", label: "Generating banter", targetPercent: 85 },
+  { key: "banter_done", label: "Done!", targetPercent: 100 },
+];
+
 interface Props {
   vibe: Vibe;
   currentStage: string;
-  variant?: "transfer" | "captain";
+  variant?: "transfer" | "captain" | "banter";
 }
 
 export default function ProgressLoadingIndicator({
@@ -108,7 +141,7 @@ export default function ProgressLoadingIndicator({
   variant = "transfer",
 }: Props) {
   const colors = useColors();
-  const stages = variant === "captain" ? CAPTAIN_STAGES : TRANSFER_STAGES;
+  const stages = variant === "banter" ? BANTER_STAGES : variant === "captain" ? CAPTAIN_STAGES : TRANSFER_STAGES;
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const widthAnim = useRef(new Animated.Value(0)).current;
   const [prevStage, setPrevStage] = useState(currentStage);
@@ -189,7 +222,7 @@ export default function ProgressLoadingIndicator({
   );
 }
 
-export { TRANSFER_STAGES, CAPTAIN_STAGES };
+export { TRANSFER_STAGES, CAPTAIN_STAGES, BANTER_STAGES };
 
 const styles = StyleSheet.create({
   container: {

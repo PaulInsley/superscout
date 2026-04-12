@@ -7,6 +7,7 @@ import decisionLogRouter from "./decisionLog";
 import processDecisionsRouter from "./processDecisions";
 import squadCardRouter from "./squadCard";
 import preGenerateRouter from "./preGenerate";
+import banterRouter from "./banter";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(decisionLogRouter);
 router.use(processDecisionsRouter);
 router.use(squadCardRouter);
 router.use(preGenerateRouter);
+router.use(banterRouter);
 
 export default router;

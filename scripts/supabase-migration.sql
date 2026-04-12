@@ -149,6 +149,7 @@ CREATE TABLE IF NOT EXISTS mini_league_context (
   user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   mini_league_id text NOT NULL,
   mini_league_name text,
+  league_type text DEFAULT 'classic',
   current_rank integer,
   rival_manager_ids jsonb,
   season text NOT NULL,

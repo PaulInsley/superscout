@@ -723,6 +723,8 @@ router.post("/pre-generate/:gameweek", async (req: Request, res: Response) => {
       captain_failed: 0,
       transfer_generated: 0,
       transfer_failed: 0,
+      banter_generated: 0,
+      banter_failed: 0,
       skipped: 0,
     };
 
@@ -791,6 +793,59 @@ router.post("/pre-generate/:gameweek", async (req: Request, res: Response) => {
         }
 
         await delay(2000);
+      }
+
+      try {
+        const { data: userLeagues } = await supabase
+          .from("mini_league_context")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("season", "2026-27");
+
+        if (userLeagues && userLeagues.length > 0) {
+          const { data: userPrefs } = await supabase
+            .from("users")
+            .select("default_persona")
+            .eq("id", user.id)
+            .single();
+
+          const banterVibe = userPrefs?.default_persona ?? "expert";
+
+          try {
+            const banterUrl = `http://localhost:${process.env.PORT || 3001}/api/banter/${gw}?user_id=${user.id}&vibe=${banterVibe}`;
+            const banterRes = await fetch(banterUrl);
+            if (banterRes.ok) {
+              const banterData = await banterRes.json();
+              if (banterData.banter_cards && banterData.banter_cards.length > 0) {
+                const { error: insertErr } = await supabase
+                  .from("pre_generated_recommendations")
+                  .insert({
+                    user_id: user.id,
+                    gameweek: gw,
+                    season: "2026-27",
+                    decision_type: "banter",
+                    vibe: banterVibe,
+                    response_json: banterData,
+                    expires_at: deadline,
+                  });
+                if (insertErr) {
+                  req.log.error({ err: insertErr, userId: user.id }, "Pre-gen banter insert failed");
+                  results.banter_failed++;
+                } else {
+                  results.banter_generated++;
+                }
+              }
+            } else {
+              results.banter_failed++;
+            }
+          } catch (err) {
+            req.log.error({ err, userId: user.id }, "Pre-gen banter failed");
+            results.banter_failed++;
+          }
+          await delay(2000);
+        }
+      } catch (err) {
+        req.log.error({ err, userId: user.id }, "Pre-gen banter league check failed");
       }
     }
 

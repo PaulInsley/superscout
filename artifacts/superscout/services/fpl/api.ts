@@ -386,6 +386,30 @@ export async function fetchCaptainCandidates(
   };
 }
 
+export async function fetchManagerLeagues(managerId: number): Promise<FPLLeague[]> {
+  const base = getBaseUrl();
+  const url =
+    Platform.OS === "web"
+      ? `${base}/entry/${managerId}`
+      : `${base}/entry/${managerId}/`;
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`FPL API error: ${response.status}`);
+  }
+
+  const data: FPLManagerInfo = await response.json();
+  const allLeagues = [...(data.leagues?.classic ?? [])];
+
+  if ((data.leagues as any)?.h2h) {
+    allLeagues.push(...(data.leagues as any).h2h);
+  }
+
+  return allLeagues.filter(
+    (l) => l.entry_can_leave && l.league_type !== "s",
+  );
+}
+
 export async function fetchManagerData(
   managerId: number
 ): Promise<ManagerData> {

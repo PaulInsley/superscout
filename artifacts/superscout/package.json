@@ -57,6 +57,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.85.0",
+    "expo-clipboard": "~8.0.8",
     "expo-media-library": "~18.2.1",
     "expo-sharing": "~14.0.8",
     "react-native-purchases": "9.7.2",

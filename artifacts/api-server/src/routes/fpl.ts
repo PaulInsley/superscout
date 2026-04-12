@@ -130,6 +130,32 @@ router.get("/fpl/fixtures", (req: Request, res: Response) => {
   cachedFplRequest(req, res, "/fixtures/", key, TTL.STATIC);
 });
 
+router.get(
+  "/fpl/leagues-classic/:leagueId/standings",
+  (req: Request, res: Response) => {
+    const leagueId = String(req.params.leagueId);
+    if (!isValidManagerId(leagueId)) {
+      res.status(400).json({ error: "Invalid league ID" });
+      return;
+    }
+    const key = cacheKey("league-classic", leagueId);
+    cachedFplRequest(req, res, `/leagues-classic/${leagueId}/standings/`, key, TTL.USER);
+  }
+);
+
+router.get(
+  "/fpl/leagues-h2h/:leagueId/standings",
+  (req: Request, res: Response) => {
+    const leagueId = String(req.params.leagueId);
+    if (!isValidManagerId(leagueId)) {
+      res.status(400).json({ error: "Invalid league ID" });
+      return;
+    }
+    const key = cacheKey("league-h2h", leagueId);
+    cachedFplRequest(req, res, `/leagues-h2h/${leagueId}/standings/`, key, TTL.USER);
+  }
+);
+
 router.get("/fpl/event/:event/live", (req: Request, res: Response) => {
   const event = String(req.params.event);
   if (!isValidEvent(event)) {
