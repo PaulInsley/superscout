@@ -199,7 +199,7 @@ async function generateCaptainPicks(
     const opponentTeam = teamMap.get(opponentId);
     const fdr = isHome ? fixture.team_h_difficulty : fixture.team_a_difficulty;
     return {
-      name: player.second_name,
+      name: player.web_name,
       position: POSITION_MAP[player.element_type] ?? "UNK",
       team: team?.short_name ?? "UNK",
       form: player.form,
@@ -235,7 +235,7 @@ LINEUP OPTIMISATION:
 - If a captain pick is on the bench, you MUST include a lineup_changes array showing which bench player to bring in and which starting player to bench, plus a lineup_note summarising the change.
 - Even for starting XI captains, if you spot a clearly better lineup (e.g. a benched player with much better fixture than a starter of the same position), include lineup_changes.
 - If no lineup changes are needed, omit lineup_changes and lineup_note entirely.
-- lineup_changes player names must use EXACT surnames from the squad data above.
+- lineup_changes player names must use the EXACT names from the squad data above.
 
 Confidence levels explained:
 - BANKER — the safe, obvious pick. The one you'd tell your nan to captain.
@@ -262,8 +262,8 @@ Use this exact JSON structure:
       "is_on_bench": false,
       "lineup_changes": [
         {
-          "player_in": "Bench player surname",
-          "player_out": "Starting player surname",
+          "player_in": "Bench player name",
+          "player_out": "Starting player name",
           "reason": "Short reason"
         }
       ],
@@ -282,7 +282,7 @@ Rules:
 - ownership_pct should match the data provided.
 - is_on_bench must be true if the player's position number is 12-15.
 - If a captain pick is on the bench, lineup_changes is REQUIRED.
-- lineup_changes player names must match EXACTLY the surnames from the squad data.`;
+- lineup_changes player names must match EXACTLY the names from the squad data.`;
 
   const vibePrompt = VIBE_PROMPTS[vibe];
   const rulesContext = getRulesContext(gameweek);
@@ -392,7 +392,7 @@ async function generateTransferAdvice(
     const fdr = fixture ? (isHome ? fixture.team_h_difficulty : fixture.team_a_difficulty) : 3;
     return {
       id: pick.element,
-      name: player?.second_name ?? `Player ${pick.element}`,
+      name: player?.web_name ?? `Player ${pick.element}`,
       position: player ? POSITION_MAP[player.element_type] ?? "UNK" : "UNK",
       team: team?.short_name ?? "UNK",
       teamId: player?.team ?? 0,
@@ -477,7 +477,7 @@ async function generateTransferAdvice(
 
   const candidatesSummary = result.slice(0, 50).map((c) => {
     const pos = POSITION_MAP[c.player.element_type] ?? "UNK";
-    return `- ${c.player.second_name} (${pos}, ${c.team.short_name}) | Price: £${(c.player.now_cost / 10).toFixed(1)}m | Form: ${c.player.form} | Total: ${c.player.total_points} | Own: ${c.player.selected_by_percent}% | Status: ${c.player.status} | FDR: ${c.upcomingFdr.join(",")}`;
+    return `- ${c.player.web_name} (${pos}, ${c.team.short_name}) | Price: £${(c.player.now_cost / 10).toFixed(1)}m | Form: ${c.player.form} | Total: ${c.player.total_points} | Own: ${c.player.selected_by_percent}% | Status: ${c.player.status} | FDR: ${c.upcomingFdr.join(",")}`;
   }).join("\n");
 
   const squadSummary = squadWithDetails.map((p) =>
@@ -542,7 +542,7 @@ VALIDATION RULES:
 - ALWAYS include a hold option as the LAST recommendation with is_hold_recommendation: true
 
 Exactly one recommendation should have is_superscout_pick: true.
-For player_out and player_in, use SURNAME ONLY.
+For player_out and player_in, use the exact names as shown in the squad/candidate data above (e.g. "Cunha", "Salah", "B.Fernandes"). Do NOT use full legal names.
 
 You MUST respond with valid JSON only — no markdown, no backticks, no preamble.
 

@@ -343,6 +343,7 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
     }
 
     sendStage("squad");
+    req.log.info({ manager_id, vibe }, "Transfer advice started");
 
     const managerId = String(manager_id);
 
@@ -428,6 +429,8 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
       ),
     ]);
 
+    req.log.info({ managerId, picksGw: picksData.entry_history.event }, "FPL data fetched");
+
     const playerMap = new Map(bootstrap.elements.map((p) => [p.id, p]));
     const teamMap = new Map(bootstrap.teams.map((t) => [t.id, t]));
 
@@ -454,7 +457,7 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
 
       return {
         id: pick.element,
-        name: player?.second_name ?? `Player ${pick.element}`,
+        name: player?.web_name ?? `Player ${pick.element}`,
         position: player ? POSITION_MAP[player.element_type] ?? "UNK" : "UNK",
         team: team?.short_name ?? "UNK",
         teamId: player?.team ?? 0,
@@ -490,9 +493,11 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
       bootstrap.teams,
     );
 
+    req.log.info({ candidateCount: candidates.length, squadSize: squadWithDetails.length }, "Candidates filtered");
+
     const candidatesSummary = candidates.slice(0, 50).map((c) => {
       const pos = POSITION_MAP[c.player.element_type] ?? "UNK";
-      return `- ${c.player.second_name} (${pos}, ${c.team.short_name}) | Price: £${(c.player.now_cost / 10).toFixed(1)}m | Form: ${c.player.form} | Total: ${c.player.total_points} | Own: ${c.player.selected_by_percent}% | Status: ${c.player.status} | FDR: ${c.upcomingFdr.join(",")}`;
+      return `- ${c.player.web_name} (${pos}, ${c.team.short_name}) | Price: £${(c.player.now_cost / 10).toFixed(1)}m | Form: ${c.player.form} | Total: ${c.player.total_points} | Own: ${c.player.selected_by_percent}% | Status: ${c.player.status} | FDR: ${c.upcomingFdr.join(",")}`;
     }).join("\n");
 
     const squadSummary = squadWithDetails.map((p) =>
@@ -605,7 +610,7 @@ For PACKAGE recommendations (multiple transfers grouped together):
 For INDIVIDUAL recommendations (single swap):
 - Set is_package: false (or omit)
 - Use the flat fields: player_out, player_in, net_cost, etc.
-- IMPORTANT: For player_out and player_in, use SURNAME ONLY (e.g. "Cunha" not "Matheus Santos Cunha", "Salah" not "Mohamed Salah", "Milenković" not "Nikola Milenković"). FPL managers know players by surname.
+- IMPORTANT: For player_out and player_in, use the exact web_name as shown in the squad/candidate data above (e.g. "Cunha", "Salah", "B.Fernandes", "Beto"). Do NOT use full legal names.
 
 You MUST respond with valid JSON only — no markdown, no backticks, no preamble.
 
@@ -688,6 +693,7 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
     ].filter(Boolean).join("\n\n");
 
     sendStage("ai");
+    req.log.info("AI generation started");
 
     const client = getClient();
     const message = await client.messages.create({
@@ -698,6 +704,7 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
     });
 
     sendStage("validating");
+    req.log.info({ stopReason: message.stop_reason, usage: message.usage }, "AI response received");
 
     const block = message.content[0];
     if (block.type !== "text") {
@@ -733,9 +740,9 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
       }
 
       const playerIn = bootstrap.elements.find(
-        (p) => p.second_name.toLowerCase() === playerInName.toLowerCase()
+        (p) => p.web_name?.toLowerCase() === playerInName.toLowerCase()
+          || p.second_name.toLowerCase() === playerInName.toLowerCase()
           || `${p.first_name} ${p.second_name}`.toLowerCase() === playerInName.toLowerCase()
-          || p.web_name?.toLowerCase() === playerInName.toLowerCase()
       );
       if (!playerIn && playerInName) {
         req.log.warn({ playerInName }, "Transfer validation: player_in not found");
@@ -795,9 +802,9 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
 
         const playerOut = simSquad.find((p) => p.name.toLowerCase() === outName.toLowerCase());
         const playerIn = bootstrap.elements.find(
-          (p) => p.second_name.toLowerCase() === inName.toLowerCase()
+          (p) => p.web_name?.toLowerCase() === inName.toLowerCase()
+            || p.second_name.toLowerCase() === inName.toLowerCase()
             || `${p.first_name} ${p.second_name}`.toLowerCase() === inName.toLowerCase()
-            || p.web_name?.toLowerCase() === inName.toLowerCase()
         );
 
         if (playerOut && playerIn) {
@@ -807,7 +814,7 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
             simSquad[idx] = {
               ...simSquad[idx],
               id: playerIn.id,
-              name: playerIn.second_name,
+              name: playerIn.web_name,
               teamId: playerIn.team,
               position: POSITION_MAP[playerIn.element_type] ?? "UNK",
               price: playerIn.now_cost / 10,
@@ -922,6 +929,8 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
       }
     }
 
+    req.log.info({ finalCount: halChecked.length }, "Hallucination check done");
+
     const chipName = isWildcardActive ? "wildcard" : isFreeHitActive ? "freehit" : isTripleCaptainActive ? "3xc" : isBenchBoostActive ? "bboost" : null;
 
     const result: Record<string, unknown> = {
@@ -936,6 +945,8 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
       }),
       ...(chipName && { active_chip: chipName }),
     };
+
+    req.log.info({ recCount: halChecked.length, isSSE }, "Response sent");
 
     if (isSSE) {
       sendStage("done");

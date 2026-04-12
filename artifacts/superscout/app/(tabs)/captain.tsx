@@ -516,7 +516,7 @@ LINEUP OPTIMISATION:
 - If a captain pick is on the bench, you MUST include a lineup_changes array showing which bench player to bring in and which starting player to bench, plus a lineup_note summarising the change.
 - Even for starting XI captains, if you spot a clearly better lineup (e.g. a benched player with much better fixture than a starter of the same position), include lineup_changes.
 - If no lineup changes are needed, omit lineup_changes and lineup_note entirely.
-- lineup_changes player names must use EXACT surnames from the squad data above.
+- lineup_changes player names must use the EXACT names from the squad data above.
 
 Confidence levels explained:
 - BANKER — the safe, obvious pick. The one you'd tell your nan to captain.
@@ -543,8 +543,8 @@ Use this exact JSON structure:
       "is_on_bench": false,
       "lineup_changes": [
         {
-          "player_in": "Bench player surname",
-          "player_out": "Starting player surname",
+          "player_in": "Bench player name",
+          "player_out": "Starting player name",
           "reason": "Short reason"
         }
       ],
@@ -563,7 +563,7 @@ Rules:
 - ownership_pct should match the data provided.
 - is_on_bench must be true if the player's position number is 12-15.
 - If a captain pick is on the bench, lineup_changes is REQUIRED.
-- lineup_changes player names must match EXACTLY the surnames from the squad data.`;
+- lineup_changes player names must match EXACTLY the names from the squad data.`;
 }
 
 const styles = StyleSheet.create({

@@ -60,7 +60,7 @@ export async function fetchPlayers(): Promise<NormalizedPlayer[]> {
 
   const players: NormalizedPlayer[] = data.elements.map((element) => ({
     id: element.id,
-    name: element.second_name,
+    name: element.web_name,
     price: element.now_cost / 10,
     form: element.form,
   }));
@@ -317,7 +317,7 @@ export async function fetchCaptainCandidates(
     const captainPick = picksResult.picks.picks.find((p) => p.is_captain);
     if (captainPick) {
       const player = playerMap.get(captainPick.element);
-      if (player) currentCaptain = player.second_name;
+      if (player) currentCaptain = player.web_name;
     }
   }
 
@@ -342,7 +342,7 @@ export async function fetchCaptainCandidates(
 
     candidates.push({
       id: player.id,
-      name: player.second_name,
+      name: player.web_name,
       firstName: player.first_name,
       team: team?.short_name ?? "UNK",
       teamId: player.team,
@@ -361,12 +361,12 @@ export async function fetchCaptainCandidates(
     });
   }
 
-  const surnameCounts = new Map<string, number>();
+  const webNameCounts = new Map<string, number>();
   for (const c of candidates) {
-    surnameCounts.set(c.name, (surnameCounts.get(c.name) ?? 0) + 1);
+    webNameCounts.set(c.name, (webNameCounts.get(c.name) ?? 0) + 1);
   }
   for (const c of candidates) {
-    if ((surnameCounts.get(c.name) ?? 0) > 1 && c.firstName) {
+    if ((webNameCounts.get(c.name) ?? 0) > 1 && c.firstName) {
       c.name = `${c.firstName.charAt(0)}. ${c.name}`;
     }
   }
@@ -444,7 +444,7 @@ export async function fetchManagerData(
       return {
         id: pick.element,
         name: player
-          ? player.second_name
+          ? player.web_name
           : `Player ${pick.element}`,
         position: player
           ? (POSITION_MAP[player.element_type] ?? "UNK")
@@ -470,11 +470,11 @@ export async function fetchManagerData(
     return {
       event: t.event,
       playerIn: playerIn
-        ? playerIn.second_name
+        ? playerIn.web_name
         : `Player ${t.element_in}`,
       playerInCost: t.element_in_cost / 10,
       playerOut: playerOut
-        ? playerOut.second_name
+        ? playerOut.web_name
         : `Player ${t.element_out}`,
       playerOutCost: t.element_out_cost / 10,
       time: t.time,

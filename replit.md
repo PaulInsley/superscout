@@ -32,7 +32,7 @@ A dynamic rules engine loads and caches sport-specific rules, injecting them int
 
 ### Key Features
 - **Captain Picker**: Provides AI-powered captain recommendations with lineup optimisation, displaying choices with confidence badges (Banker, Calculated Risk, Bold Punt). Each recommendation includes bench status (`is_on_bench`) and optional `lineup_changes` array showing recommended sub swaps (player_in/player_out/reason) with a `lineup_note` summary. If a captain pick is on the bench, lineup changes are required to show how to get them into the starting XI. Free tier shows only the SuperScout Pick; Pro shows all 3-5 options. Handles edge cases: BGW/DGW banners, chip context (TC/BB/WC/FH), deadline-passed state with current captain display, season-not-started graceful fallback.
-- **Transfer Advisor**: Offers AI-driven transfer advice. Server supports SSE streaming (web) and JSON fallback (mobile). Mobile client uses JSON with 45s AbortController timeout and user-friendly error messages with retry. Free tier shows only the top recommendation; Pro unlocks restructure packages and full multi-transfer advice. Handles edge cases: BGW/DGW banners with team lists, active chip banners, WC/FH squad overhaul mode, TC/BB chip-aware AI prompts.
+- **Transfer Advisor**: Offers AI-driven transfer advice. Server supports SSE streaming (web) and JSON fallback (mobile). Mobile client uses JSON with 60s AbortController timeout and user-friendly error messages with retry. Server-side logging at each stage (started, FPL data fetched, candidates filtered, AI generation started, AI response received, hallucination check done, response sent). Free tier shows only the top recommendation; Pro unlocks restructure packages and full multi-transfer advice. Handles edge cases: BGW/DGW banners with team lists, active chip banners, WC/FH squad overhaul mode, TC/BB chip-aware AI prompts.
 - **Gameweek Analysis**: Shared utility (`artifacts/api-server/src/lib/gameweekAnalysis.ts`) detects blank gameweeks (teams with no fixture), double gameweeks (teams with 2+ fixtures), and injects context into AI prompts. Used by captain, transfer, and pre-generation routes.
 - **Squad Card Generator**: Allows users to generate shareable gameweek squad cards with AI-generated quips, designed for social media. Free tier omits the AI quip; Pro includes full vibe-voiced commentary.
 - **RevenueCat Subscription System**: Three-tier subscription model (Free, Pro Monthly £4.99/mo, Season Pass £29.99/yr). Both paid tiers grant a single `pro` entitlement. Feature gating via `useSubscription()` hook from `lib/revenuecat.tsx`. Paywall component at `components/Paywall.tsx`. Subscription events logged to `subscription_events` Supabase table. Purchase flow uses `queryClient.setQueryData()` for synchronous Pro status update. Dev mode: `__DEV__` toggle in Settings ("Dev Mode: Simulate Pro") overrides `isPro` to true without real purchase — hidden in production builds.
@@ -45,6 +45,7 @@ A dynamic rules engine loads and caches sport-specific rules, injecting them int
 - **Admin Dashboard**: Web-based admin panel at `/api/admin` for browsing Supabase tables, viewing row counts, querying data, and running custom queries. Protected by cookie-based password auth (`ADMIN_PASSWORD` env var). Route: `artifacts/api-server/src/routes/admin.ts`.
 
 ### UI/UX & Interaction
+- `ChoiceCard.tsx` is expandable: SuperScout Pick starts expanded (full text visible); other options start compact with truncated upside/risk/commentary and hidden lineup reasons. Tap to expand/collapse with "Read more ▼" / "Show less ▲" toggle.
 - Reusable UI components like `ChoiceCard.tsx` and `TransferCard.tsx` ensure a consistent design.
 - `ProgressLoadingIndicator.tsx` provides staged, animated progress for long-running AI operations, enhancing user experience by displaying vibe-voiced messages.
 - The app features a dark theme as its primary aesthetic, seen in components like `SquadCard.tsx`.
@@ -52,7 +53,7 @@ A dynamic rules engine loads and caches sport-specific rules, injecting them int
 
 ## External Dependencies
 
-- **Fantasy Premier League (FPL) API**: Primary data source for player statistics, fixtures, and user team information. Accessed via a cached, rate-limited proxy.
+- **Fantasy Premier League (FPL) API**: Primary data source for player statistics, fixtures, and user team information. Accessed via a cached, rate-limited proxy. Player names use `web_name` field (e.g. "Salah", "B.Fernandes", "Beto") everywhere — in AI prompts, display, hallucination checks, and validation. `second_name` is only used as a fallback for matching.
 - **Anthropic Claude API**: Used for AI recommendation generation and text generation (e.g., squad card quips).
 - **Supabase**: Backend-as-a-Service for database, authentication, and RLS.
 - **Expo**: Framework for building universal React Native apps. EAS build config at `artifacts/superscout/eas.json`. iOS bundle ID: `pro.superscout.app`, Android package: `pro.superscout.app`. Note: `react-native-purchases` and `expo-media-library` plugins must be added to `app.json` plugins array for EAS builds (removed during dev as they crash Expo Go).

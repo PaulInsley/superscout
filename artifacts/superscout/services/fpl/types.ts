@@ -2,6 +2,7 @@ export interface FPLPlayer {
   id: number;
   first_name: string;
   second_name: string;
+  web_name: string;
   now_cost: number;
   form: string;
   team: number;

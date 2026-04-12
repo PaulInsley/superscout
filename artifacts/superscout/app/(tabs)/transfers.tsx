@@ -89,7 +89,7 @@ export default function TransferAdvisorScreen() {
     if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 45000);
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
 
     try {
       const apiBase = getApiBaseUrl();

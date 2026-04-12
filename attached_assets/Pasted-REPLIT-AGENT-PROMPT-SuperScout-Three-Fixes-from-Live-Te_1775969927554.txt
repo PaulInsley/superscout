@@ -1,0 +1,87 @@
+REPLIT AGENT PROMPT — SuperScout: Three Fixes from Live Testing
+
+CONTEXT: Three issues found during real usage testing on a live FPL team. All need fixing before beta testers arrive.
+
+-----
+
+## FIX 1: Captain recommendation cards are too cramped
+
+The captain cards show all the right data (upside, risk, lineup changes, commentary) but the text is truncated and users can’t read the full reasoning. The whole point of the product is the reasoning — if users can’t read it, the product doesn’t work.
+
+Solution — make the cards expandable:
+
+a. By default, show the card in a COMPACT view:
+
+- Player name, team, fixture, confidence badge, expected points, ownership, BENCH badge — all visible (this already works)
+- Upside: show first 2 lines, truncated with “…”
+- Risk: show first 2 lines, truncated with “…”
+- Lineup Changes: show the swap summary only (e.g. “↑ B.Fernandes for ↓ King”) — hide the detailed reason text
+- Commentary: show first 2 lines, truncated with “…”
+- Show a “Read more ▼” link at the bottom of the card
+
+b. When the user taps “Read more ▼” (or taps anywhere on the card), EXPAND to show:
+
+- Full upside text (no truncation)
+- Full risk text (no truncation)
+- Full lineup changes with reasons
+- Full commentary text
+- The link changes to “Show less ▲”
+
+c. The expanded card should scroll within the page — don’t use a modal or popup. Just let the card grow taller and the page scroll naturally.
+
+d. The SuperScout Pick card (option 1) should start EXPANDED by default since it’s the primary recommendation. Options 2 and 3 start compact.
+
+e. Make sure the blurred Pro cards still look right — they should show the compact preview (truncated) with the blur overlay.
+
+-----
+
+## FIX 2: Transfer Advisor timing out
+
+The Transfer Advisor is consistently timing out at 45 seconds. It shows “Request timed out. Tap to try again.” — the error handling works but the actual request never completes. The Captain Picker works fine on the same device, so the FPL API and Claude API connections are both working.
+
+Investigate and fix:
+
+a. Check the server logs for the transfer advice route — is the request reaching the server at all? Is it the FPL data fetch, the candidate filtering, the AI generation, or the response that’s failing?
+
+b. The transfer advisor is more complex than the captain picker — it pre-filters 825 players to top 50 candidates, then sends them to Claude. Check if the pre-filtering step or the larger prompt is where it’s getting stuck.
+
+c. Check the API URL the transfer screen is calling. Compare the exact URL, method, headers, and body to what the working captain picker sends. Find what’s different.
+
+d. Check if the transfer route has any issues after the recent SSE-to-JSON migration. Make sure the route returns a proper JSON response, not a stream.
+
+e. Increase the timeout to 60 seconds for the transfer advisor specifically — the AI call takes longer because the prompt is bigger (50 player candidates vs 15 squad players for captain).
+
+f. Add server-side logging at each stage of the transfer route: “started”, “FPL data fetched”, “candidates filtered”, “AI generation started”, “AI response received”, “hallucination check done”, “response sent”. This will tell you exactly where it’s getting stuck.
+
+g. If the route IS working on the server but the response isn’t reaching the client, check for CORS issues or response size limits.
+
+-----
+
+## FIX 3: Player names using wrong field — should be web_name
+
+The FPL API has two name fields per player:
+
+- web_name: the short display name everyone knows (e.g. “Beto”, “B.Fernandes”, “Salah”)
+- first_name + second_name: the full legal name (e.g. “Norberto Bercique Gomes Betuncal”)
+
+SuperScout is using the full name in many places instead of web_name. This is confusing — FPL managers know players by their web_name. Nobody calls Bruno Fernandes “Borges Fernandes”. Nobody calls Beto “Gomes Betuncal”.
+
+Fix everywhere player names appear:
+
+a. CAPTAIN PICKER — When building the squad context sent to the AI prompt, use web_name for each player, not first_name + second_name. The AI should say “B.Fernandes” not “Borges Fernandes”. Update the player_name field in the JSON response to use web_name.
+
+b. TRANSFER ADVISOR — Same change. All player names in transfer recommendations should use web_name. When showing candidates to buy/sell, use web_name.
+
+c. SQUAD CARD — Player names on the shareable card should use web_name.
+
+d. LINEUP CHANGES — The swap suggestions in captain recommendations should use web_name for both player_in and player_out. So “↑ B.Fernandes for ↓ King” not “↑ Borges Fernandes for ↓ Mota Veiga de Carvalho e Silva”.
+
+e. HALLUCINATION CHECK — When matching AI-generated player names against FPL data, match against web_name as the PRIMARY field. Fall back to first_name + second_name only if web_name doesn’t match. This should significantly reduce false hallucination flags.
+
+f. PRE-GENERATION PIPELINE — Same changes applied.
+
+g. Search the entire codebase for anywhere player names are displayed or sent to the AI. Make sure web_name is the default everywhere. The full name should only be used as a fallback for matching, never for display.
+
+-----
+
+GIT SAFETY: Do not run git reset –hard, orphan commits, or force pushes rewriting history without stopping and explaining the consequences first.
