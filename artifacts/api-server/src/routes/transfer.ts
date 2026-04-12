@@ -409,6 +409,7 @@ function splitIntoSegments(text: string): string[] {
 function sanitiseCommentary(
   recs: Array<Record<string, unknown>>,
   logger: Request["log"],
+  allPlayerNames?: Set<string>,
 ): Array<Record<string, unknown>> {
   const allCardNames = recs.map((r) => getCardPlayerNames(r));
 
@@ -421,6 +422,26 @@ function sanitiseCommentary(
       if (i === idx) continue;
       for (const name of allCardNames[i]) {
         if (!ownNames.has(name)) foreignNames.add(name);
+      }
+    }
+
+    if (allPlayerNames) {
+      const commentaryText = (["upside", "risk", "case"] as const)
+        .map((f) => (typeof rec[f] === "string" ? rec[f] : ""))
+        .join(" ");
+      if (commentaryText) {
+        const words = new Set(commentaryText.split(/[\s.,;:!?()"'—–-]+/).filter(Boolean));
+        for (const pName of allPlayerNames) {
+          if (ownNames.has(pName)) continue;
+          if (foreignNames.has(pName)) continue;
+          const parts = pName.split(/\s+/);
+          const lastPart = parts[parts.length - 1];
+          if (!words.has(lastPart) && !words.has(pName)) continue;
+          const esc = pName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          if (new RegExp(`\\b${esc}\\b`, "i").test(commentaryText)) {
+            foreignNames.add(pName);
+          }
+        }
       }
     }
 
@@ -655,9 +676,13 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
             req.log.info({ cacheId: cacheRow.id, gameweek: currentGw }, "Serving cached transfer advice");
 
             if (Array.isArray(responseJson.recommendations)) {
+              const playerNameSet = new Set<string>(
+                (bootstrap.elements as FPLPlayer[]).map((p) => p.web_name),
+              );
               responseJson.recommendations = sanitiseCommentary(
                 responseJson.recommendations as Array<Record<string, unknown>>,
                 req.log,
+                playerNameSet,
               );
             }
 
@@ -1320,7 +1345,10 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
 
     req.log.info({ finalCount: halChecked.length }, "Hallucination check done");
 
-    const sanitised = sanitiseCommentary(halChecked, req.log);
+    const playerNameSet = new Set<string>(
+      (bootstrap.elements as FPLPlayer[]).map((p) => p.web_name),
+    );
+    const sanitised = sanitiseCommentary(halChecked, req.log, playerNameSet);
 
     const chipName = isWildcardActive ? "wildcard" : isFreeHitActive ? "freehit" : isTripleCaptainActive ? "3xc" : isBenchBoostActive ? "bboost" : null;
 

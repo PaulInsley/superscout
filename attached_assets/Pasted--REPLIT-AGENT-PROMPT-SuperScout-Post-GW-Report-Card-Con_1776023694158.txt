@@ -1,0 +1,172 @@
+# REPLIT AGENT PROMPT — SuperScout Post-GW Report Card
+
+## Context
+
+SuperScout is a personality-driven AI fantasy football coach built in React Native with Supabase backend. The Post-GW Report Card is a Phase 2 feature that gives users a weekly performance review after each gameweek finishes. The critical design principle: the Report Card rates DECISION QUALITY, not just points. A user who made smart decisions but got unlucky should see a good rating. A user who scored well through luck alone should see a lower one. This is the psychological reframe that keeps people engaged even during bad runs — borrowed from Angry Birds’ star rating mechanic.
+
+The Report Card depends on data from existing tables: recommendations (Table 2), user_decisions (Table 3), and outcomes (Table 4). The outcomes table is populated automatically after each gameweek once the FPL API publishes final points.
+
+## Task
+
+Build the complete Post-GW Report Card. Four parts: outcome data collection, decision quality scoring, report card UI, and vibe-voiced commentary.
+
+-----
+
+## PART 1 — Outcome Data Collection
+
+1. **Create a server-side function** called `collectOutcomes` that runs after each gameweek finishes. It should:
+- Look up all recommendations generated for the completed gameweek (from the recommendations table)
+- For each recommendation option (captain picks, transfer suggestions), fetch the actual FPL points scored by that player in the completed GW using the FPL API live endpoint: `/api/event/{event_id}/live/`
+- Store the results in the outcomes table: recommendation_id, option_index, actual_points, gameweek
+- Also fetch and store the overall average manager score for that GW from the FPL API `/api/event/{event_id}/live/` or `/api/bootstrap-static/` (the events array contains `average_entry_score`)
+- This function runs without any user action — it’s a background job
+1. **Fetch the user’s actual GW performance** from the FPL API: `/api/entry/{manager_id}/event/{event_id}/picks/` — this returns the user’s actual squad, captain, points scored, and `entry_history` which includes total points, overall rank, and rank movement.
+1. **For now, this function can be triggered manually.** Automated post-GW scheduling is a Week 9-10 task alongside the event-driven caching schedule.
+
+-----
+
+## PART 2 — Decision Quality Scoring
+
+The star rating (1-5 stars) is based on decision quality, NOT total points. Calculate it using these factors:
+
+### Captain Decision Quality (40% of score)
+
+- Did the user pick the highest-scoring captain option from the choices SuperScout presented?
+- Compare actual captain points to the points scored by each of the other captain options that were recommended
+- If the user’s captain was the top scorer among the options: full marks
+- If the user’s captain was 2nd best: partial marks
+- If the user’s captain was the worst option: low marks
+- If the user didn’t use SuperScout’s captain advice at all (picked someone not in the recommendations): neutral — don’t penalise, but don’t reward
+
+### Transfer Decision Quality (40% of score)
+
+- Did the user make a transfer that SuperScout recommended?
+- If yes: compare the IN player’s points to the OUT player’s points over the next 3 gameweeks (for now, just use the immediate GW)
+- If the IN player outscored the OUT player: good decision
+- If the user held (made no transfer) and SuperScout recommended holding: good decision
+- If the user took a hit (-4) for a transfer: the IN player needs to outscore the OUT player by more than 4 points to be a good decision
+- If no transfer data is available yet (user hasn’t made transfers through SuperScout): skip this component and weight captain at 80%
+
+### Overall GW Performance (20% of score)
+
+- User’s total GW points vs the overall average manager score
+- Above average: bonus. Below average: small penalty. This ensures raw performance counts for something but doesn’t dominate.
+
+### Star Rating Calculation
+
+- Calculate a score from 0-100 based on the weighted components above
+- Map to stars: 0-20 = 1 star, 21-40 = 2 stars, 41-60 = 3 stars, 61-80 = 4 stars, 81-100 = 5 stars
+- Store the rating in a new `report_cards` table (see below)
+
+### Database Addition
+
+Create a `report_cards` table:
+
+- id (uuid, primary key)
+- user_id (uuid, references users.id)
+- gameweek (integer)
+- season (text, default ‘2026-27’)
+- total_points (integer — user’s GW points)
+- average_points (integer — overall average GW points)
+- rank_movement (integer — positive = green arrow, negative = red arrow)
+- overall_rank (integer)
+- captain_name (text)
+- captain_points (integer)
+- star_rating (integer, 1-5)
+- decision_quality_score (integer, 0-100)
+- captain_quality_score (integer, 0-100)
+- transfer_quality_score (integer, 0-100)
+- commentary (text — AI-generated, see Part 4)
+- created_at (timestamptz, default now())
+- Enable RLS with same pattern as other tables.
+
+-----
+
+## PART 3 — Report Card UI
+
+Create a new screen/component that displays the Report Card. It should be accessible from the home screen after each gameweek finishes (e.g. a “Your GW[X] Report is ready” card that appears on the dashboard).
+
+### Layout (top to bottom):
+
+1. **Header:** “Gameweek [X] Report Card” with the date range
+1. **Star Rating:** Large, prominent 1-5 star display (filled/unfilled stars). This is the hero element — biggest thing on the screen. Below the stars, show: “[N] out of 5 — [quality label]”
+- 1 star: “Tough week”
+- 2 stars: “Room to improve”
+- 3 stars: “Solid decisions”
+- 4 stars: “Great decision-making”
+- 5 stars: “Perfect week”
+1. **Points Summary:**
+- Your points: [X] pts
+- Average manager: [X] pts
+- Difference: +/- [X] pts (green if above, red if below)
+- Rank movement: green arrow up or red arrow down with number
+1. **Captain Review:**
+- “Your captain: [Player] — [X] pts (×2 = [X])”
+- “SuperScout’s top pick was: [Player] — [X] pts”
+- If user picked SuperScout’s top pick: “You went with the data. Smart.” (or vibe equivalent)
+- If user picked differently and did better: “Your instinct beat the algorithm this week.”
+- If user picked differently and did worse: “The data had it right this time.”
+1. **Transfer Review:** (if applicable)
+- Show any transfers made this GW with before/after comparison
+- If transfer was a SuperScout recommendation: highlight it
+1. **AI Commentary:** A vibe-voiced paragraph summarising the gameweek (see Part 4)
+1. **Share Button:** Generate a shareable Report Card image (similar to Squad Card) with star rating, points, rank movement, and a one-line AI quip. SuperScout branding included.
+1. **Streak Display:** Show current streak counter at the bottom of the report card.
+
+### Styling
+
+- Match the app’s dark theme (#0D0D1A background)
+- Stars should be gold/amber when filled
+- Green for positive metrics, red for negative
+- The share image should be visually distinct from the Squad Card — different layout, different feel
+
+-----
+
+## PART 4 — Vibe-Voiced Commentary
+
+Generate a short AI commentary paragraph (3-5 sentences) for each Report Card using the user’s active vibe. Pass the following data to the AI:
+
+- User’s GW points and rank movement
+- Captain choice and points
+- Whether user followed SuperScout’s advice
+- Star rating and decision quality score
+- Transfer results (if applicable)
+
+### Prompt structure:
+
+“You are SuperScout’s [Expert/Critic/Fanboy] coach. Write a 3-5 sentence post-gameweek report card commentary for this user. Their GW[X] results: [points] points, rank moved [up/down] [X] places, captain was [player] who scored [X] points. Decision quality: [X]/100 ([N] stars). [Context about whether they followed your advice]. Keep it in character. Focus on decision quality, not just points — a good decision can have a bad outcome.”
+
+### Vibe examples:
+
+**Expert (good week):**
+“Strong decision-making this week. Your captain pick aligned with the expected points model and delivered. The transfer from [Player] to [Player] gained you 6 points over what you’d have got standing still. Decision quality at 82 — that’s top-quartile thinking.”
+
+**Critic (bad luck):**
+“Look, 38 points isn’t pretty. But your decisions were sound — 4 stars. Your captain pick was the right call on paper. Sometimes the data does everything right and the ball just doesn’t cooperate. Don’t change your approach because of one unlucky week.”
+
+**Fanboy (any week):**
+“62 POINTS! GREEN ARROW! Your captain DELIVERED and that transfer is already paying off! 4 stars for decision quality — you’re making this look EASY!”
+
+### Important
+
+- The commentary should ALWAYS address the gap between decision quality and points outcome. This is the whole point — reframing bad luck as “good decisions with bad outcomes.”
+- Never make the user feel stupid for not following SuperScout’s advice. If they went their own way and it didn’t work: “The data pointed one way, but your read on the situation was reasonable.”
+- The tone must match the vibe but the message is always constructive.
+
+-----
+
+## PART 5 — Pulse Check Integration
+
+After the Report Card is displayed, trigger the Post-GW Pulse Check (the feedback system that should already be built). The pulse check appears after a 2-second delay once the user has viewed the Report Card. If the pulse check component doesn’t exist yet, skip this integration — it will be wired up separately.
+
+-----
+
+## Architecture Note
+
+The Report Card system must be sport-agnostic at its core. The star rating calculation, the report_cards table, and the UI layout work for any sport. The FPL-specific parts are: which API to pull results from, what “captain” means, what “transfer” means, and the commentary prompt context. Keep FPL-specific logic in a separate module (e.g. services/reportcard/fpl-scoring.ts) so that when F1 Fantasy is added, only the scoring module needs replacing.
+
+-----
+
+## Git Safety
+
+Do NOT run any destructive git operations (git reset –hard, orphan commits, force pushes rewriting history) without stopping and explaining the consequences first. Commit after each part with a clear message.
