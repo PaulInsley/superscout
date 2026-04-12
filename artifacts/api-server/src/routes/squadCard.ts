@@ -139,6 +139,7 @@ router.post("/squad-card", async (req: Request, res: Response) => {
       res.status(400).json({
         error: "gameweek_not_finished",
         message: "This gameweek isn't finished yet. Come back after the last match to see your full results.",
+        gameweek: targetEvent.id,
       });
       return;
     }

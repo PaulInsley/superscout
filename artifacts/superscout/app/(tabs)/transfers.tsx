@@ -88,15 +88,17 @@ export default function TransferAdvisorScreen() {
 
     if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 45000);
+
     try {
       const apiBase = getApiBaseUrl();
 
-      // TODO: Replace placeholder with real user auth before public launch
       let userId = "00000000-0000-0000-0000-000000000000";
       try { const { data: { user } } = await supabase.auth.getUser(); if (user?.id) userId = user.id; } catch {}
       const preGenUrl = `${apiBase}/pre-generated/current?user_id=${userId}&decision_type=transfer&vibe=${vibe}`;
       try {
-        const preGenRes = await fetch(preGenUrl);
+        const preGenRes = await fetch(preGenUrl, { signal: controller.signal });
         if (preGenRes.ok) {
           const preGenData = await preGenRes.json();
           if (preGenData.found && preGenData.response) {
@@ -115,19 +117,20 @@ export default function TransferAdvisorScreen() {
             return;
           }
         }
-      } catch {}
+      } catch (e: any) {
+        if (e?.name === "AbortError") throw e;
+      }
 
-      const supportsStreaming = typeof ReadableStream !== "undefined" && Platform.OS === "web";
       const response = await fetch(`${apiBase}/transfer-advice`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(supportsStreaming ? { Accept: "text/event-stream" } : {}),
         },
         body: JSON.stringify({
           manager_id: managerId,
           vibe,
         }),
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -136,119 +139,46 @@ export default function TransferAdvisorScreen() {
           setAiError("Your FPL team hasn't played any gameweeks yet. Transfer advice will be available once you've entered a gameweek.");
         } else if (errorBody?.error === "no_picks") {
           setAiError("Could not find your squad picks. Make sure you have an active FPL team.");
+        } else if (errorBody?.error === "season_not_started") {
+          setAiError("The FPL season hasn't started yet. Transfer advice will be available once the season begins.");
         } else {
-          throw new Error(`API error: ${response.status}`);
+          setAiError("Couldn't load transfer advice. Tap to try again.");
         }
         setAiLoading(false);
         return;
       }
 
-      let resultData: TransferAdviceResponse | null = null;
+      setLoadingStage("ai");
+      aiTimerRef.current = setTimeout(() => {
+        setLoadingStage("ai_deep");
+      }, 15000);
 
-      const parseSSELines = (text: string) => {
-        const lines = text.split("\n");
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const jsonStr = line.slice(6).trim();
-          if (!jsonStr) continue;
-          try {
-            const event = JSON.parse(jsonStr);
+      const json = await response.json() as TransferAdviceResponse;
+      if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
 
-            if (event.error) {
-              if (event.error === "season_not_started") {
-                setAiError("The FPL season hasn't started yet. Transfer advice will be available once the season begins.");
-              } else if (event.error === "new_manager") {
-                setAiError("Your FPL team hasn't played any gameweeks yet. Transfer advice will be available once you've entered a gameweek.");
-              } else if (event.error === "no_picks") {
-                setAiError("Could not find your squad picks. Make sure you have an active FPL team.");
-              } else {
-                setAiError(event.message || "Something went wrong. Try again.");
-              }
-              return "error";
-            }
-
-            if (event.stage === "ai") {
-              setLoadingStage("ai");
-              if (!aiTimerRef.current) {
-                aiTimerRef.current = setTimeout(() => {
-                  setLoadingStage("ai_deep");
-                }, 15000);
-              }
-            } else if (event.stage === "result") {
-              if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
-              resultData = {
-                gameweek: event.gameweek,
-                free_transfers: event.free_transfers,
-                budget_remaining: event.budget_remaining,
-                recommendations: event.recommendations,
-                gw_type: event.gw_type,
-                blank_teams: event.blank_teams,
-                double_teams: event.double_teams,
-                active_chip: event.active_chip,
-              };
-            } else if (event.stage) {
-              setLoadingStage(event.stage);
-            }
-          } catch {}
-        }
-        return "ok";
-      };
-
-      if (response.body) {
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            buffer += decoder.decode();
-            if (parseSSELines(buffer) === "error") {
-              setAiLoading(false);
-              return;
-            }
-            break;
-          }
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-
-          if (parseSSELines(lines.join("\n")) === "error") {
-            setAiLoading(false);
-            return;
-          }
-        }
-      } else {
-        setLoadingStage("ai");
-        aiTimerRef.current = setTimeout(() => {
-          setLoadingStage("ai_deep");
-        }, 15000);
-        const json = await response.json() as TransferAdviceResponse;
-        if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
-        if (json.recommendations) {
-          resultData = json;
-        }
-      }
-
-      if (resultData) {
+      if (json.recommendations) {
         setLoadingStage("done");
-        setRecommendations(resultData.recommendations);
-        setGameweek(resultData.gameweek);
-        setFreeTransfers(resultData.free_transfers);
-        setBudget(resultData.budget_remaining);
-        setGwType(resultData.gw_type ?? null);
-        setBlankTeams(resultData.blank_teams ?? []);
-        setDoubleTeams(resultData.double_teams ?? []);
-        setActiveChip(resultData.active_chip ?? null);
-        logRecommendationSilently(resultData);
+        setRecommendations(json.recommendations);
+        setGameweek(json.gameweek);
+        setFreeTransfers(json.free_transfers);
+        setBudget(json.budget_remaining);
+        setGwType(json.gw_type ?? null);
+        setBlankTeams(json.blank_teams ?? []);
+        setDoubleTeams(json.double_teams ?? []);
+        setActiveChip(json.active_chip ?? null);
+        logRecommendationSilently(json);
       } else {
-        setAiError("SuperScout is thinking too hard — try again in a moment.");
+        setAiError("Couldn't load transfer advice. Tap to try again.");
       }
-    } catch (err) {
-      console.error("[SuperScout] Transfer advice error:", err);
-      setAiError("SuperScout is thinking too hard — try again in a moment.");
+    } catch (err: any) {
+      if (err?.name === "AbortError") {
+        setAiError("Request timed out. Tap to try again.");
+      } else {
+        console.error("[SuperScout] Transfer advice error:", err);
+        setAiError("Couldn't load transfer advice. Tap to try again.");
+      }
     } finally {
+      clearTimeout(timeoutId);
       if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
       setAiLoading(false);
     }

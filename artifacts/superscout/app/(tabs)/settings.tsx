@@ -5,6 +5,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from "react-native";
@@ -32,7 +33,7 @@ const PERSONA_KEY = "superscout_persona";
 export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { isPro, subscriptionType } = useSubscription();
+  const { isPro, subscriptionType, devSimulatePro, setDevSimulatePro } = useSubscription();
   const [currentVibe, setCurrentVibe] = useState<Vibe | null>(null);
   const [showVibePicker, setShowVibePicker] = useState(false);
   const [showFPLConnect, setShowFPLConnect] = useState(false);
@@ -462,6 +463,33 @@ export default function SettingsScreen() {
           >
             Developer
           </Text>
+
+          {__DEV__ && (
+            <View style={styles.settingRow}>
+              <View style={styles.settingLeft}>
+                <Feather name="unlock" size={18} color="#8b5cf6" />
+                <View>
+                  <Text
+                    style={[styles.settingLabel, { color: colors.foreground }]}
+                  >
+                    Dev Mode: Simulate Pro
+                  </Text>
+                  <Text
+                    style={[styles.settingValue, { color: colors.mutedForeground }]}
+                  >
+                    {devSimulatePro ? "All Pro features unlocked" : "Free tier active"}
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={devSimulatePro}
+                onValueChange={setDevSimulatePro}
+                trackColor={{ false: "#3e3e5e", true: "#8b5cf6" }}
+                thumbColor="#ffffff"
+              />
+            </View>
+          )}
+
           <Pressable
             onPress={async () => {
               await AsyncStorage.multiRemove([

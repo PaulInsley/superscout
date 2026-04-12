@@ -16,6 +16,7 @@ import ViewShot from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import * as MediaLibrary from "expo-media-library";
 
+import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import { useManagerId } from "@/hooks/useManagerId";
 import { useSubscription } from "@/lib/revenuecat";
@@ -78,6 +79,7 @@ export default function CardScreen() {
   const [loading, setLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState<string>("squad");
   const [error, setError] = useState<string | null>(null);
+  const [errorType, setErrorType] = useState<"error" | "info">("error");
   const [saving, setSaving] = useState(false);
   const [showPulse, setShowPulse] = useState(false);
   const viewShotRef = useRef<ViewShot>(null);
@@ -109,6 +111,7 @@ export default function CardScreen() {
 
     setLoading(true);
     setError(null);
+    setErrorType("error");
     setCardData(null);
     setLoadingStage("squad");
 
@@ -129,11 +132,14 @@ export default function CardScreen() {
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
         if (data.error === "gameweek_not_finished") {
-          setError("This gameweek isn't finished yet. Come back after the last match to see your full results.");
-        } else if (data.error === "no_picks") {
-          setError("No squad data found for this gameweek. Did you forget to set your team?");
+          const gwNum = data.gameweek ?? "";
+          setErrorType("info");
+          setError(`GW${gwNum} is still in progress — your Squad Card will be ready once all matches are finished.`);
         } else if (data.error === "no_finished_gameweek") {
-          setError("The season hasn't started yet — no finished gameweeks to build a card from.");
+          setErrorType("info");
+          setError("No completed gameweeks yet — your first Squad Card will be ready after GW1.");
+        } else if (data.error === "no_picks") {
+          setError("No squad data found for this gameweek. Make sure you have an active FPL team.");
         } else {
           setError("FPL data is temporarily unavailable. Try again in a few minutes.");
         }
@@ -303,10 +309,16 @@ export default function CardScreen() {
       )}
 
       {error && (
-        <View style={[styles.errorCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>
+        <View style={[styles.errorCard, {
+          backgroundColor: errorType === "info" ? "#3b82f610" : colors.card,
+          borderColor: errorType === "info" ? "#3b82f640" : colors.border,
+        }]}>
+          {errorType === "info" && (
+            <Feather name="clock" size={32} color="#3b82f6" style={{ marginBottom: 8 }} />
+          )}
+          <Text style={[styles.errorText, { color: errorType === "info" ? "#3b82f6" : colors.destructive }]}>{error}</Text>
           <Pressable
-            style={[styles.retryButton, { borderColor: colors.border }]}
+            style={[styles.retryButton, { borderColor: errorType === "info" ? "#3b82f640" : colors.border }]}
             onPress={generateCard}
           >
             <Text style={[styles.retryText, { color: colors.foreground }]}>Try Again</Text>

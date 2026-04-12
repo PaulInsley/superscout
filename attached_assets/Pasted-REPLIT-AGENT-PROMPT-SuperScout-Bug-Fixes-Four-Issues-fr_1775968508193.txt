@@ -1,0 +1,54 @@
+REPLIT AGENT PROMPT — SuperScout Bug Fixes: Four Issues from Live Testing
+
+CONTEXT: During real usage testing on a live FPL team, four issues found. These need fixing before beta testers arrive.
+
+## BUG 1: Transfer Advisor crashes with “Network request failed”
+
+The Transfer Advisor shows “Loading your squad…” then crashes with:
+[SuperScout] Transfer advice error: TypeError: Network request failed
+
+This is a network error when the transfer screen tries to call the API. The Captain Picker works fine on the same device, so the FPL API connection is not the issue — the problem is specific to the transfer advice route.
+
+Fix:
+a. Check the API URL the transfer screen is calling — is it pointing to the correct server endpoint? Compare it to the working captain picker URL.
+b. Wrap the API call in proper error handling so instead of crashing with a red error screen, it shows a user-friendly message: “Couldn’t load transfer advice. Tap to try again.” with a retry button.
+c. Add a 15-second timeout — if the API call takes longer than 15 seconds, show the retry message instead of hanging forever.
+d. The error should NEVER show a stack trace to the user. That red console error screen should not appear in production — make sure all errors in the transfer screen are caught and handled gracefully.
+
+## BUG 2: Squad Card shows wrong error when gameweek is in progress
+
+The Squad Card screen shows “No squad data found for this gameweek. Did you forget to set your team?” — but the real reason is that the gameweek hasn’t finished yet. The message blames the user when the issue is just timing.
+
+Fix:
+a. Before showing any error, check the FPL API bootstrap-static data for the current gameweek’s “finished” field.
+b. If the gameweek is NOT finished yet, show: “GW[X] is still in progress — your Squad Card will be ready once all matches are finished.” Use a neutral/informational tone (blue or grey), not an error tone (red).
+c. Only show the “No squad data found” error if the gameweek IS finished but data genuinely can’t be retrieved.
+d. If no gameweek has finished at all this season, show: “No completed gameweeks yet — your first Squad Card will be ready after GW1.”
+
+## BUG 3: Captain Picker lineup changes not visible
+
+The captain picker now shows the BENCH badge correctly, and the Expert commentary mentions “the lineup change is necessary” — but the actual lineup changes section (the swap suggestions with player_in/player_out and reasons) is not visible on the card. The user cannot see or act on the lineup advice.
+
+Fix:
+a. Check if the lineup_changes data is being returned from the API — add console logging to see what the response contains.
+b. If the data IS being returned but not rendering, check the ChoiceCard component — is the lineup changes section actually being rendered? Is it hidden behind a scroll, cut off by the card height, or conditionally hidden?
+c. The lineup changes section should be clearly visible below the case/commentary text on each captain recommendation card. It should show:
+
+- A “Lineup Changes” header
+- For each swap: “↑ [Player In] for ↓ [Player Out]” with the reason in smaller text below
+- A summary lineup_note
+- If no changes needed: “✅ Current lineup works — no changes needed”
+  d. Make sure this section is visible WITHOUT scrolling inside the card if possible. If the card is too tall, make the card scrollable or expandable.
+
+## BUG 4: No way to test Pro features in development
+
+The paywall shows “See all options with Pro” but tapping it opens a purchase flow that can’t complete in development (no App Store/Google Play connection). This means it’s impossible to test the full 3-option captain picker, the full transfer advisor, or any Pro features during development.
+
+Fix:
+a. Add a developer toggle in Settings (only visible when the app is running in development mode, NOT in production builds).
+b. The toggle should say “Dev Mode: Simulate Pro” with an on/off switch.
+c. When enabled, the app should behave as if the user has an active Pro subscription — all 3 captain options visible, full transfer advisor, all vibes unlocked, no blurred cards.
+d. Use a simple check: if **DEV** is true (React Native’s built-in dev flag) AND the toggle is on, override isPro to return true.
+e. This toggle must NOT appear in production builds — gate it behind **DEV** so it’s impossible for real users to see it.
+
+GIT SAFETY: Do not run git reset –hard, orphan commits, or force pushes rewriting history without stopping and explaining the consequences first.

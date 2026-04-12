@@ -191,7 +191,7 @@ router.post("/captain-picks", async (req: Request, res: Response) => {
     const recs = parsed.recommendations as Array<Record<string, unknown>> | undefined;
 
     if (recs && bootstrap && fixtures && gameweek) {
-      const squadNameMatches = context.match(/^- (\S+?) \(/gm) ?? [];
+      const squadNameMatches = context.match(/^- (.+?) \(/gm) ?? [];
       const squadPlayerNames = new Set(squadNameMatches.map((m: string) => m.replace(/^- /, "").replace(/ \($/, "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s]/g, "").trim()));
 
       const hallucinationCtx = {

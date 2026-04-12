@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from "react";
+import React, { createContext, useContext, useState } from "react";
 import { Platform } from "react-native";
 import Purchases from "react-native-purchases";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -50,7 +50,7 @@ function getSubscriptionType(customerInfo: any): "free" | "pro_monthly" | "seaso
   return "pro_monthly";
 }
 
-function useSubscriptionContext() {
+function useSubscriptionContext(devSimulatePro: boolean) {
   const queryClient = useQueryClient();
 
   const customerInfoQuery = useQuery({
@@ -90,10 +90,14 @@ function useSubscriptionContext() {
     },
   });
 
-  const isPro =
+  const realIsPro =
     customerInfoQuery.data?.entitlements.active?.[REVENUECAT_ENTITLEMENT_IDENTIFIER] !== undefined;
 
-  const subscriptionType = getSubscriptionType(customerInfoQuery.data);
+  const isPro = devSimulatePro || realIsPro;
+
+  const subscriptionType = devSimulatePro && !realIsPro
+    ? "pro_monthly" as const
+    : getSubscriptionType(customerInfoQuery.data);
 
   return {
     customerInfo: customerInfoQuery.data,
@@ -108,15 +112,19 @@ function useSubscriptionContext() {
     purchaseError: purchaseMutation.error,
     restoreError: restoreMutation.error,
     refetch: () => customerInfoQuery.refetch(),
+    devSimulatePro,
   };
 }
 
-type SubscriptionContextValue = ReturnType<typeof useSubscriptionContext>;
+type SubscriptionContextValue = ReturnType<typeof useSubscriptionContext> & {
+  setDevSimulatePro: (val: boolean) => void;
+};
 const Context = createContext<SubscriptionContextValue | null>(null);
 
 export function SubscriptionProvider({ children }: { children: React.ReactNode }) {
-  const value = useSubscriptionContext();
-  return <Context.Provider value={value}>{children}</Context.Provider>;
+  const [devSimulatePro, setDevSimulatePro] = useState(false);
+  const value = useSubscriptionContext(__DEV__ ? devSimulatePro : false);
+  return <Context.Provider value={{ ...value, setDevSimulatePro }}>{children}</Context.Provider>;
 }
 
 export function useSubscription() {
