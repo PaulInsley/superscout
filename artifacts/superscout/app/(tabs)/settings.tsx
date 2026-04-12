@@ -78,8 +78,8 @@ export default function SettingsScreen() {
 
   const loadSavedLeagues = useCallback(async () => {
     try {
-      const userId = (await supabase.auth.getUser()).data.user?.id;
-      if (!userId) return;
+      let userId = "00000000-0000-0000-0000-000000000000";
+      try { const { data: { user } } = await supabase.auth.getUser(); if (user?.id) userId = user.id; } catch {}
       const apiBase = getApiBaseUrl();
       const res = await fetch(`${apiBase}/banter/leagues/${userId}`);
       if (res.ok) {
@@ -125,8 +125,8 @@ export default function SettingsScreen() {
   const saveLeagues = useCallback(async () => {
     setLeaguesSaving(true);
     try {
-      const userId = (await supabase.auth.getUser()).data.user?.id;
-      if (!userId) return;
+      let userId = "00000000-0000-0000-0000-000000000000";
+      try { const { data: { user } } = await supabase.auth.getUser(); if (user?.id) userId = user.id; } catch {}
 
       const leaguesToSave = availableLeagues
         .filter((l) => selectedLeagueIds.has(l.id))
