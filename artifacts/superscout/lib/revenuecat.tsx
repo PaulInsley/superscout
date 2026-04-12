@@ -76,8 +76,8 @@ function useSubscriptionContext() {
       const { customerInfo } = await Purchases.purchasePackage(packageToPurchase);
       return customerInfo;
     },
-    onSuccess: () => {
-      customerInfoQuery.refetch();
+    onSuccess: (customerInfo) => {
+      queryClient.setQueryData(["revenuecat", "customer-info"], customerInfo);
     },
   });
 
@@ -85,8 +85,8 @@ function useSubscriptionContext() {
     mutationFn: async () => {
       return Purchases.restorePurchases();
     },
-    onSuccess: () => {
-      customerInfoQuery.refetch();
+    onSuccess: (customerInfo) => {
+      queryClient.setQueryData(["revenuecat", "customer-info"], customerInfo);
     },
   });
 
