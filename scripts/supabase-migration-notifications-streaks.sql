@@ -1,7 +1,7 @@
 -- ============================================================
 -- SuperScout Migration: Notifications + Streaks
 -- Run this in the Supabase SQL Editor (paste the whole thing)
--- Safe to re-run — uses IF NOT EXISTS / IF EXISTS everywhere
+-- Safe to re-run — uses IF NOT EXISTS / DO $$ blocks
 -- ============================================================
 
 -- ─────────────────────────────────────────────────────────────
@@ -24,10 +24,20 @@ CREATE INDEX IF NOT EXISTS idx_notification_log_user_gw ON notification_log(user
 
 ALTER TABLE notification_log ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "notification_log_select" ON notification_log FOR SELECT USING (true);
-CREATE POLICY IF NOT EXISTS "notification_log_insert" ON notification_log FOR INSERT WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS "notification_log_update" ON notification_log FOR UPDATE USING (true);
-CREATE POLICY IF NOT EXISTS "notification_log_delete" ON notification_log FOR DELETE USING (true);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'notification_log' AND policyname = 'notification_log_select') THEN
+    CREATE POLICY "notification_log_select" ON notification_log FOR SELECT USING (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'notification_log' AND policyname = 'notification_log_insert') THEN
+    CREATE POLICY "notification_log_insert" ON notification_log FOR INSERT WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'notification_log' AND policyname = 'notification_log_update') THEN
+    CREATE POLICY "notification_log_update" ON notification_log FOR UPDATE USING (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'notification_log' AND policyname = 'notification_log_delete') THEN
+    CREATE POLICY "notification_log_delete" ON notification_log FOR DELETE USING (true);
+  END IF;
+END $$;
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS push_notification_token text;
 
@@ -42,7 +52,6 @@ ALTER TABLE streaks ADD COLUMN IF NOT EXISTS sport text NOT NULL DEFAULT 'fpl';
 
 ALTER TABLE streaks ADD COLUMN IF NOT EXISTS streak_shield_used_gw integer;
 
--- Fix default: shield should start as false (earned at 5-streak)
 ALTER TABLE streaks ALTER COLUMN streak_shield_available SET DEFAULT false;
 
 -- ============================================================
