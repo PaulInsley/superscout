@@ -33,7 +33,7 @@ const POSITION_MAP: Record<number, string> = {
 
 let cachedBootstrap: FPLBootstrapResponse | null = null;
 
-async function getBootstrapData(): Promise<FPLBootstrapResponse> {
+export async function getBootstrapData(): Promise<FPLBootstrapResponse> {
   if (cachedBootstrap) return cachedBootstrap;
 
   const base = getBaseUrl();

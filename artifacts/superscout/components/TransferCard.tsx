@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet } from "react-native";
 import { useColors } from "@/hooks/useColors";
+import FixtureTicker from "@/components/FixtureTicker";
 
 export interface TransferSwap {
   player_out: string;
@@ -52,27 +53,31 @@ function SingleSwapRow({ playerOut, playerOutTeam, playerOutPrice, playerIn, pla
   colors: ReturnType<typeof useColors>;
 }) {
   return (
-    <View style={styles.swapRow}>
-      <View style={styles.playerBlock}>
-        <Text style={[styles.outLabel, { color: "#ef4444" }]}>OUT</Text>
-        <Text style={[styles.playerName, { color: colors.foreground }]} numberOfLines={1}>
-          {playerOut}
-        </Text>
-        <Text style={[styles.teamLine, { color: colors.mutedForeground }]}>
-          {playerOutTeam}
-          {typeof playerOutPrice === "number" ? ` · £${playerOutPrice.toFixed(1)}m` : ""}
-        </Text>
-      </View>
-      <Text style={[styles.arrow, { color: colors.accent }]}>→</Text>
-      <View style={styles.playerBlock}>
-        <Text style={[styles.inLabel, { color: "#22c55e" }]}>IN</Text>
-        <Text style={[styles.playerName, { color: colors.foreground }]} numberOfLines={1}>
-          {playerIn}
-        </Text>
-        <Text style={[styles.teamLine, { color: colors.mutedForeground }]}>
-          {playerInTeam}
-          {typeof playerInPrice === "number" ? ` · £${playerInPrice.toFixed(1)}m` : ""}
-        </Text>
+    <View>
+      <View style={styles.swapRow}>
+        <View style={styles.playerBlock}>
+          <Text style={[styles.outLabel, { color: "#ef4444" }]}>OUT</Text>
+          <Text style={[styles.playerName, { color: colors.foreground }]} numberOfLines={1}>
+            {playerOut}
+          </Text>
+          <Text style={[styles.teamLine, { color: colors.mutedForeground }]}>
+            {playerOutTeam}
+            {typeof playerOutPrice === "number" ? ` · £${playerOutPrice.toFixed(1)}m` : ""}
+          </Text>
+          {playerOutTeam ? <FixtureTicker teamShortName={playerOutTeam} /> : null}
+        </View>
+        <Text style={[styles.arrow, { color: colors.accent }]}>→</Text>
+        <View style={styles.playerBlock}>
+          <Text style={[styles.inLabel, { color: "#22c55e" }]}>IN</Text>
+          <Text style={[styles.playerName, { color: colors.foreground }]} numberOfLines={1}>
+            {playerIn}
+          </Text>
+          <Text style={[styles.teamLine, { color: colors.mutedForeground }]}>
+            {playerInTeam}
+            {typeof playerInPrice === "number" ? ` · £${playerInPrice.toFixed(1)}m` : ""}
+          </Text>
+          {playerInTeam ? <FixtureTicker teamShortName={playerInTeam} /> : null}
+        </View>
       </View>
     </View>
   );

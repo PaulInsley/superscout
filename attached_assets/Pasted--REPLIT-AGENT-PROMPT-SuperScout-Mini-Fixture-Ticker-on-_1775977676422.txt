@@ -1,0 +1,85 @@
+# REPLIT AGENT PROMPT — SuperScout: Mini Fixture Ticker on Recommendation Cards
+
+## CONTEXT
+
+SuperScout’s Transfer Advisor and Captain Picker show recommendation cards for each player. The AI commentary already references fixture difficulty (e.g. “FDR 2 at home”), but the user has to trust the AI’s word. We need a visual fixture ticker that shows the next 5 fixtures at a glance with traffic-light colour coding so users can instantly verify the AI’s reasoning.
+
+This is a small UI component, not a new feature. It adds data the user can already see on the FPL app — but puts it right where they need it, on the recommendation card, so they never have to leave SuperScout to check.
+
+## TASK
+
+### 1. Create a FixtureTicker component
+
+Build a reusable component that displays a horizontal row of the next 5 fixtures for a given player’s team. Each fixture shows:
+
+- The opponent’s 3-letter short name (e.g. “BOU”, “ARS”, “CHE”)
+- (H) or (A) for home or away — show this as lowercase in a smaller font below or beside the short name
+- A background colour based on the FDR (Fixture Difficulty Rating) from the FPL API
+
+**FDR colour mapping (using the SuperScout brand palette):**
+
+|FDR|Meaning  |Background Colour    |Text Colour|
+|---|---------|---------------------|-----------|
+|1  |Very easy|#4CAF7D (Scout Green)|White      |
+|2  |Easy     |#4CAF7D (Scout Green)|White      |
+|3  |Medium   |#E5A825 (Alert Amber)|White      |
+|4  |Hard     |#E84C4C (Error Red)  |White      |
+|5  |Very hard|#E84C4C (Error Red)  |White      |
+
+Each fixture is a small rounded rectangle (like a pill or badge), roughly 40-45px wide, with the opponent name centred inside. The 5 pills sit in a horizontal row with small gaps between them.
+
+**For Double Gameweeks:** If a team plays twice in one gameweek, show BOTH fixtures in that gameweek position, stacked vertically (two small pills on top of each other). This is important — DGW coverage is a major reason to pick a player, and the ticker should make it visually obvious.
+
+### 2. Get the fixture data
+
+The FPL API fixtures endpoint (/fixtures/) provides all fixture data including FDR ratings. The app already fetches and caches this data (3-tier caching layer). Use the existing cached fixture data — do NOT make additional API calls.
+
+For each player on a recommendation card:
+
+- Look up their team ID from the bootstrap-static data
+- Find the next 5 upcoming gameweeks of fixtures for that team from the fixtures endpoint
+- For each fixture, get: opponent team short name, home/away, and FDR rating (the FDR for the player’s team, not the opponent — the fixtures endpoint has both team_h_difficulty and team_a_difficulty)
+
+### 3. Add the ticker to Transfer Advisor cards
+
+Add the FixtureTicker to both the “IN” player and the “OUT” player on each transfer recommendation card. Position it:
+
+- Below the player name and team line
+- Above the confidence badge and commentary
+- It should be compact — one line of small coloured pills, not taking up much vertical space
+
+For multi-transfer packages (like “The Double Gameweek Raid” shown in the current UI), show the ticker for each IN player in the package.
+
+### 4. Add the ticker to Captain Picker cards
+
+Same component, same position — below the player name, above the confidence badge. Each captain option gets a fixture ticker showing their next 5.
+
+### 5. Add the ticker to the “Hold Your Transfer” card
+
+If the Transfer Advisor includes a “Hold Your Transfer” option, do NOT show a fixture ticker on that card (there’s no specific player to show fixtures for).
+
+### 6. Styling notes
+
+- Keep it small and subtle — this is supporting data, not the hero of the card
+- Use Inter font at caption size (12px) for the opponent short names
+- The pills should have border-radius 6px
+- On dark mode: the coloured pills should stand out against the card surface (#161630)
+- On light mode: same colours work fine against white (#FFFFFF)
+- Add a tiny label “Next 5” in text-muted colour above the ticker row, aligned left
+
+### 7. Handle edge cases
+
+- **End of season:** If fewer than 5 gameweeks remain, show however many are left (e.g. 3 fixtures if only 3 GWs to go)
+- **Blank gameweek:** If the team doesn’t play in an upcoming gameweek, skip that GW in the ticker (show the next gameweek where they do play). Do NOT show an empty/grey slot — just show the next 5 actual fixtures
+- **No fixture data available:** If for some reason fixture data can’t be loaded, hide the ticker entirely — don’t show an error or empty state. The card works fine without it.
+
+### 8. Do NOT change anything else
+
+- Do NOT modify the AI generation or prompts
+- Do NOT modify the cache or staleness check
+- Do NOT change the card layout beyond adding the ticker in the specified position
+- Do NOT modify the existing data row (xG, Own%, Form, FDR) on cards — the ticker is a separate visual element
+
+## GIT SAFETY
+
+Do not run git reset –hard, orphan commits, or force pushes rewriting history without stopping and explaining the consequences first.

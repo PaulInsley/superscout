@@ -2,6 +2,7 @@ import { useState } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
+import FixtureTicker from "@/components/FixtureTicker";
 import type { CaptainRecommendation } from "@/services/fpl/types";
 
 interface ChoiceCardProps {
@@ -62,6 +63,7 @@ export default function ChoiceCard({ recommendation }: ChoiceCardProps) {
             <Text style={[styles.teamLine, { color: colors.mutedForeground }]}>
               {recommendation.team} vs {recommendation.opponent}
             </Text>
+            {recommendation.team ? <FixtureTicker teamShortName={recommendation.team} /> : null}
           </View>
           <View style={styles.pointsContainer}>
             <Text style={[styles.expectedPoints, { color: colors.accent }]}>
