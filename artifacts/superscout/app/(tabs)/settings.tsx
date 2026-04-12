@@ -274,7 +274,7 @@ export default function SettingsScreen() {
         </ScrollView>
 
         {!leaguesLoading && availableLeagues.length > 0 && (
-          <View style={[styles.saveLeagueBar, { paddingBottom: insets.bottom + 16, backgroundColor: colors.background }]}>
+          <View style={[styles.saveLeagueBar, { paddingBottom: insets.bottom + 70, backgroundColor: colors.background }]}>
             <Pressable
               onPress={saveLeagues}
               disabled={leaguesSaving || selectedLeagueIds.size === 0}
