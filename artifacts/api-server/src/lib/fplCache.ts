@@ -12,7 +12,7 @@ const TTL = {
   STATIC: 6 * 60 * 60 * 1000,
   SEMI_LIVE: 30 * 60 * 1000,
   SEMI_LIVE_ACTIVE: 2 * 60 * 1000,
-  USER: 5 * 60 * 1000,
+  USER: 2 * 60 * 1000,
 };
 
 let liveMatchActive = false;

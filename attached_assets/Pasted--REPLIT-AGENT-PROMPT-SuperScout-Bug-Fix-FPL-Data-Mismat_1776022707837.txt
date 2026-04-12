@@ -1,0 +1,84 @@
+# REPLIT AGENT PROMPT — SuperScout Bug Fix: FPL Data Mismatch (Transfer Advisor)
+
+## Context
+
+SuperScout is a personality-driven AI fantasy football coach built in React Native with Supabase backend. During live testing with a real FPL team (Manager ID: 13042160) on 12 April 2026, the Transfer Advisor is showing incorrect squad data compared to the official FPL app. This is a critical accuracy issue — if the AI gives advice based on wrong data, users will lose trust immediately.
+
+## The Bug
+
+The Transfer Advisor screen is showing different data to what the official FPL app shows for the same manager. Specifically:
+
+### 1. Bank balance is wrong
+
+- **SuperScout shows:** £14.8m in bank
+- **FPL app shows:** £17.6m in bank
+- **Gap:** £2.8m — this is not a rounding issue, it’s substantially wrong
+
+### 2. Free transfers count is wrong
+
+- **SuperScout shows:** 2 free transfers
+- **FPL app shows:** 1 free transfer used + 1 additional transfer at -4 points cost
+- **Impact:** The AI recommended a 2-player package (Bernardo → Wieffer + Gyökeres → Thiago) as if both were free transfers. In reality the user only had 1 free transfer, so the second transfer costs -4 points. The AI should have factored in the hit cost when making this recommendation. This is exactly the kind of mistake that destroys credibility.
+
+### 3. Likely root cause
+
+The FPL API provides bank balance and free transfer count via the manager’s entry endpoint (`/api/entry/{manager_id}/`). SuperScout is either:
+
+- (a) Caching this data and serving a stale version that doesn’t reflect the current state
+- (b) Pulling the data from the wrong endpoint or the wrong field
+- (c) Calculating these values locally instead of reading them from the API
+- (d) Reading data from a previous gameweek rather than the current one
+
+## Task
+
+Investigate and fix the data mismatch. Do the following in order:
+
+### Step 1 — Trace the data source
+
+Find where the Transfer Advisor gets its bank balance and free transfer count. Trace it from the UI display back to the API call. Identify whether the values come from:
+
+- A live FPL API call (which endpoint? which fields?)
+- The pre-generation cache
+- A local calculation
+- A Supabase stored value
+
+### Step 2 — Check the FPL API response
+
+Make a live call to `https://fantasy.premierleague.com/api/entry/13042160/` and log the response. Check what the API returns for:
+
+- `last_deadline_bank` — this should be the bank value
+- `last_deadline_total_transfers` — total transfers made
+- The transfers endpoint: `/api/entry/13042160/transfers/` — check the most recent transfer data
+- The picks endpoint for the current event: `/api/entry/13042160/event/{current_event}/picks/` — this returns `entry_history` which includes `bank` and `event_transfers`
+
+Compare the API values to what SuperScout is displaying. This will tell you whether SuperScout is reading the wrong field, reading stale data, or calculating incorrectly.
+
+### Step 3 — Fix the data pipeline
+
+Whatever the root cause is, fix it so that:
+
+- Bank balance shown in SuperScout matches what the FPL API returns for the current gameweek
+- Free transfer count matches the FPL API’s value for the current gameweek
+- Both values are fetched fresh (or validated against fresh data) every time the Transfer Advisor loads — not served from a cache without checking
+- If the pre-generation cache was built with stale squad data, the staleness check should catch this and trigger a live regeneration
+
+### Step 4 — Add a data validation check
+
+After fixing the pipeline, add a simple validation that compares SuperScout’s displayed bank balance and free transfers against a fresh FPL API call when the Transfer Advisor loads. If there’s a mismatch greater than £0.1m (bank) or any difference (free transfers), log a warning and serve fresh data instead of cached data. This is a safety net to prevent this class of bug from recurring.
+
+### Step 5 — Test with live data
+
+Test the fix using Manager ID 13042160. Confirm that:
+
+- Bank balance matches the FPL app exactly
+- Free transfer count matches the FPL app exactly
+- If transfers have already been made this GW, the data reflects the post-transfer state
+- The AI recommendations account for the correct number of free transfers (including the -4 point hit cost if recommending more transfers than available free transfers)
+
+## Important
+
+This is the most critical type of bug for SuperScout. The entire product is built on trust — “your AI coach gives you good advice.” If the data is wrong, the advice is wrong, and the user knows it’s wrong because they can see the correct numbers in the FPL app. Fix the data accuracy first. Everything else (personality, presentation, features) is worthless if the underlying numbers are wrong.
+
+## Git Safety
+
+Do NOT run any destructive git operations (git reset –hard, orphan commits, force pushes rewriting history) without stopping and explaining the consequences first. Commit with a clear message describing the fix.

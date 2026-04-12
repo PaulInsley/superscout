@@ -86,6 +86,7 @@ interface FPLTransfer {
   element_in: number;
   element_in_cost: number;
   element_out: number;
+  element_out_cost: number;
   event: number;
 }
 
@@ -317,7 +318,23 @@ function checkStaleness(
   players: FPLPlayer[],
   generatedAt: string,
   logger: Request["log"],
+  liveBank?: number,
+  liveFreeTransfers?: number,
 ): { stale: boolean; reason?: string } {
+  const cachedBank = cachedResponse.budget_remaining ?? cachedResponse.bank;
+  if (liveBank !== undefined && typeof cachedBank === "number") {
+    const bankDiff = Math.abs(cachedBank - liveBank);
+    if (bankDiff > 0.1) {
+      return { stale: true, reason: `Bank changed: cached £${cachedBank}m vs live £${liveBank}m` };
+    }
+  }
+  const cachedFT = cachedResponse.free_transfers ?? cachedResponse.freeTransfers;
+  if (liveFreeTransfers !== undefined && typeof cachedFT === "number") {
+    if (cachedFT !== liveFreeTransfers) {
+      return { stale: true, reason: `Free transfers changed: cached ${cachedFT} vs live ${liveFreeTransfers}` };
+    }
+  }
+
   const recs = cachedResponse.recommendations;
   if (!Array.isArray(recs)) return { stale: false };
 
@@ -529,6 +546,9 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
     const managerInfo = await fetchCachedData<{
       started_event: number;
       entered_events?: number[];
+      last_deadline_bank: number;
+      last_deadline_value: number;
+      last_deadline_total_transfers: number;
     }>(
       cacheKey("entry", managerId),
       `/entry/${managerId}/`,
@@ -593,7 +613,41 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
           const { cacheRow, userId } = cacheResult;
           const responseJson = cacheRow.response_json as CachedResponse;
 
-          const staleness = checkStaleness(responseJson, bootstrap.elements as FPLPlayer[], cacheRow.generated_at, req.log);
+          let liveBank: number | undefined;
+          let liveFreeTransfers: number | undefined;
+          try {
+            const [freshEntry, freshTransfers, freshHistory] = await Promise.all([
+              fetchCachedData<{ last_deadline_bank: number }>(
+                cacheKey("entry", managerId),
+                `/entry/${managerId}/`,
+                60_000,
+              ),
+              fetchCachedData<FPLTransfer[]>(
+                cacheKey("transfers", managerId),
+                `/entry/${managerId}/transfers/`,
+                60_000,
+              ),
+              fetchCachedData<FPLHistory>(
+                cacheKey("history", managerId),
+                `/entry/${managerId}/history/`,
+                60_000,
+              ),
+            ]);
+            const pendingXfers = freshTransfers.filter((t) => t.event === currentGw);
+            const bankDelta = pendingXfers.reduce(
+              (sum, t) => sum + (t.element_out_cost || 0) - (t.element_in_cost || 0),
+              0,
+            ) / 10;
+            liveBank = (freshEntry.last_deadline_bank ?? 0) / 10 + bankDelta;
+            liveFreeTransfers = Math.max(
+              calculateFreeTransfers(freshHistory, currentGw) - pendingXfers.length,
+              0,
+            );
+          } catch {
+            req.log.warn("Could not fetch fresh data for cache validation — skipping bank/FT check");
+          }
+
+          const staleness = checkStaleness(responseJson, bootstrap.elements as FPLPlayer[], cacheRow.generated_at, req.log, liveBank, liveFreeTransfers);
 
           if (staleness.stale) {
             req.log.info({ reason: staleness.reason }, "Cache discarded — stale data detected");
@@ -675,10 +729,48 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
     const teamMap = new Map(bootstrap.teams.map((t) => [t.id, t]));
 
     const squadIds = new Set(picksData.picks.map((p) => p.element));
-    const bank = picksData.entry_history.bank / 10;
 
-    const freeTransfers = calculateFreeTransfers(historyData, currentGw);
+    const pendingTransfers = transferHistory.filter((t) => t.event === currentGw);
+    const pendingBankDelta = pendingTransfers.reduce(
+      (sum, t) => sum + (t.element_out_cost || 0) - (t.element_in_cost || 0),
+      0,
+    ) / 10;
+
+    const baseBankFromPicks = picksData.entry_history.bank / 10;
+    const baseBankFromEntry = (managerInfo.last_deadline_bank ?? 0) / 10;
+
+    const baseBank = baseBankFromEntry > 0 ? baseBankFromEntry : baseBankFromPicks;
+    const bank = baseBank + pendingBankDelta;
+
+    const baseFreeTransfers = calculateFreeTransfers(historyData, currentGw);
+    const freeTransfers = Math.max(baseFreeTransfers - pendingTransfers.length, 0);
     const chipsRemaining = getChipsRemaining(historyData, currentGw);
+
+    if (pendingTransfers.length > 0) {
+      req.log.info(
+        {
+          pendingCount: pendingTransfers.length,
+          baseBankPicks: baseBankFromPicks,
+          baseBankEntry: baseBankFromEntry,
+          pendingBankDelta,
+          adjustedBank: bank,
+          baseFreeTransfers,
+          adjustedFreeTransfers: freeTransfers,
+        },
+        "Adjusted bank/FT for pending transfers",
+      );
+    }
+
+    if (Math.abs(baseBankFromPicks - baseBankFromEntry) > 0.1 && baseBankFromEntry > 0) {
+      req.log.warn(
+        {
+          picksBank: baseBankFromPicks,
+          entryBank: baseBankFromEntry,
+          diff: Math.abs(baseBankFromPicks - baseBankFromEntry),
+        },
+        "Bank mismatch between picks and entry endpoints — using entry value",
+      );
+    }
 
     const squadWithDetails = picksData.picks.map((pick) => {
       const player = playerMap.get(pick.element);
@@ -843,6 +935,7 @@ VALIDATION RULES:
 - Do not recommend buying injured players (chance_of_playing = 0)
 - Factor in sell price formula: user keeps 50% of price rises, rounded down (R3.06)
 - For packages: validate the ENTIRE package together — budget, club limits, and position counts must be valid after ALL transfers in the package are applied
+- POINT HIT RULE: The manager has exactly ${freeTransfers} free transfer${freeTransfers === 1 ? "" : "s"}. Any recommendation that uses MORE transfers than this costs -4 points PER EXTRA transfer. You MUST set total_hit_cost accurately. For example, if the manager has 1 free transfer and you recommend a 2-player package, total_hit_cost = 4. If you recommend a 3-player package, total_hit_cost = 8. Factor this cost into your expected_points_gain calculations and commentary.
 - If holding transfers makes sense, include a "hold" option
 
 ALWAYS include a hold option as the LAST recommendation with is_hold_recommendation: true — 'Do nothing' is valid advice.
