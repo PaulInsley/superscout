@@ -255,6 +255,7 @@ Use this exact JSON structure:
       "expected_points": <number>,
       "confidence": "BANKER|CALCULATED_RISK|BOLD_PUNT",
       "ownership_pct": <number>,
+      "ownership_context": "One short persona-voiced sentence about what this ownership means for rank",
       "upside": "One sentence about the upside",
       "risk": "One sentence about the risk",
       "case": "Your persona-voiced one-liner goes here",
@@ -282,7 +283,17 @@ Rules:
 - ownership_pct should match the data provided.
 - is_on_bench must be true if the player's position number is 12-15.
 - If a captain pick is on the bench, lineup_changes is REQUIRED.
-- lineup_changes player names must match EXACTLY the names from the squad data.`;
+- lineup_changes player names must match EXACTLY the names from the squad data.
+
+OWNERSHIP CONTEXT RULE:
+For each captain option, include an "ownership_context" field. This is a single short sentence (max 20 words) telling the user what the ownership percentage means for their rank if they captain this player.
+Guidelines by ownership band:
+- 50%+: NOT captaining this player is the risk. Most of the field benefits if he hauls.
+- 30-49%: Popular pick. A haul helps you but helps many others too. Protects rank, doesn't gain ground.
+- 10-29%: Differential territory. A haul gains ground on most managers.
+- 3-9%: Strong differential. Very few managers benefit if he delivers.
+- Below 3%: Extreme differential. Almost nobody benefits but you.
+NEVER imply low ownership is automatically better. If a differential pick has 3+ fewer expected points than the top option, acknowledge the trade-off. If expected points are below 4, gently discourage regardless of ownership. Write in the active vibe voice. If ownership data is unavailable, omit the field.`;
 
   const vibePrompt = VIBE_PROMPTS[vibe];
   const rulesContext = getRulesContext(gameweek);
@@ -293,7 +304,7 @@ Rules:
     vibePrompt,
     rulesContext,
     gwAnalysis.promptContext,
-    `IMPORTANT: You MUST respond with valid JSON only. No markdown, no backticks, no preamble. Follow the EXACT JSON structure specified in the user message.`,
+    `IMPORTANT: You MUST respond with valid JSON only. No markdown, no backticks, no preamble. Follow the EXACT JSON structure specified in the user message — use the exact field names provided including ownership_context.`,
     `CRITICAL PERSONA REQUIREMENT: You MUST write the "case" field in your assigned persona voice. The Expert is calm and analytical — no emojis, no exclamation marks, references data. The Critic is sharp and sarcastic — dry wit, rhetorical questions, no emojis. The Fanboy uses CAPITALS for emphasis, slang like BRO and DUDE, 1-2 emojis (🔥🚀🚨), and extreme hype.`,
   ].filter(Boolean).join("\n\n");
 

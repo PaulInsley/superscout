@@ -186,6 +186,7 @@ export interface CaptainRecommendation {
   expected_points: number;
   confidence: "BANKER" | "CALCULATED_RISK" | "BOLD_PUNT";
   ownership_pct: number;
+  ownership_context?: string | null;
   upside: string;
   risk: string;
   case: string;

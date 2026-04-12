@@ -18,6 +18,7 @@ Use this exact JSON structure:
       "expected_points": <number>,
       "confidence": "BANKER|CALCULATED_RISK|BOLD_PUNT",
       "ownership_pct": <number>,
+      "ownership_context": "One short vibe-voiced sentence about what this ownership means for rank",
       "upside": "One sentence about the upside",
       "risk": "One sentence about the risk",
       "case": "Your vibe-voiced one-liner goes here",
@@ -34,6 +35,25 @@ Use this exact JSON structure:
     }
   ]
 }
+
+OWNERSHIP CONTEXT RULE:
+For each captain option, include an "ownership_context" field in your response. This is a single short sentence (max 20 words) that tells the user what the ownership percentage means for their rank if they captain this player.
+
+Guidelines by ownership band:
+- 50%+: Emphasise that NOT captaining this player is the risk. Most of the field benefits if he hauls. Captaining him protects rank; skipping him is the gamble.
+- 30-49%: This is a popular pick. A haul helps you, but it helps a lot of other managers too. This protects rank, it doesn't gain ground.
+- 10-29%: Differential territory begins. A haul here gains ground on most managers who don't own him.
+- 3-9%: Strong differential. Very few managers benefit if he delivers. A haul is a significant rank swing.
+- Below 3%: Extreme differential. Almost nobody benefits but you. But acknowledge the expected points trade-off if this player's EXP PTS is meaningfully lower than the top option.
+
+CRITICAL OWNERSHIP CONTEXT RULES:
+1. NEVER imply a low-ownership pick is automatically better. If a differential pick has 3+ fewer expected points than the top option, the context line MUST acknowledge the trade-off. A differential only matters if the player delivers.
+2. When two players have similar expected points (within 2 points) but very different ownership, highlight that the lower-owned player offers genuine differential upside without much sacrifice. That is the sweet spot.
+3. If Triple Captain chip is active, the captain gets 3x points. Adjust context accordingly — the differential upside is amplified because you gain an extra multiplier the field doesn't get.
+4. If expected points are below 4, the context line should gently discourage captaining this player regardless of ownership. Low floor picks are not bold — they are reckless.
+5. If ownership data is missing or unavailable, omit the ownership_context field entirely. Do not guess.
+
+Write the ownership_context line in the active vibe voice. The Expert is measured and analytical. The Critic is blunt and challenging. The Fanboy is excited but honest.
 
 Rules:
 - Exactly 3 recommendations, ordered with the SuperScout Pick first.
