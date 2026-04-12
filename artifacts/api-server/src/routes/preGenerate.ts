@@ -843,7 +843,6 @@ router.get("/pre-generated/:gameweek", async (req: Request, res: Response) => {
       .eq("gameweek", gw)
       .eq("decision_type", decision_type)
       .eq("vibe", vibe)
-      .eq("used", false)
       .gt("expires_at", new Date().toISOString())
       .order("generated_at", { ascending: false })
       .limit(1)
@@ -919,12 +918,6 @@ router.get("/pre-generated/:gameweek", async (req: Request, res: Response) => {
         }
       }
     }
-
-    supabase
-      .from("pre_generated_recommendations")
-      .update({ used: true })
-      .eq("id", data.id)
-      .then(() => {});
 
     res.json({ found: true, response: data.response_json, source: "cached" });
   } catch (error) {
