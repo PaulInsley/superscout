@@ -108,8 +108,8 @@ export default function BanterScreen() {
 
     try {
       const apiBase = getApiBaseUrl();
-      const userId = (await supabase.auth.getUser()).data.user?.id;
-      if (!userId) throw new Error("Not authenticated");
+      let userId = "00000000-0000-0000-0000-000000000000";
+      try { const { data: { user } } = await supabase.auth.getUser(); if (user?.id) userId = user.id; } catch {}
 
       const res = await fetch(
         `${apiBase}/banter/current?user_id=${userId}&vibe=${vibe}`,
@@ -165,8 +165,8 @@ export default function BanterScreen() {
 
   const handleShare = async (card: BanterCardData) => {
     try {
-      const userId = (await supabase.auth.getUser()).data.user?.id;
-      if (!userId) return;
+      let userId = "00000000-0000-0000-0000-000000000000";
+      try { const { data: { user } } = await supabase.auth.getUser(); if (user?.id) userId = user.id; } catch {}
 
       const apiBase = getApiBaseUrl();
       await fetch(`${apiBase}/squad-card`, {
