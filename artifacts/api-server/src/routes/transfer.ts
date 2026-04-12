@@ -10,6 +10,7 @@ import {
 } from "../services/validation/hallucination-check";
 import { analyseGameweek } from "../lib/gameweekAnalysis";
 import { getSupabase } from "../lib/supabase";
+import { extractCaptainPicks, buildCaptainContextPrompt } from "../lib/crossCheck";
 
 const router = Router();
 
@@ -821,11 +822,48 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
       chipPrompt = "BENCH BOOST ACTIVE: The manager has activated Bench Boost. ALL 15 players score this gameweek, including bench players. Prioritise transfers that upgrade weak bench options — every player matters. Flag bench players with blanks or tough fixtures as priority sells.";
     }
 
+    let captainContextPrompt = "";
+    const supabaseCross = getSupabase();
+    if (supabaseCross) {
+      try {
+        const { data: userRow } = await supabaseCross
+          .from("users")
+          .select("id")
+          .eq("fpl_manager_id", parseInt(managerId, 10))
+          .limit(1)
+          .single();
+
+        if (userRow) {
+          const { data: captainRows } = await supabaseCross
+            .from("pre_generated_recommendations")
+            .select("response_json")
+            .eq("user_id", userRow.id)
+            .eq("gameweek", currentGw)
+            .eq("decision_type", "captain")
+            .eq("vibe", vibe)
+            .gt("expires_at", new Date().toISOString())
+            .order("generated_at", { ascending: false })
+            .limit(1);
+
+          if (captainRows?.[0]) {
+            const picks = extractCaptainPicks(captainRows[0].response_json as Record<string, unknown>);
+            if (picks.length > 0) {
+              captainContextPrompt = buildCaptainContextPrompt(picks);
+              req.log.info({ captainPicks: picks.map((p) => p.name) }, "Captain cross-check: informing transfer advice");
+            }
+          }
+        }
+      } catch (err) {
+        req.log.warn({ err }, "Captain cross-check lookup failed — generating without captain context");
+      }
+    }
+
     const systemPrompt = [
       vibePrompt,
       rulesContext,
       gwAnalysisPrompt,
       chipPrompt,
+      captainContextPrompt,
       `IMPORTANT: You MUST respond with valid JSON only. No markdown, no backticks, no preamble.`,
       `CRITICAL PERSONA REQUIREMENT: Write the "case" field in your assigned persona voice.`,
     ].filter(Boolean).join("\n\n");

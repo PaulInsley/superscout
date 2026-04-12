@@ -10,6 +10,7 @@ import {
   checkTransferHallucinations,
 } from "../services/validation/hallucination-check";
 import { analyseGameweek } from "../lib/gameweekAnalysis";
+import { extractTransferOutPlayers, buildTransferContextPrompt } from "../lib/crossCheck";
 
 const router = Router();
 
@@ -167,6 +168,7 @@ async function generateCaptainPicks(
   vibe: string,
   bootstrap: BootstrapData,
   fixtures: FPLFixture[],
+  transferOutPlayers: string[] = [],
 ): Promise<unknown | null> {
   const playerMap = new Map(bootstrap.elements.map((p) => [p.id, p]));
   const teamMap = new Map(bootstrap.teams.map((t) => [t.id, t]));
@@ -300,10 +302,13 @@ NEVER imply low ownership is automatically better. If a differential pick has 3+
 
   const gwAnalysis = analyseGameweek(gameweek, fixtures, bootstrap.teams);
 
+  const transferContext = transferOutPlayers.length > 0 ? buildTransferContextPrompt(transferOutPlayers) : "";
+
   const systemPrompt = [
     vibePrompt,
     rulesContext,
     gwAnalysis.promptContext,
+    transferContext,
     `IMPORTANT: You MUST respond with valid JSON only. No markdown, no backticks, no preamble. Follow the EXACT JSON structure specified in the user message — use the exact field names provided including ownership_context.`,
     `CRITICAL PERSONA REQUIREMENT: You MUST write the "case" field in your assigned persona voice. The Expert is calm and analytical — no emojis, no exclamation marks, references data. The Critic is sharp and sarcastic — dry wit, rhetorical questions, no emojis. The Fanboy uses CAPITALS for emphasis, slang like BRO and DUDE, 1-2 emojis (🔥🚀🚨), and extreme hype.`,
   ].filter(Boolean).join("\n\n");
@@ -723,8 +728,41 @@ router.post("/pre-generate/:gameweek", async (req: Request, res: Response) => {
       const managerId = user.fpl_manager_id;
 
       for (const vibe of VIBES) {
+        let transferOutPlayers: string[] = [];
+
         try {
-          const captainResult = await generateCaptainPicks(managerId, gw, deadline, vibe, bootstrap, fixtures);
+          const transferResult = await generateTransferAdvice(managerId, gw, deadline, vibe, bootstrap, fixtures);
+          if (transferResult) {
+            transferOutPlayers = extractTransferOutPlayers(transferResult as Record<string, unknown>);
+            const { error: insertErr } = await supabase.from("pre_generated_recommendations").insert({
+              user_id: user.id,
+              gameweek: gw,
+              season: "2026-27",
+              decision_type: "transfer",
+              vibe,
+              response_json: transferResult,
+              expires_at: deadline,
+            });
+            if (insertErr) {
+              req.log.error({ err: insertErr, userId: user.id, vibe }, "Pre-gen transfer insert failed");
+              results.transfer_failed++;
+            } else {
+              results.transfer_generated++;
+            }
+          } else {
+            results.transfer_failed++;
+          }
+        } catch (err: any) {
+          const isTimeout = err?.status === 408 || err?.code === "ETIMEDOUT" || err?.message?.includes("timed out") || err?.message?.includes("timeout");
+          req.log.error({ err, userId: user.id, vibe, type: "transfer", isTimeout }, "Pre-gen transfer failed");
+          results.transfer_failed++;
+        }
+
+        await delay(2000);
+
+        try {
+          req.log.info({ vibe, transferOutPlayers }, "Generating captain picks with transfer context");
+          const captainResult = await generateCaptainPicks(managerId, gw, deadline, vibe, bootstrap, fixtures, transferOutPlayers);
           if (captainResult) {
             const { error: insertErr } = await supabase.from("pre_generated_recommendations").insert({
               user_id: user.id,
@@ -748,35 +786,6 @@ router.post("/pre-generate/:gameweek", async (req: Request, res: Response) => {
           const isTimeout = err?.status === 408 || err?.code === "ETIMEDOUT" || err?.message?.includes("timed out") || err?.message?.includes("timeout");
           req.log.error({ err, userId: user.id, vibe, type: "captain", isTimeout }, "Pre-gen captain failed");
           results.captain_failed++;
-        }
-
-        await delay(2000);
-
-        try {
-          const transferResult = await generateTransferAdvice(managerId, gw, deadline, vibe, bootstrap, fixtures);
-          if (transferResult) {
-            const { error: insertErr } = await supabase.from("pre_generated_recommendations").insert({
-              user_id: user.id,
-              gameweek: gw,
-              season: "2026-27",
-              decision_type: "transfer",
-              vibe,
-              response_json: transferResult,
-              expires_at: deadline,
-            });
-            if (insertErr) {
-              req.log.error({ err: insertErr, userId: user.id, vibe }, "Pre-gen transfer insert failed");
-              results.transfer_failed++;
-            } else {
-              results.transfer_generated++;
-            }
-          } else {
-            results.transfer_failed++;
-          }
-        } catch (err: any) {
-          const isTimeout = err?.status === 408 || err?.code === "ETIMEDOUT" || err?.message?.includes("timed out") || err?.message?.includes("timeout");
-          req.log.error({ err, userId: user.id, vibe, type: "transfer", isTimeout }, "Pre-gen transfer failed");
-          results.transfer_failed++;
         }
 
         await delay(2000);

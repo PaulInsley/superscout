@@ -10,6 +10,7 @@ import {
 } from "../services/validation/hallucination-check";
 import { analyseGameweek } from "../lib/gameweekAnalysis";
 import { getSupabase } from "../lib/supabase";
+import { extractTransferOutPlayers, buildTransferContextPrompt } from "../lib/crossCheck";
 
 loadRules("fpl");
 
@@ -232,6 +233,35 @@ router.post("/captain-picks", async (req: Request, res: Response) => {
       }
     }
 
+    let transferContextPrompt = "";
+    if (clientUserId && gameweek) {
+      const supabase = getSupabase();
+      if (supabase) {
+        try {
+          const { data: transferRows } = await supabase
+            .from("pre_generated_recommendations")
+            .select("response_json")
+            .eq("user_id", clientUserId)
+            .eq("gameweek", gameweek)
+            .eq("decision_type", "transfer")
+            .eq("vibe", vibe)
+            .gt("expires_at", new Date().toISOString())
+            .order("generated_at", { ascending: false })
+            .limit(1);
+
+          if (transferRows?.[0]) {
+            const outPlayers = extractTransferOutPlayers(transferRows[0].response_json as Record<string, unknown>);
+            if (outPlayers.length > 0) {
+              transferContextPrompt = buildTransferContextPrompt(outPlayers);
+              req.log.info({ outPlayers }, "Transfer cross-check: excluding OUT players from captain picks");
+            }
+          }
+        } catch (err) {
+          req.log.warn({ err }, "Transfer cross-check lookup failed — generating without transfer context");
+        }
+      }
+    }
+
     let gwAnalysisPrompt = "";
     if (bootstrap && fixtures && gameweek) {
       const gwAnalysis = analyseGameweek(gameweek, fixtures, bootstrap.teams);
@@ -259,6 +289,7 @@ router.post("/captain-picks", async (req: Request, res: Response) => {
       rulesContext,
       gwAnalysisPrompt,
       chipPrompt,
+      transferContextPrompt,
       `IMPORTANT: You MUST respond with valid JSON only. No markdown, no backticks, no preamble. Follow the EXACT JSON structure specified in the user message — use the exact field names provided (player_name, team, opponent, expected_points, confidence, ownership_pct, ownership_context, upside, risk, case, is_superscout_pick, is_on_bench, lineup_changes, lineup_note). Do not rename fields.`,
       `LINEUP OPTIMISATION: Each player has a position number (1-11 starting XI, 12-15 bench). If a captain pick is on the bench set is_on_bench: true and include lineup_changes showing which bench player to start and which starter to bench, with a reason. For starting XI picks, include lineup_changes only if there is a clearly better lineup. If no changes needed, omit lineup_changes and lineup_note.`,
       `CRITICAL PERSONA REQUIREMENT: You MUST write the "case" field in your assigned persona voice. The Expert is calm and analytical — no emojis, no exclamation marks, references data. The Critic is sharp and sarcastic — dry wit, rhetorical questions, no emojis. The Fanboy uses CAPITALS for emphasis, slang like BRO and DUDE, 1-2 emojis (🔥🚀🚨), and extreme hype. If the case text could have been written by any of the three personas, you have failed the task.`,
