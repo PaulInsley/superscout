@@ -122,7 +122,7 @@ type SubscriptionContextValue = ReturnType<typeof useSubscriptionContext> & {
 const Context = createContext<SubscriptionContextValue | null>(null);
 
 export function SubscriptionProvider({ children }: { children: React.ReactNode }) {
-  const [devSimulatePro, setDevSimulatePro] = useState(false);
+  const [devSimulatePro, setDevSimulatePro] = useState(__DEV__);
   const value = useSubscriptionContext(__DEV__ ? devSimulatePro : false);
   return <Context.Provider value={{ ...value, setDevSimulatePro }}>{children}</Context.Provider>;
 }
