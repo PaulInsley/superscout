@@ -572,6 +572,8 @@ VALIDATION RULES:
 Exactly one recommendation should have is_superscout_pick: true.
 For player_out and player_in, use the exact names as shown in the squad/candidate data above (e.g. "Cunha", "Salah", "B.Fernandes"). Do NOT use full legal names.
 
+CRITICAL COMMENTARY RULE: Each recommendation's "upside", "risk", and "case" fields must ONLY reference the players shown in THAT specific recommendation (the player_out and player_in for individual swaps, or the players in the transfers array for packages). NEVER mention players from other recommendations. Each card is displayed independently — the user cannot see other cards while reading one.
+
 You MUST respond with valid JSON only — no markdown, no backticks, no preamble.
 
 JSON structure:

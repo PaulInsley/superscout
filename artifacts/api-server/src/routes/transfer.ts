@@ -740,6 +740,8 @@ ALWAYS include a hold option as the LAST recommendation with is_hold_recommendat
 
 CRITICAL COUNT REQUIREMENT: ${recommendationCount}. Do NOT return fewer recommendations than specified. The user needs multiple genuine choices.
 
+CRITICAL COMMENTARY RULE: Each recommendation's "upside", "risk", and "case" fields must ONLY reference the players shown in THAT specific recommendation (the player_out and player_in for individual swaps, or the players in the transfers array for packages). NEVER mention players from other recommendations. Each card is displayed independently — the user cannot see other cards while reading one. If a card says "Bernardo OUT → Wieffer IN" then the upside, risk, and case must only discuss Bernardo and Wieffer, not players from other transfer options.
+
 Exactly one recommendation should have is_superscout_pick: true.
 Mark hold recommendations with is_hold_recommendation: true.
 
