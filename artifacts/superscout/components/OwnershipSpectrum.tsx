@@ -15,20 +15,20 @@ export default function OwnershipSpectrum({ ownershipPct, ownershipContext }: Ow
   return (
     <View style={[styles.container, { backgroundColor: colors.muted }]}>
       <View style={styles.labelsRow}>
-        <Text style={[styles.label, { color: colors.primary + "99" }]}>With the crowd</Text>
-        <Text style={[styles.label, { color: colors.mutedForeground }]}>Against the crowd</Text>
+        <Text style={[styles.label, { color: "#818CF8" }]}>With the crowd</Text>
+        <Text style={[styles.label, { color: "#9CA3AF" }]}>Against the crowd</Text>
       </View>
 
       <View style={styles.trackWrapper}>
-        <View style={[styles.track, { backgroundColor: colors.border }]}>
-          <View style={[styles.trackGradientLeft, { backgroundColor: colors.primary + "30" }]} />
+        <View style={[styles.track, { backgroundColor: "#E5E7EB" }]}>
+          <View style={[styles.trackGradientLeft, { backgroundColor: "#C7D2FE" }]} />
         </View>
         <View
           style={[
             styles.dot,
             {
               left: `${dotPosition}%`,
-              backgroundColor: colors.primary,
+              backgroundColor: "#4F46E5",
               borderColor: "#ffffff",
               shadowColor: "#000000",
             },
