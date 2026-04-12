@@ -97,9 +97,11 @@ CREATE TABLE IF NOT EXISTS streaks (
   user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   current_streak integer DEFAULT 0,
   longest_streak integer DEFAULT 0,
-  streak_shield_available boolean DEFAULT true,
+  streak_shield_available boolean DEFAULT false,
   season text NOT NULL,
-  last_active_gameweek integer
+  last_active_gameweek integer,
+  sport text NOT NULL DEFAULT 'fpl',
+  streak_shield_used_gw integer
 );
 
 -- TABLE 9: manager_profiles

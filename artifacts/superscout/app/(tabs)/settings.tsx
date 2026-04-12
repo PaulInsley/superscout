@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { useManagerId } from "@/hooks/useManagerId";
+import { useStreak } from "@/hooks/useStreak";
 import { useSubscription } from "@/lib/revenuecat";
 import { useBeginnerMode } from "@/hooks/useBeginnerMode";
 import { supabase } from "@/services/supabase";
@@ -28,6 +29,8 @@ import ChooseVibeScreen, {
 import ConnectFPLScreen from "@/app/onboarding/ConnectFPLScreen";
 import Paywall from "@/components/Paywall";
 import ProBadge from "@/components/ProBadge";
+import StreakBadge from "@/components/StreakBadge";
+import StreakDetailSheet from "@/components/StreakDetailSheet";
 import { FeedbackModal } from "@/components/FeedbackButton";
 import { ONBOARDING_COMPLETE_KEY } from "@/app/onboarding/OnboardingFlow";
 import type { Vibe } from "@/app/onboarding/ChooseVibeScreen";
@@ -58,6 +61,8 @@ export default function SettingsScreen() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const { managerId, teamName, setManager } = useManagerId();
+  const { streak } = useStreak();
+  const [showStreakDetail, setShowStreakDetail] = useState(false);
   const beginner = useBeginnerMode();
 
   const [availableLeagues, setAvailableLeagues] = useState<FPLLeague[]>([]);
@@ -455,6 +460,63 @@ export default function SettingsScreen() {
             </Text>
           </Pressable>
         </View>
+
+        {streak && (
+          <View
+            style={[
+              styles.section,
+              {
+                backgroundColor: colors.card,
+                borderRadius: colors.radius,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <Text
+              style={[styles.sectionTitle, { color: colors.mutedForeground }]}
+            >
+              Streak
+            </Text>
+            <Pressable
+              onPress={() => setShowStreakDetail(true)}
+              style={({ pressed }) => [
+                styles.settingRow,
+                { opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <View style={styles.settingLeft}>
+                <StreakBadge
+                  currentStreak={streak.current_streak}
+                  shieldAvailable={streak.streak_shield_available}
+                  shieldUsedGw={streak.streak_shield_used_gw}
+                  size="large"
+                />
+                <View style={{ marginLeft: 8 }}>
+                  <Text
+                    style={[styles.settingLabel, { color: colors.foreground }]}
+                  >
+                    {streak.current_streak > 0
+                      ? `${streak.current_streak} gameweek streak`
+                      : "No active streak"}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.settingValue,
+                      { color: colors.mutedForeground },
+                    ]}
+                  >
+                    Personal best: {streak.longest_streak}
+                  </Text>
+                </View>
+              </View>
+              <Feather
+                name="chevron-right"
+                size={18}
+                color={colors.mutedForeground}
+              />
+            </Pressable>
+          </View>
+        )}
 
         <View
           style={[
@@ -1005,6 +1067,16 @@ export default function SettingsScreen() {
 
       <Paywall visible={showPaywall} onClose={() => setShowPaywall(false)} />
       <FeedbackModal visible={showFeedback} onClose={() => setShowFeedback(false)} />
+      {streak && (
+        <StreakDetailSheet
+          visible={showStreakDetail}
+          onClose={() => setShowStreakDetail(false)}
+          currentStreak={streak.current_streak}
+          longestStreak={streak.longest_streak}
+          shieldAvailable={streak.streak_shield_available}
+          shieldUsedGw={streak.streak_shield_used_gw}
+        />
+      )}
     </View>
   );
 }

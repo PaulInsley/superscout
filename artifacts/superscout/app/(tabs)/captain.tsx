@@ -23,6 +23,7 @@ import Paywall from "@/components/Paywall";
 import PulseCheck from "@/components/PulseCheck";
 import ProgressLoadingIndicator from "@/components/ProgressLoadingIndicator";
 import CoachingCard from "@/components/CoachingCard";
+import { trackStreakActivity } from "@/services/streaks/trackActivity";
 import { useBeginnerMode } from "@/hooks/useBeginnerMode";
 import { GRADUATION_CONTENT } from "@/lib/coachingLessons";
 import { fetchCaptainCandidates } from "@/services/fpl/api";
@@ -173,6 +174,7 @@ export default function CaptainPickerScreen() {
               setDeadlineTime(candidateData.deadlineTime);
               setRecommendations(recsArray);
               logRecommendationSilently({ recommendations: recsArray } as CaptainPicksResponse, candidateData.gameweek);
+              trackStreakActivity();
               return;
             }
           }
@@ -208,6 +210,7 @@ export default function CaptainPickerScreen() {
         setLoadingStage("done");
         setRecommendations(data.recommendations);
         logRecommendationSilently(data, candidateData.gameweek);
+        trackStreakActivity();
       } else {
         throw new Error("No recommendations returned");
       }

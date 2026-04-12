@@ -23,6 +23,7 @@ import { useSubscription } from "@/lib/revenuecat";
 import SquadCard from "@/components/SquadCard";
 import PulseCheck from "@/components/PulseCheck";
 import ProgressLoadingIndicator from "@/components/ProgressLoadingIndicator";
+import { trackStreakActivity } from "@/services/streaks/trackActivity";
 
 interface CardPlayer {
   id: number;
@@ -159,6 +160,7 @@ export default function CardScreen() {
             setCardData(data);
           }
           setLoading(false);
+          trackStreakActivity();
         }, 400);
       }, 300);
     } catch (err) {

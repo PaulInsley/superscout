@@ -1,5 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -12,13 +13,19 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
+import { useStreak } from "@/hooks/useStreak";
 import { fetchPlayers } from "@/services/fpl";
 import type { NormalizedPlayer } from "@/services/fpl";
 import config from "@/constants/config";
+import StreakBadge from "@/components/StreakBadge";
+import StreakDetailSheet from "@/components/StreakDetailSheet";
+import MilestoneCelebration from "@/components/MilestoneCelebration";
 
 export default function PlayersScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { streak, pendingMilestone, dismissMilestone } = useStreak();
+  const [showStreakDetail, setShowStreakDetail] = useState(false);
 
   const {
     data: players,
@@ -129,9 +136,19 @@ export default function PlayersScreen() {
           },
         ]}
       >
-        <Text style={[styles.headerTitle, { color: colors.foreground }]}>
-          {config.brandName}
-        </Text>
+        <View style={styles.headerTopRow}>
+          <Text style={[styles.headerTitle, { color: colors.foreground }]}>
+            {config.brandName}
+          </Text>
+          {streak && (
+            <StreakBadge
+              currentStreak={streak.current_streak}
+              shieldAvailable={streak.streak_shield_available}
+              shieldUsedGw={streak.streak_shield_used_gw}
+              onPress={() => setShowStreakDetail(true)}
+            />
+          )}
+        </View>
         <Text style={[styles.headerSubtitle, { color: colors.mutedForeground }]}>
           {players?.length ?? 0} players
         </Text>
@@ -152,6 +169,25 @@ export default function PlayersScreen() {
         refreshing={isRefetching}
         showsVerticalScrollIndicator={false}
       />
+
+      {streak && (
+        <StreakDetailSheet
+          visible={showStreakDetail}
+          onClose={() => setShowStreakDetail(false)}
+          currentStreak={streak.current_streak}
+          longestStreak={streak.longest_streak}
+          shieldAvailable={streak.streak_shield_available}
+          shieldUsedGw={streak.streak_shield_used_gw}
+        />
+      )}
+
+      {pendingMilestone && streak && (
+        <MilestoneCelebration
+          milestone={pendingMilestone}
+          currentStreak={streak.current_streak}
+          onDismiss={dismissMilestone}
+        />
+      )}
     </View>
   );
 }
@@ -171,6 +207,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,
+  },
+  headerTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   headerTitle: {
     fontSize: 28,

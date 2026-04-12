@@ -21,6 +21,7 @@ import BlurredCard from "@/components/BlurredCard";
 import Paywall from "@/components/Paywall";
 import ProgressLoadingIndicator from "@/components/ProgressLoadingIndicator";
 import CoachingCard from "@/components/CoachingCard";
+import { trackStreakActivity } from "@/services/streaks/trackActivity";
 import { useBeginnerMode } from "@/hooks/useBeginnerMode";
 import { GRADUATION_CONTENT } from "@/lib/coachingLessons";
 import type { TransferRecommendation } from "@/components/TransferCard";
@@ -104,6 +105,7 @@ export default function TransferAdvisorScreen() {
 
   const applyTransferResult = useCallback((data: TransferAdviceResponse) => {
     setRecommendations(data.recommendations ?? []);
+    trackStreakActivity();
     setGameweek(data.gameweek ?? 0);
     setFreeTransfers(data.free_transfers ?? 0);
     setBudget(data.budget_remaining ?? 0);

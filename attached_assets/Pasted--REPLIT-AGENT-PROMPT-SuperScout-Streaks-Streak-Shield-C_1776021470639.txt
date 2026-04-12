@@ -1,0 +1,128 @@
+# REPLIT AGENT PROMPT — SuperScout Streaks + Streak Shield
+
+## Context
+
+SuperScout is a personality-driven AI fantasy football coach built in React Native with Supabase backend. Streaks are a Phase 2 retention feature inspired by Duolingo’s streak mechanic. The psychology is loss aversion — losing a long streak feels twice as painful as the pleasure of building one. After about 30 days, the streak becomes part of the user’s identity. This is one of the highest-impact, lowest-effort retention features in the product.
+
+The streaks table already exists in the Supabase schema (Table 8). Fields: id, user_id, current_streak, longest_streak, streak_shield_available, season, last_active_gameweek.
+
+## Task
+
+Build the complete Streak system. Four parts: data logic, UI display, Streak Shield, and milestone celebrations.
+
+-----
+
+## PART 1 — Streak Data Logic
+
+1. **What counts as “active”:** A user is active in a gameweek if they made at least one decision in SuperScout during that gameweek. A “decision” means any of: viewing captain recommendations, viewing transfer recommendations, generating a squad card, or confirming “no changes” (if that feature exists). Check the `decision_log` table for any entry matching this user and gameweek. Do NOT require the user to have actually made a transfer or changed captain on the FPL site — just engaging with SuperScout counts.
+1. **When streaks update:** After each gameweek deadline passes, run a streak check for all users. For each user:
+- Look up their `last_active_gameweek` from the streaks table
+- Compare it to the gameweek that just ended
+- If `last_active_gameweek` equals the gameweek that just ended → streak continues. Increment `current_streak` by 1. Update `last_active_gameweek`. If `current_streak` > `longest_streak`, update `longest_streak`.
+- If `last_active_gameweek` is one gameweek behind (i.e. they missed this gameweek) → check Streak Shield (see Part 3). If shield available, use it. If not, reset `current_streak` to 0.
+- If `last_active_gameweek` is more than one gameweek behind → streak is broken regardless. Reset `current_streak` to 0.
+1. **New user initialisation:** When a user signs up, create a streaks row with current_streak = 0, longest_streak = 0, streak_shield_available = false, last_active_gameweek = null.
+1. **Season reset:** Streaks are per-season (the `season` field handles this). At the start of a new season, create a fresh streaks row. Previous season data stays for historical reference.
+1. **Create a server-side function** (Supabase Edge Function or server route) called `updateStreaks` that runs the streak check logic for all users. This will eventually be triggered automatically after each gameweek, but for now it can be triggered manually for testing.
+
+-----
+
+## PART 2 — Streak UI Display
+
+1. **Streak counter badge** — Display the user’s current streak prominently. Place it on:
+- The home/dashboard screen (visible immediately on app open)
+- The Settings screen (in the user profile section)
+   
+   The badge should show a flame/fire icon (use a suitable icon from the existing icon set or Feather icons) with the streak number next to it. Example: 🔥 7
+1. **Streak counter styling:**
+- 0 streak: greyed out flame, no number
+- 1–4 streaks: small orange flame
+- 5–9 streaks: larger flame, slightly brighter
+- 10–19 streaks: bright flame with subtle glow effect
+- 20+: animated flame (subtle pulse animation)
+- Match the app’s dark theme (#0D0D1A background)
+1. **Streak detail view** — When the user taps the streak badge, show a small expandable section or bottom sheet with:
+- Current streak: [N] gameweeks
+- Personal best: [N] gameweeks
+- Streak Shield: Available / Used / Locked (with explanation)
+- A one-line vibe-voiced message about their streak (see below)
+1. **Vibe-voiced streak messages** (shown in the detail view, rotate based on streak length):
+   
+   **Expert:**
+- Streak 1–4: “Consistency is the foundation of good FPL management. Keep showing up.”
+- Streak 5–9: “Five consecutive gameweeks of active decisions. The data improves with every interaction.”
+- Streak 10+: “Your commitment to data-driven decisions is showing in the numbers.”
+   
+   **Critic:**
+- Streak 1–4: “A streak of [N]. Don’t get too excited — it’s barely started.”
+- Streak 5–9: “Five weeks without ghosting. I’m almost impressed.”
+- Streak 10+: “[N] weeks. You might actually be taking this seriously for once.”
+   
+   **Fanboy:**
+- Streak 1–4: “THE STREAK HAS BEGUN! Let’s keep this rolling!”
+- Streak 5–9: “FIVE IN A ROW! You’re on FIRE! Don’t stop now!”
+- Streak 10+: “[N] GAMEWEEKS! UNSTOPPABLE! This is YOUR season!”
+
+-----
+
+## PART 3 — Streak Shield
+
+1. **How it works:** The Streak Shield is a one-time protection per season that saves the user’s streak if they miss exactly one gameweek. Think of it like Duolingo’s Streak Freeze.
+1. **Earning it:** The Streak Shield becomes available when the user reaches a 5-gameweek streak. Set `streak_shield_available` to true when `current_streak` reaches 5 for the first time in the season.
+1. **Using it:** When the streak check (Part 1) finds that a user missed exactly one gameweek AND their `streak_shield_available` is true:
+- Keep the streak alive (do NOT reset current_streak)
+- Set `streak_shield_available` to false
+- Log the shield usage (add a `streak_shield_used_gw` integer field to the streaks table to record which gameweek it was used in)
+- Next time the user opens the app, show a notification: “Your Streak Shield saved your [N]-gameweek streak! You missed GW[X] but we’ve got your back. The shield is used — build another 5-week streak to earn a new one.”
+1. **Re-earning:** After using the shield, it can be re-earned by building another 5-gameweek streak from the current point. When `current_streak` reaches 5 again after shield usage, set `streak_shield_available` back to true.
+1. **UI indicator:** Show the Streak Shield status as a small shield icon next to the streak flame:
+- Shield available: solid shield icon (gold/amber colour)
+- Shield used: empty/outline shield icon (greyed out)
+- Shield locked (streak < 5): no shield icon shown
+
+-----
+
+## PART 4 — Milestone Celebrations
+
+At specific streak milestones, trigger a celebration screen with visual flair. These are shareable moments.
+
+1. **Milestone thresholds:** 5, 10, 20, and 38 (full season) gameweeks.
+1. **Celebration screen:** When the user opens the app and their streak has just hit a milestone:
+- Full-screen overlay with confetti animation (use react-native-confetti-cannon or similar — check what’s available in the project dependencies first, and if nothing suitable exists, install one)
+- Milestone badge graphic (can be a styled text/icon combination for now — proper branded badges are a Week 10 branding task)
+- Vibe-voiced congratulations message
+- “Share” button that generates a shareable image (similar to Squad Card sharing) with the streak milestone and SuperScout branding
+- “Keep Going” dismiss button
+1. **Milestone messages:**
+   
+   **5 GWs:**
+- Expert: “Five consecutive gameweeks. You’ve earned your Streak Shield — one free save if you miss a deadline.”
+- Critic: “Five whole weeks without forgetting. Have a gold star. And a Streak Shield, I suppose.”
+- Fanboy: “FIVE IN A ROW! STREAK SHIELD UNLOCKED! You’re officially a regular!”
+   
+   **10 GWs:**
+- Expert: “10-gameweek streak. You’re now in the top quartile for engagement consistency.”
+- Critic: “10 weeks. I didn’t think you had it in you. Genuinely.”
+- Fanboy: “DOUBLE DIGITS! TEN WEEKS OF PURE COMMITMENT! LEGEND!”
+   
+   **20 GWs:**
+- Expert: “20 consecutive gameweeks. This level of consistency directly correlates with stronger decision quality.”
+- Critic: “20 weeks. Even I can’t find something sarcastic to say about that. Almost.”
+- Fanboy: “TWENTY! TWO-ZERO! HALF THE SEASON WITHOUT MISSING A BEAT! INCREDIBLE!”
+   
+   **38 GWs (full season):**
+- Expert: “38 gameweeks. Every single one. A perfect season of engagement — the data speaks for itself.”
+- Critic: “38 out of 38. I genuinely respect that. Don’t tell anyone I said this.”
+- Fanboy: “PERFECT SEASON! 38 OUT OF 38! YOU ARE THE ULTIMATE SUPERSCOUT MANAGER!”
+
+-----
+
+## Architecture Note
+
+The streak system must be sport-agnostic. The streaks table already has a `season` field. Add a `sport` field (text, default ‘fpl’) so that when F1 Fantasy is added, a user can have separate streaks per sport. The streak logic (consecutive rounds of activity, shield mechanic, milestones) works identically regardless of sport — only the round/gameweek terminology and season length change. Keep all FPL-specific text (like “gameweek” and “38 GWs”) in a sport-specific config, not hardcoded in the components.
+
+-----
+
+## Git Safety
+
+Do NOT run any destructive git operations (git reset –hard, orphan commits, force pushes rewriting history) without stopping and explaining the consequences first. Commit after each part with a clear message.

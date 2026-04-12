@@ -9,6 +9,7 @@ import squadCardRouter from "./squadCard";
 import preGenerateRouter from "./preGenerate";
 import banterRouter from "./banter";
 import notificationsRouter from "./notifications";
+import streaksRouter from "./streaks";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(squadCardRouter);
 router.use(preGenerateRouter);
 router.use(banterRouter);
 router.use(notificationsRouter);
+router.use(streaksRouter);
 
 export default router;
