@@ -344,6 +344,19 @@ NEVER imply low ownership is automatically better. If a differential pick has 3+
   return parsed;
 }
 
+function splitIntoSegments(text: string): string[] {
+  const segments: string[] = [];
+  const raw = text.split(/(?<=[.!?])\s+|(?<=[.!?])(?=")|(?<=\.)\s*(?=[A-Z])/);
+  for (const seg of raw) {
+    const sub = seg.split(/\s*(?:—|--)\s*/);
+    for (const s of sub) {
+      const trimmed = s.trim();
+      if (trimmed.length > 0) segments.push(trimmed);
+    }
+  }
+  return segments;
+}
+
 function sanitiseTransferCommentary(
   recs: Array<Record<string, unknown>>,
 ): Array<Record<string, unknown>> {
@@ -384,10 +397,33 @@ function sanitiseTransferCommentary(
     for (const field of ["upside", "risk", "case"] as const) {
       const text = rec[field];
       if (typeof text !== "string" || !foreignPattern.test(text)) continue;
-      const sentences = text.split(/(?<=[.!?])\s+/);
-      const kept = sentences.filter((s) => !foreignPattern.test(s));
-      if (kept.length < sentences.length) {
-        cleaned[field] = kept.length > 0 ? kept.join(" ") : sentences[0];
+
+      const segments = splitIntoSegments(text);
+      const crossRefPhrases = /\b(both of these|all of these|these two|these three|this pairs with|this combines with|together these|the other move|the other transfer)\b/i;
+      const isForeign = segments.map((s) => foreignPattern.test(s) || crossRefPhrases.test(s));
+      for (let si = 1; si < segments.length; si++) {
+        if (isForeign[si - 1] && !isForeign[si] && /^(he|she|they|his|her|their|that|it)\b/i.test(segments[si])) {
+          isForeign[si] = true;
+        }
+      }
+      const kept = segments.filter((_, si) => !isForeign[si]);
+
+      if (kept.length < segments.length) {
+        const joined = kept.map((s) => {
+          let seg = s.trim();
+          if (seg && !seg.match(/[.!?'"]$/)) seg += ".";
+          return seg;
+        });
+        let result = joined.join(" ").replace(/\.{2,}/g, ".").replace(/\s{2,}/g, " ").trim();
+
+        result = result.replace(/^(?:And |But |Also |Plus |Meanwhile )/i, "");
+
+        if (field === "case" && result) {
+          result = result.replace(/^["'"]+/, "").replace(/["'"]+$/, "").trim();
+          result = `"${result}"`;
+        }
+
+        cleaned[field] = result || segments[0];
         changed = true;
       }
     }
@@ -623,7 +659,11 @@ VALIDATION RULES:
 Exactly one recommendation should have is_superscout_pick: true.
 For player_out and player_in, use the exact names as shown in the squad/candidate data above (e.g. "Cunha", "Salah", "B.Fernandes"). Do NOT use full legal names.
 
-CRITICAL COMMENTARY RULE: Each recommendation's "upside", "risk", and "case" fields must ONLY reference the players shown in THAT specific recommendation (the player_out and player_in for individual swaps, or the players in the transfers array for packages). NEVER mention players from other recommendations. Each card is displayed independently — the user cannot see other cards while reading one.
+CRITICAL COMMENTARY RULE — ZERO CROSS-REFERENCES:
+Each recommendation is displayed as an ISOLATED card. The user sees ONE card at a time with NO visibility of other cards.
+Therefore: the "upside", "risk", and "case" fields for a recommendation must mention ONLY the player_out and player_in named in THAT card (or the players in that card's transfers array for packages).
+DO NOT reference, compare, contrast, or allude to any player from ANY other recommendation.
+Treat each recommendation as if it is the ONLY recommendation you are writing. No "both of these", no "this pairs with", no mentioning other transfers.
 
 You MUST respond with valid JSON only — no markdown, no backticks, no preamble.
 
