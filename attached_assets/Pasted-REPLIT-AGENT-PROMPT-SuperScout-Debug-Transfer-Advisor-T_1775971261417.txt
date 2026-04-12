@@ -1,0 +1,24 @@
+REPLIT AGENT PROMPT — SuperScout: Debug Transfer Advisor Timeout
+
+CONTEXT: The Transfer Advisor has been consistently timing out for every request. The captain picker works perfectly on the same device. Server-side logging was added to the transfer route in the last update — it should log at each stage: “started”, “FPL data fetched”, “candidates filtered”, “AI generation started”, “AI response received”, “hallucination check done”, “response sent”.
+
+TASK: Investigate why the transfer route is timing out and fix it.
+
+1. Check the server logs (Replit console output) for the transfer route. When the user hits “Get Transfer Recommendations”, what’s the LAST log message that appears? This tells us exactly where it gets stuck:
+- If “started” never appears → the request isn’t reaching the server (client-side URL or routing issue)
+- If “started” appears but not “FPL data fetched” → the FPL API call is hanging
+- If “FPL data fetched” appears but not “candidates filtered” → the filtering logic is the problem
+- If “candidates filtered” appears but not “AI response received” → the Claude API call is hanging or timing out
+- If “AI response received” appears but not “response sent” → the hallucination check or response formatting is the problem
+1. Based on what the logs show, apply the appropriate fix. The most likely cause is that the Claude API call is taking too long because the transfer prompt is much larger than the captain prompt (50 candidates with full stats). If that’s the case:
+- Reduce the number of candidates sent to Claude from 50 to 30 — the top 30 by form is still plenty for good recommendations
+- Reduce the amount of data per candidate — send only: web_name, team, position, form, total_points, now_cost, ownership percentage, and next fixture. Remove detailed stats that add tokens but don’t improve recommendations
+- Set max_tokens on the Claude call to 2000 (not 6000) for transfer advice — it doesn’t need to be as long as a restructure package
+1. If the issue is NOT the Claude API (i.e. the request never reaches the server), then:
+- Check what URL the transfer screen is using for the API call
+- Print the URL to console before making the request
+- Compare it to the captain picker’s URL which works
+- Check if there’s a CORS or routing issue specific to the transfer endpoint
+1. Whatever the root cause, make sure the user NEVER sees a blank screen or a timeout without useful information. Show a progress indicator during the AI generation step: “Scanning the transfer market…” → “Filtering top candidates…” → “Generating recommendations…” so the user knows something is happening.
+
+GIT SAFETY: Do not run git reset –hard, orphan commits, or force pushes rewriting history without stopping and explaining the consequences first.

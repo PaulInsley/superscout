@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -58,7 +58,6 @@ export default function TransferAdvisorScreen() {
   const [blankTeams, setBlankTeams] = useState<string[]>([]);
   const [doubleTeams, setDoubleTeams] = useState<string[]>([]);
   const [activeChip, setActiveChip] = useState<string | null>(null);
-  const aiTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -86,7 +85,21 @@ export default function TransferAdvisorScreen() {
     setRecommendations(null);
     setLoadingStage("squad");
 
-    if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
+    const stageTimerRef1 = setTimeout(() => {
+      setLoadingStage("market");
+    }, 1500);
+    const stageTimerRef2 = setTimeout(() => {
+      setLoadingStage("ai");
+    }, 4000);
+    const stageTimerRef3 = setTimeout(() => {
+      setLoadingStage("ai_deep");
+    }, 20000);
+
+    const clearStageTimers = () => {
+      clearTimeout(stageTimerRef1);
+      clearTimeout(stageTimerRef2);
+      clearTimeout(stageTimerRef3);
+    };
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000);
@@ -102,7 +115,7 @@ export default function TransferAdvisorScreen() {
         if (preGenRes.ok) {
           const preGenData = await preGenRes.json();
           if (preGenData.found && preGenData.response) {
-            if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
+            clearStageTimers();
             setLoadingStage("done");
             const resultData = preGenData.response as TransferAdviceResponse;
             setRecommendations(resultData.recommendations ?? []);
@@ -134,6 +147,7 @@ export default function TransferAdvisorScreen() {
       });
 
       if (!response.ok) {
+        clearStageTimers();
         const errorBody = await response.json().catch(() => null);
         if (errorBody?.error === "new_manager") {
           setAiError("Your FPL team hasn't played any gameweeks yet. Transfer advice will be available once you've entered a gameweek.");
@@ -148,14 +162,10 @@ export default function TransferAdvisorScreen() {
         return;
       }
 
-      setLoadingStage("ai");
-      aiTimerRef.current = setTimeout(() => {
-        setLoadingStage("ai_deep");
-      }, 15000);
+      clearStageTimers();
+      setLoadingStage("validating");
 
       const json = await response.json() as TransferAdviceResponse;
-      if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
-
       if (json.recommendations) {
         setLoadingStage("done");
         setRecommendations(json.recommendations);
@@ -171,6 +181,7 @@ export default function TransferAdvisorScreen() {
         setAiError("Couldn't load transfer advice. Tap to try again.");
       }
     } catch (err: any) {
+      clearStageTimers();
       if (err?.name === "AbortError") {
         setAiError("Request timed out. Tap to try again.");
       } else {
@@ -179,7 +190,7 @@ export default function TransferAdvisorScreen() {
       }
     } finally {
       clearTimeout(timeoutId);
-      if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
+      clearStageTimers();
       setAiLoading(false);
     }
   }, [managerId, vibe]);

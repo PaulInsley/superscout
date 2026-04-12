@@ -20,7 +20,7 @@ function getClient(): Anthropic {
   return new Anthropic({
     baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
     apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
-    timeout: 30000,
+    timeout: 45000,
   });
 }
 
@@ -475,9 +475,21 @@ async function generateTransferAdvice(
     }
   }
 
-  const candidatesSummary = result.slice(0, 50).map((c) => {
+  const diverseCandidates: typeof result = [];
+  const byPos: Record<number, typeof result> = { 1: [], 2: [], 3: [], 4: [] };
+  for (const c of result) byPos[c.player.element_type]?.push(c);
+  const minPerPos = 4;
+  for (const posPlayers of Object.values(byPos)) {
+    diverseCandidates.push(...posPlayers.slice(0, minPerPos));
+  }
+  for (const c of result) {
+    if (diverseCandidates.length >= 30) break;
+    if (!diverseCandidates.includes(c)) diverseCandidates.push(c);
+  }
+
+  const candidatesSummary = diverseCandidates.slice(0, 30).map((c) => {
     const pos = POSITION_MAP[c.player.element_type] ?? "UNK";
-    return `- ${c.player.web_name} (${pos}, ${c.team.short_name}) | Price: £${(c.player.now_cost / 10).toFixed(1)}m | Form: ${c.player.form} | Total: ${c.player.total_points} | Own: ${c.player.selected_by_percent}% | Status: ${c.player.status} | FDR: ${c.upcomingFdr.join(",")}`;
+    return `- ${c.player.web_name} (${pos}, ${c.team.short_name}) £${(c.player.now_cost / 10).toFixed(1)}m | Form: ${c.player.form} | Pts: ${c.player.total_points} | Own: ${c.player.selected_by_percent}% | FDR: ${c.upcomingFdr.join(",")}`;
   }).join("\n");
 
   const squadSummary = squadWithDetails.map((p) =>
@@ -605,7 +617,7 @@ ${transferInstructions}`;
   const client = getClient();
   const message = await client.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 6000,
+    max_tokens: 4000,
     system: systemPrompt,
     messages: [{ role: "user", content: context }],
   });
