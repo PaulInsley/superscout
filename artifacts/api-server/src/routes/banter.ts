@@ -149,8 +149,10 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
       .eq("season", "2026-27");
 
     if (leagueErr || !leagues || leagues.length === 0) {
-      res.json({ banter_cards: [], no_leagues: true });
-      return;
+      if (process.env.NODE_ENV !== "development") {
+        res.json({ banter_cards: [], no_leagues: true });
+        return;
+      }
     }
 
     const { data: userData } = await supabase
@@ -204,7 +206,10 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
     let rivalsProcessed = 0;
     const MAX_RIVALS = 3;
 
-    for (const league of leagues) {
+    const isDev = process.env.NODE_ENV === "development";
+    const hasRealLeagues = leagues && leagues.length > 0;
+
+    for (const league of (leagues ?? [])) {
       if (rivalsProcessed >= MAX_RIVALS) break;
 
       const leagueType = league.league_type ?? "classic";
@@ -382,10 +387,97 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
       }
     }
 
+    if (isDev && allBanterCards.length === 0) {
+      req.log.info("DEV MODE fallback: Real leagues produced 0 cards, using dummy rivals");
+
+      const dummyRivals = [
+        { entry: 4, rank: 1, total: 2100, entry_name: "Who Got Erling?", relationship: "league leader" as const },
+        { entry: 167, rank: 2, total: 2050, entry_name: "The Salah Soldiers", relationship: "directly above you" as const },
+        { entry: 372, rank: 4, total: 1950, entry_name: "Pep's Fraudulence", relationship: "directly below you" as const },
+      ];
+      const devUserRank = 3;
+      const devUserPoints = 2000;
+
+      for (const rival of dummyRivals) {
+        let rivalSquadNames: string[] = [];
+        let rivalCaptainName: string | null = null;
+        let rivalNotSet = false;
+        try {
+          const rivalPicks = await fetchCachedData<any>(
+            cacheKey("picks", String(rival.entry), String(gw)),
+            `/entry/${rival.entry}/event/${gw}/picks/`,
+            TTL.USER,
+          );
+          if (rivalPicks?.picks) {
+            for (const pick of rivalPicks.picks) {
+              const player = playerMap.get(pick.element);
+              if (player) {
+                rivalSquadNames.push(player.web_name);
+                if (pick.is_captain) rivalCaptainName = player.web_name;
+              }
+            }
+          }
+        } catch {
+          try {
+            const rivalPicks = await fetchCachedData<any>(
+              cacheKey("picks", String(rival.entry), String(gw - 1)),
+              `/entry/${rival.entry}/event/${gw - 1}/picks/`,
+              TTL.USER,
+            );
+            if (rivalPicks?.picks) {
+              for (const pick of rivalPicks.picks) {
+                const player = playerMap.get(pick.element);
+                if (player) {
+                  rivalSquadNames.push(player.web_name);
+                  if (pick.is_captain) rivalCaptainName = player.web_name;
+                }
+              }
+            }
+          } catch { rivalNotSet = true; }
+        }
+        const sharedPlayers = userSquadNames.filter((p) => rivalSquadNames.includes(p));
+        const userDifferentials = userSquadNames.filter((p) => !rivalSquadNames.includes(p));
+        const rivalDifferentials = rivalSquadNames.filter((p) => !userSquadNames.includes(p));
+        const pointsGap = devUserPoints - rival.total;
+        const pointsGapText = pointsGap > 0
+          ? `${pointsGap} points ahead of ${rival.entry_name}`
+          : pointsGap < 0
+            ? `${Math.abs(pointsGap)} points behind ${rival.entry_name}`
+            : `Level on points with ${rival.entry_name}`;
+        const banterPrompt = buildBanterPrompt({
+          vibe: String(vibe), userCaptain: userCaptainName, rivalCaptain: rivalCaptainName,
+          rivalTeamName: rival.entry_name, rivalRank: rival.rank, userRank: devUserRank, pointsGap,
+          sharedPlayers, userDifferentials, rivalDifferentials, relationship: rival.relationship,
+          leagueType: "classic", leagueName: "Dev Banter League", rivalNotSet,
+        });
+        try {
+          const client = getClient();
+          const vibeSystemPrompt = VIBE_PROMPTS[String(vibe) as keyof typeof VIBE_PROMPTS] ?? VIBE_PROMPTS.expert;
+          const response = await client.messages.create({
+            model: "claude-sonnet-4-6", max_tokens: 800,
+            system: `${vibeSystemPrompt}\n\nYou generate mini-league banter between FPL managers. Respond ONLY with valid JSON.`,
+            messages: [{ role: "user", content: banterPrompt }],
+          });
+          const text = response.content[0]?.type === "text" ? response.content[0].text : "";
+          const parsed = extractJSON(text) as BanterCard | null;
+          if (parsed) {
+            allBanterCards.push({
+              ...parsed, rival_team_name: rival.entry_name, rival_rank: rival.rank,
+              points_gap: pointsGap, points_gap_text: pointsGapText,
+              league_name: "Dev Banter League", league_type: "classic",
+            });
+          }
+        } catch (err) {
+          req.log.error({ err, rivalEntry: rival.entry }, "Dev fallback banter generation failed");
+        }
+      }
+    }
+
     const result = {
       gameweek: gw,
       banter_cards: allBanterCards,
       no_leagues: false,
+      ...(isDev && { dev_mode: true }),
     };
 
     res.json(result);
