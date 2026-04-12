@@ -1,0 +1,37 @@
+# REPLIT AGENT PROMPT — SuperScout: Fix Pre-Generation Endpoint Authentication
+
+## CONTEXT
+
+The pre-generation endpoint (POST /api/pre-generate/:gameweek) currently has no authentication. The PROCESS_DECISIONS_SECRET environment variable is not set, and the code skips the auth check if the variable is missing. This means anyone who discovers the URL can trigger pre-generation, burning Anthropic API credits and potentially generating thousands of unwanted AI calls. This must be fixed before any beta testers get access to the app.
+
+## TASK
+
+### 1. Set the PROCESS_DECISIONS_SECRET environment variable
+
+Generate a strong random secret (at least 32 characters, alphanumeric + symbols). Add it to Replit’s Secrets/Environment Variables panel as PROCESS_DECISIONS_SECRET.
+
+### 2. Make authentication mandatory, not optional
+
+Find the auth check on the pre-generation endpoint. Currently it skips authentication if PROCESS_DECISIONS_SECRET is not set. Change this so that:
+
+- If PROCESS_DECISIONS_SECRET is not set in the environment, the endpoint returns a 500 error with a message: “Server configuration error: admin secret not set. Contact the administrator.”
+- If PROCESS_DECISIONS_SECRET is set but the request does not include the correct secret (via Bearer token in the Authorization header, or however the existing auth check works), return 401 Unauthorized.
+- The endpoint should NEVER be callable without valid authentication, regardless of environment configuration.
+
+### 3. Apply the same check to any other admin endpoints
+
+Search the codebase for any other endpoints that use PROCESS_DECISIONS_SECRET or similar admin authentication (e.g. /api/process-decisions). Make sure they all enforce the same mandatory auth — no fallback to “skip auth if not configured.”
+
+### 4. Log the secret value somewhere safe
+
+After setting the secret, tell me what it is so I can store it in the disaster recovery document. Do NOT commit the secret to the codebase or any file in the repository.
+
+### 5. Do NOT change anything else
+
+- Do NOT modify the pre-generation logic, cache lookup, or staleness check
+- Do NOT modify any user-facing routes or screens
+- Do NOT modify the AI prompts
+
+## GIT SAFETY
+
+Do not run git reset –hard, orphan commits, or force pushes rewriting history without stopping and explaining the consequences first.
