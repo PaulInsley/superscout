@@ -63,7 +63,7 @@ export default function ChoiceCard({ recommendation }: ChoiceCardProps) {
             <Text style={[styles.teamLine, { color: colors.mutedForeground }]}>
               {recommendation.team} vs {recommendation.opponent}
             </Text>
-            {recommendation.team ? <FixtureTicker teamShortName={recommendation.team} /> : null}
+            <FixtureTicker teamShortName={recommendation.team} />
           </View>
           <View style={styles.pointsContainer}>
             <Text style={[styles.expectedPoints, { color: colors.accent }]}>

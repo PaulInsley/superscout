@@ -12,7 +12,7 @@ const FDR_COLORS: Record<number, string> = {
 };
 
 interface FixtureTickerProps {
-  teamShortName: string;
+  teamShortName: string | string[] | null | undefined;
 }
 
 function FixturePill({ fixture }: { fixture: FixtureInfo }) {
@@ -45,9 +45,16 @@ export default function FixtureTicker({ teamShortName }: FixtureTickerProps) {
   const colors = useColors();
   const fixtureData = useFixtureData();
 
-  if (!fixtureData || !teamShortName) return null;
+  const safeName =
+    typeof teamShortName === "string" && teamShortName.length > 0
+      ? teamShortName
+      : Array.isArray(teamShortName) && typeof (teamShortName as string[])[0] === "string"
+        ? (teamShortName as string[])[0]
+        : null;
 
-  const allFixtures = getUpcomingFixtures(teamShortName, fixtureData, 7);
+  if (!fixtureData || !safeName) return null;
+
+  const allFixtures = getUpcomingFixtures(safeName, fixtureData, 7);
   if (allFixtures.length === 0) return null;
 
   const grouped: FixtureInfo[][] = [];

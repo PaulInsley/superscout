@@ -64,7 +64,7 @@ function SingleSwapRow({ playerOut, playerOutTeam, playerOutPrice, playerIn, pla
             {playerOutTeam}
             {typeof playerOutPrice === "number" ? ` · £${playerOutPrice.toFixed(1)}m` : ""}
           </Text>
-          {playerOutTeam ? <FixtureTicker teamShortName={playerOutTeam} /> : null}
+          <FixtureTicker teamShortName={playerOutTeam} />
         </View>
         <Text style={[styles.arrow, { color: colors.accent }]}>→</Text>
         <View style={styles.playerBlock}>
@@ -76,7 +76,7 @@ function SingleSwapRow({ playerOut, playerOutTeam, playerOutPrice, playerIn, pla
             {playerInTeam}
             {typeof playerInPrice === "number" ? ` · £${playerInPrice.toFixed(1)}m` : ""}
           </Text>
-          {playerInTeam ? <FixtureTicker teamShortName={playerInTeam} /> : null}
+          <FixtureTicker teamShortName={playerInTeam} />
         </View>
       </View>
     </View>
