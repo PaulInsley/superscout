@@ -8,12 +8,14 @@ const FPL_BASE_URL = "https://fantasy.premierleague.com/api";
 router.post("/process-decisions/:gameweek", async (req: Request, res: Response) => {
   try {
     const adminSecret = process.env.PROCESS_DECISIONS_SECRET;
-    if (adminSecret) {
-      const authHeader = req.headers.authorization;
-      if (!authHeader || authHeader !== `Bearer ${adminSecret}`) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
+    if (!adminSecret) {
+      res.status(500).json({ error: "Server configuration error: admin secret not set. Contact the administrator." });
+      return;
+    }
+    const authHeader = req.headers.authorization;
+    if (!authHeader || authHeader !== `Bearer ${adminSecret}`) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
     }
 
     const gw = parseInt(String(req.params.gameweek), 10);
