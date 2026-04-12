@@ -432,13 +432,14 @@ router.post("/banter/leagues", async (req: Request, res: Response) => {
         user_id,
         mini_league_id: String(league.id),
         mini_league_name: league.name,
-        league_type: league.type ?? "classic",
         current_rank: league.rank ?? null,
         rival_manager_ids: league.rival_ids ?? [],
         season: "2026-27",
       });
       if (insertErr) {
         req.log.error({ err: insertErr, leagueId: league.id }, "Failed to insert league");
+        res.status(500).json({ error: `Failed to save league ${league.name}: ${insertErr.message}` });
+        return;
       }
     }
 

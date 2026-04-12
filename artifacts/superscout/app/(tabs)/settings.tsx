@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Linking,
   Platform,
   Pressable,
@@ -147,8 +148,13 @@ export default function SettingsScreen() {
       if (res.ok) {
         await loadSavedLeagues();
         setShowLeaguePicker(false);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        Alert.alert("Save failed", errData.error ?? "Could not save leagues. Please try again.");
       }
-    } catch {} finally {
+    } catch (e: any) {
+      Alert.alert("Save failed", e.message ?? "Could not save leagues.");
+    } finally {
       setLeaguesSaving(false);
     }
   }, [availableLeagues, selectedLeagueIds, loadSavedLeagues]);
