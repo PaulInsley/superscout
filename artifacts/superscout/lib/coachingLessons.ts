@@ -30,11 +30,11 @@ export const COACHING_LESSONS: CoachingLesson[] = [
     screen: "transfers",
     content: {
       expert:
-        "You get one free transfer per week. Unused ones roll over, up to a maximum of 5. Each extra transfer beyond your free ones costs 4 points \u2014 which is rarely worth it. The options below include a \u2018Hold\u2019 option when standing pat is the smart play. Look at the fixture tickers to see why some moves make more sense than others.",
+        "Transfers let you swap players in and out of your squad. You get one free transfer every week. If you don\u2019t use it, it saves up \u2014 you can store up to 5. Want to make extra transfers beyond your free ones? Each one costs you 4 points off your score, so it\u2019s rarely worth it. Below you\u2019ll see suggestions for who to bring in and who to remove. There\u2019s also a \u2018Hold\u2019 option \u2014 that means keeping your squad as it is, which is sometimes the smartest move. The coloured pills next to each player show their upcoming matches \u2014 green means easier games ahead.",
       critic:
-        "One free transfer per week. Waste it and you wait another week. Take a hit \u2014 that\u2019s minus 4 points, by the way \u2014 and it better be worth it. The Hold option exists for a reason. Sometimes the best transfer is no transfer. I know that\u2019s boring. I don\u2019t care.",
+        "Transfers are how you change your squad \u2014 remove a player, bring in a replacement. You get one free swap per week. Don\u2019t use it? It rolls over, up to 5 saved. Want more than your free ones? Each extra swap costs 4 points off your total score. Not ideal. Below you\u2019ll see options for who to swap. There\u2019s also a \u2018Hold\u2019 option \u2014 that means making no changes at all. Sometimes doing nothing is the best move. I know that sounds boring. I don\u2019t care.",
       fanboy:
-        "Transfer time! You get one free transfer every week \u2014 unused ones roll over (up to 5!!). The options below show who to bring in and who to let go. Check the fixture colours \u2014 green means EASY. If you see a wall of green next to a player\u2019s name, that\u2019s your sign!",
+        "This is where you change your squad! You can swap one player out and bring someone new in \u2014 that\u2019s a transfer. You get one for free every week! Don\u2019t use it? No worries, it saves up (you can store up to 5!!). Want to make MORE swaps? You can, but each extra one costs 4 points from your score. Below you\u2019ll see who I think you should bring in and who to let go. Check the coloured pills next to each name \u2014 green means they\u2019ve got easy games coming up. A wall of green is basically a golden ticket!",
     },
   },
   {
