@@ -13,31 +13,38 @@ const FDR_COLORS: Record<number, string> = {
 
 interface FixtureTickerProps {
   teamShortName: string | string[] | null | undefined;
+  compact?: boolean;
 }
 
-function FixturePill({ fixture }: { fixture: FixtureInfo }) {
+function FixturePill({ fixture, compact }: { fixture: FixtureInfo; compact?: boolean }) {
   const bg = FDR_COLORS[fixture.fdr] ?? "#888";
   return (
-    <View style={[styles.pill, { backgroundColor: bg }]}>
-      <Text style={styles.pillTeam}>{fixture.opponentShortName}</Text>
-      <Text style={styles.pillVenue}>{fixture.isHome ? "h" : "a"}</Text>
+    <View style={[compact ? compactStyles.pill : styles.pill, { backgroundColor: bg }]}>
+      <Text style={compact ? compactStyles.pillTeam : styles.pillTeam}>
+        {fixture.opponentShortName}
+      </Text>
+      <Text style={compact ? compactStyles.pillVenue : styles.pillVenue}>
+        {fixture.isHome ? "h" : "a"}
+      </Text>
     </View>
   );
 }
 
-function DgwPill({ fixtures }: { fixtures: FixtureInfo[] }) {
+function DgwPill({ fixtures, compact }: { fixtures: FixtureInfo[]; compact?: boolean }) {
   const worstFdr = Math.max(...fixtures.map((f) => f.fdr));
   const bg = FDR_COLORS[worstFdr] ?? "#888";
   const label = fixtures.map((f) => f.opponentShortName).join("/");
   return (
-    <View style={[styles.dgwPill, { backgroundColor: bg }]}>
-      <Text style={styles.dgwTeam} numberOfLines={1}>{label}</Text>
-      <Text style={styles.dgwLabel}>DGW</Text>
+    <View style={[compact ? compactStyles.dgwPill : styles.dgwPill, { backgroundColor: bg }]}>
+      <Text style={compact ? compactStyles.dgwTeam : styles.dgwTeam} numberOfLines={1}>
+        {label}
+      </Text>
+      <Text style={compact ? compactStyles.dgwLabel : styles.dgwLabel}>DGW</Text>
     </View>
   );
 }
 
-export default function FixtureTicker({ teamShortName }: FixtureTickerProps) {
+export default function FixtureTicker({ teamShortName, compact }: FixtureTickerProps) {
   const colors = useColors();
   const fixtureData = useFixtureData();
 
@@ -67,16 +74,18 @@ export default function FixtureTicker({ teamShortName }: FixtureTickerProps) {
   if (slots.length === 0) return null;
 
   return (
-    <View style={styles.container}>
-      <Text style={[styles.label, { color: colors.mutedForeground }]}>
-        Next {slots.length}
-      </Text>
-      <View style={styles.row}>
+    <View style={compact ? compactStyles.container : styles.container}>
+      {!compact && (
+        <Text style={[styles.label, { color: colors.mutedForeground }]}>
+          Next {slots.length}
+        </Text>
+      )}
+      <View style={compact ? compactStyles.row : styles.row}>
         {slots.map((group, i) =>
           group.length > 1 ? (
-            <DgwPill key={`gw-${group[0].event}-${i}`} fixtures={group} />
+            <DgwPill key={`gw-${group[0].event}-${i}`} fixtures={group} compact={compact} />
           ) : (
-            <FixturePill key={`gw-${group[0].event}-${i}`} fixture={group[0]} />
+            <FixturePill key={`gw-${group[0].event}-${i}`} fixture={group[0]} compact={compact} />
           ),
         )}
       </View>
@@ -137,6 +146,56 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "rgba(255,255,255,0.7)",
     letterSpacing: 0.5,
+    marginTop: -1,
+  },
+});
+
+const compactStyles = StyleSheet.create({
+  container: {
+    marginTop: 3,
+    marginBottom: 1,
+  },
+  row: {
+    flexDirection: "row",
+    gap: 2,
+  },
+  pill: {
+    width: 35,
+    paddingVertical: 3,
+    borderRadius: 5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pillTeam: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#fff",
+    letterSpacing: 0.2,
+  },
+  pillVenue: {
+    fontSize: 8,
+    fontWeight: "500",
+    color: "rgba(255,255,255,0.8)",
+    marginTop: -1,
+  },
+  dgwPill: {
+    width: 42,
+    paddingVertical: 2,
+    borderRadius: 5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dgwTeam: {
+    fontSize: 8,
+    fontWeight: "700",
+    color: "#fff",
+    letterSpacing: 0.1,
+  },
+  dgwLabel: {
+    fontSize: 6,
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.7)",
+    letterSpacing: 0.4,
     marginTop: -1,
   },
 });
