@@ -64,7 +64,6 @@ function SingleSwapRow({ playerOut, playerOutTeam, playerOutPrice, playerIn, pla
             {playerOutTeam}
             {typeof playerOutPrice === "number" ? ` · £${playerOutPrice.toFixed(1)}m` : ""}
           </Text>
-          <FixtureTicker teamShortName={playerOutTeam} compact />
         </View>
         <Text style={[styles.arrow, { color: colors.accent }]}>→</Text>
         <View style={styles.playerBlock}>
@@ -76,6 +75,15 @@ function SingleSwapRow({ playerOut, playerOutTeam, playerOutPrice, playerIn, pla
             {playerInTeam}
             {typeof playerInPrice === "number" ? ` · £${playerInPrice.toFixed(1)}m` : ""}
           </Text>
+        </View>
+      </View>
+      <View style={styles.tickerStack}>
+        <View style={styles.tickerRow}>
+          <Text style={[styles.tickerLabel, { color: "#ef4444" }]}>OUT</Text>
+          <FixtureTicker teamShortName={playerOutTeam} compact />
+        </View>
+        <View style={styles.tickerRow}>
+          <Text style={[styles.tickerLabel, { color: "#22c55e" }]}>IN</Text>
           <FixtureTicker teamShortName={playerInTeam} compact />
         </View>
       </View>
@@ -381,6 +389,21 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginHorizontal: 8,
     marginTop: 10,
+  },
+  tickerStack: {
+    marginTop: 6,
+    gap: 4,
+  },
+  tickerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  tickerLabel: {
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    width: 20,
   },
   playerName: {
     fontSize: 16,
