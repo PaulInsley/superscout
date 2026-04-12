@@ -271,6 +271,25 @@ ALTER TABLE league_memberships ENABLE ROW LEVEL SECURITY;
 ALTER TABLE challenge_points_balance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reward_redemptions ENABLE ROW LEVEL SECURITY;
 
+-- TABLE 19: notification_log
+CREATE TABLE IF NOT EXISTS notification_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES users(id) ON DELETE CASCADE,
+  notification_type text NOT NULL CHECK (notification_type IN ('deadline_reminder', 'post_gw_results', 'price_change', 'streak_at_risk')),
+  gameweek integer NOT NULL,
+  season text DEFAULT '2026-27',
+  title text NOT NULL,
+  body text NOT NULL,
+  sent_at timestamptz DEFAULT now(),
+  opened boolean DEFAULT false
+);
+
+CREATE INDEX IF NOT EXISTS idx_notification_log_user_gw ON notification_log(user_id, gameweek);
+
+ALTER TABLE notification_log ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notification_preferences jsonb DEFAULT '{"deadline_reminder": true, "post_gw_results": true, "price_change": true, "streak_at_risk": true}'::jsonb;
+
 -- RLS POLICIES — permissive for now, will be refined in Phase 1
 CREATE POLICY IF NOT EXISTS "users_select_own" ON users FOR SELECT USING (true);
 CREATE POLICY IF NOT EXISTS "users_update_own" ON users FOR UPDATE USING (true);
@@ -287,7 +306,7 @@ BEGIN
       'structural_knowledge', 'player_continuity', 'streaks', 'manager_profiles',
       'squad_cards', 'subscription_events', 'mini_league_context', 'challenges',
       'challenge_entries', 'superscout_leagues', 'league_memberships',
-      'challenge_points_balance', 'reward_redemptions'
+      'challenge_points_balance', 'reward_redemptions', 'notification_log'
     ])
   LOOP
     EXECUTE format('CREATE POLICY IF NOT EXISTS "allow_all_select" ON %I FOR SELECT USING (true)', tbl);

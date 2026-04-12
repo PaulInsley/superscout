@@ -1,0 +1,118 @@
+# REPLIT AGENT PROMPT — SuperScout Push Notifications System
+
+## Context
+
+SuperScout is a personality-driven AI fantasy football coach built in React Native (Expo) with Supabase backend. Push notifications are a Phase 2 feature. They must be delivered in the user’s chosen vibe voice (Expert, Critic, or Fanboy), capped at a maximum of 3 per gameweek, and must respect user permissions. The app already uses Expo — so use Expo Notifications (expo-notifications) as the push service.
+
+## Task
+
+Build the complete push notification system. This has four parts: infrastructure, notification types, delivery logic, and settings UI.
+
+-----
+
+## PART 1 — Infrastructure
+
+1. **Install expo-notifications** and add it to the app plugins in app.json. Also install expo-device (needed to check if running on a physical device — push tokens don’t work on simulators).
+1. **CREATE a notification service** at services/notifications/pushNotificationService.ts that handles:
+- Requesting notification permissions on first app open (after onboarding is complete, not before)
+- Registering the Expo push token with Supabase (store it in the users table — add an `expo_push_token` text column if it doesn’t exist)
+- A `sendLocalNotification` function for testing
+- A `scheduleNotification` function that accepts: title, body, trigger time (as a Date), and optional data payload
+1. **CREATE a Supabase table** `notification_log` to track what’s been sent:
+- id (uuid, primary key)
+- user_id (uuid, references users.id)
+- notification_type (text — ‘deadline_reminder’, ‘post_gw_results’, ‘price_change’, ‘streak_at_risk’)
+- gameweek (integer)
+- season (text, default ‘2026-27’)
+- title (text)
+- body (text)
+- sent_at (timestamptz, default now())
+- opened (boolean, default false)
+- Enable RLS with same pattern as other tables.
+1. **CREATE a server-side endpoint** at server/notifications.ts (or add to existing server routes) that:
+- Accepts a user_id and notification_type
+- Checks the notification_log to see how many notifications this user has received this gameweek
+- If already at 3, skip — do not send
+- If under 3, looks up the user’s vibe preference and generates the notification text in that vibe voice
+- Sends the push notification via Expo’s push API (https://exp.host/–/api/v2/push/send)
+- Logs the notification in notification_log
+
+-----
+
+## PART 2 — Notification Types (Phase 2 — build these 4 only)
+
+For now, build these four notification types. Each one has three vibe variants. The server endpoint should select the correct variant based on the user’s active vibe.
+
+### Type 1: Deadline Reminder
+
+- **Trigger:** 2 hours before the gameweek deadline
+- **Skip if:** User has already opened the Captain Picker or Transfer Advisor this gameweek (check the decision_log table)
+- **Expert:** “Deadline in 2 hours. Your options are ready — the data supports a clear top pick this week.”
+- **Critic:** “2 hours left. Still haven’t made your moves? Bold strategy.”
+- **Fanboy:** “DEADLINE ALERT! Let’s lock in those picks — this could be YOUR week!”
+
+### Type 2: Post-GW Results
+
+- **Trigger:** Monday morning at 9:00 AM BST (after all fixtures in the GW have completed)
+- **Skip if:** Never skip — everyone gets results
+- **Expert:** “GW[X] results are in. [Points] points. Open SuperScout for the full breakdown.”
+- **Critic:** “GW[X] done. [Points] points. Could’ve been better. Want to know how?”
+- **Fanboy:** “[Points] POINTS! GW[X] is done — let’s see how you did!”
+- Note: [X] and [Points] should be replaced with actual gameweek number and the user’s points. Pull from FPL API using the user’s manager ID.
+
+### Type 3: Price Change Alert
+
+- **Trigger:** When a player the user owns is predicted to drop in price (check FPL API price change data, typically runs overnight)
+- **Skip if:** User has already made a transfer involving this player this gameweek
+- **Expert:** “Price alert: [Player] is expected to fall tonight. Your sell price drops £0.1m if you hold.”
+- **Critic:** “[Player] is losing value tonight. Don’t say I didn’t warn you.”
+- **Fanboy:** “Heads up — [Player] might drop in price tonight. Quick transfer time?”
+
+### Type 4: Streak at Risk
+
+- **Trigger:** Thursday at 6:00 PM BST if the user has an active streak but hasn’t opened the app or made any decision this gameweek
+- **Skip if:** User has already logged a decision this gameweek (check decision_log)
+- **Expert:** “Your [N]-gameweek streak is at risk. Open SuperScout to keep it alive.”
+- **Critic:** “About to lose your [N]-week streak. Typical.”
+- **Fanboy:** “Don’t break the streak! [N] weeks strong — keep it going!”
+- Note: [N] should be the user’s current streak count. This requires the Streak feature to exist — if it doesn’t exist yet, stub this notification type and mark it as TODO.
+
+-----
+
+## PART 3 — Delivery Logic
+
+1. **Max 3 per gameweek rule.** Before sending any notification, check the notification_log for this user + gameweek combination. If 3 or more have already been sent, do not send. This is a hard cap.
+1. **Priority order.** If multiple notifications are eligible in the same gameweek, prioritise in this order: (1) Deadline reminder, (2) Price change alert, (3) Streak at risk, (4) Post-GW results. The 3-per-GW cap means some notifications may be skipped in busy weeks.
+1. **Smart skip.** Each notification type has a “skip if” condition listed above. Always check before sending. Don’t nag users who have already acted.
+1. **Scheduling.** For the beta, notifications can be triggered by a server-side cron job or Supabase Edge Function that runs at the appropriate times:
+- Deadline reminder: 2 hours before each GW deadline (deadline times come from the FPL API /bootstrap-static/ endpoint, events array, deadline_time field)
+- Post-GW results: Monday 9:00 AM BST
+- Price change: Daily at 3:00 AM BST (when FPL price changes typically process)
+- Streak at risk: Thursday 6:00 PM BST
+   
+   For now, create the scheduling logic but it’s fine to trigger manually for testing. Automated scheduling is a Week 9-10 task.
+
+-----
+
+## PART 4 — Settings UI
+
+1. **ADD a Notifications section to the Settings screen** with toggles for each notification type:
+- Deadline reminders (default: ON)
+- Results updates (default: ON)
+- Price change alerts (default: ON for Pro users, OFF for free users)
+- Streak reminders (default: ON)
+1. **Store preferences** in a new `notification_preferences` column (jsonb) on the users table. Default value: `{"deadline_reminder": true, "post_gw_results": true, "price_change": true, "streak_at_risk": true}`
+1. **Check preferences before sending.** The server endpoint must check the user’s notification_preferences before sending any notification. If the relevant toggle is OFF, skip.
+1. **Permission request flow.** On first app open after onboarding, request push notification permission via Expo’s Notifications.requestPermissionsAsync(). If denied, show a subtle banner in Settings explaining how to enable notifications in device settings. Never ask again automatically after denial.
+
+-----
+
+## Architecture Note
+
+The notification service (pushNotificationService.ts) must be sport-agnostic. The notification types, trigger logic, and FPL-specific data (deadline times, player prices, gameweek numbers) should live in a separate sport-specific module (e.g., services/notifications/fpl-triggers.ts) that feeds data into the generic notification service. When a new sport is added later, only a new trigger module is needed — the core notification infrastructure stays the same.
+
+-----
+
+## Git Safety
+
+Do NOT run any destructive git operations (git reset –hard, orphan commits, force pushes rewriting history) without stopping and explaining the consequences first. Commit after each major part with a clear message.

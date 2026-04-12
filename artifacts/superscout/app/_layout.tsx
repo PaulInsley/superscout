@@ -16,6 +16,11 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { initializeRevenueCat, SubscriptionProvider } from "@/lib/revenuecat";
+import {
+  requestPushPermissions,
+  getExpoPushToken,
+  registerTokenWithServer,
+} from "@/services/notifications/pushNotificationService";
 import OnboardingFlow, {
   ONBOARDING_COMPLETE_KEY,
 } from "./onboarding/OnboardingFlow";
@@ -79,7 +84,25 @@ export default function RootLayout() {
             <GestureHandlerRootView style={{ flex: 1 }}>
                 {showOnboarding ? (
                   <OnboardingFlow
-                    onComplete={() => setShowOnboarding(false)}
+                    onComplete={async () => {
+                      setShowOnboarding(false);
+                      try {
+                        const granted = await requestPushPermissions();
+                        if (granted) {
+                          const token = await getExpoPushToken();
+                          if (token) {
+                            const domain = process.env.EXPO_PUBLIC_DOMAIN;
+                            if (domain) {
+                              await registerTokenWithServer(
+                                `https://${domain}/api`,
+                                "00000000-0000-0000-0000-000000000000",
+                                token,
+                              );
+                            }
+                          }
+                        }
+                      } catch {}
+                    }}
                   />
                 ) : (
                   <RootLayoutNav />

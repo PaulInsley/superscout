@@ -58,7 +58,9 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.85.0",
     "expo-clipboard": "~8.0.8",
+    "expo-device": "^55.0.14",
     "expo-media-library": "~18.2.1",
+    "expo-notifications": "^55.0.18",
     "expo-sharing": "~14.0.8",
     "react-native-purchases": "9.7.2",
     "react-native-view-shot": "^4.0.3"

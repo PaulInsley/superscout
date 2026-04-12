@@ -8,6 +8,7 @@ import processDecisionsRouter from "./processDecisions";
 import squadCardRouter from "./squadCard";
 import preGenerateRouter from "./preGenerate";
 import banterRouter from "./banter";
+import notificationsRouter from "./notifications";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(processDecisionsRouter);
 router.use(squadCardRouter);
 router.use(preGenerateRouter);
 router.use(banterRouter);
+router.use(notificationsRouter);
 
 export default router;

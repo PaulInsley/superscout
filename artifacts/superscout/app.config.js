@@ -36,7 +36,17 @@ const config = {
       "expo-font",
       "expo-web-browser",
       ...(IS_EAS_BUILD
-        ? ["react-native-purchases", ["expo-media-library"]]
+        ? [
+            "react-native-purchases",
+            ["expo-media-library"],
+            [
+              "expo-notifications",
+              {
+                icon: "./assets/images/icon.png",
+                color: "#00ff87",
+              },
+            ],
+          ]
         : []),
     ],
     experiments: {

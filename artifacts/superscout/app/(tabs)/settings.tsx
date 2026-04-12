@@ -67,6 +67,14 @@ export default function SettingsScreen() {
   const [leaguesSaving, setLeaguesSaving] = useState(false);
   const [showLeaguePicker, setShowLeaguePicker] = useState(false);
 
+  const [notifPrefs, setNotifPrefs] = useState<Record<string, boolean>>({
+    deadline_reminder: true,
+    post_gw_results: true,
+    price_change: true,
+    streak_at_risk: true,
+  });
+  const [notifPermissionGranted, setNotifPermissionGranted] = useState(true);
+
   useEffect(() => {
     AsyncStorage.getItem(PERSONA_KEY)
       .then((val) => {
@@ -76,6 +84,37 @@ export default function SettingsScreen() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const loadNotifPrefs = async () => {
+      try {
+        const stored = await AsyncStorage.getItem("superscout_notif_prefs");
+        if (stored) setNotifPrefs(JSON.parse(stored));
+      } catch {}
+      try {
+        const Notifications = await import("expo-notifications");
+        const { status } = await Notifications.getPermissionsAsync();
+        setNotifPermissionGranted(status === "granted");
+      } catch {}
+    };
+    loadNotifPrefs();
+  }, []);
+
+  const handleNotifToggle = useCallback(async (key: string, value: boolean) => {
+    const updated = { ...notifPrefs, [key]: value };
+    setNotifPrefs(updated);
+    await AsyncStorage.setItem("superscout_notif_prefs", JSON.stringify(updated));
+    try {
+      let userId = "00000000-0000-0000-0000-000000000000";
+      try { const { data: { user } } = await supabase.auth.getUser(); if (user?.id) userId = user.id; } catch {}
+      const apiBase = getApiBaseUrl();
+      await fetch(`${apiBase}/notifications/preferences`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, preferences: updated }),
+      });
+    } catch {}
+  }, [notifPrefs]);
 
   const loadSavedLeagues = useCallback(async () => {
     try {
@@ -614,6 +653,70 @@ export default function SettingsScreen() {
                 />
               </Pressable>
             </>
+          )}
+        </View>
+
+        <View
+          style={[
+            styles.section,
+            {
+              backgroundColor: colors.card,
+              borderRadius: colors.radius,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <Text
+            style={[styles.sectionTitle, { color: colors.mutedForeground }]}
+          >
+            Notifications
+          </Text>
+
+          {(
+            [
+              { key: "deadline_reminder", label: "Deadline Reminders", desc: "2 hours before each deadline" },
+              { key: "post_gw_results", label: "Results Updates", desc: "Monday morning after all games" },
+              { key: "price_change", label: "Price Change Alerts", desc: "When your players may drop in price", proOnly: true },
+              { key: "streak_at_risk", label: "Streak Reminders", desc: "When your streak is at risk" },
+            ] as const
+          ).map((item) => (
+            <View key={item.key} style={[styles.settingRow, { borderBottomColor: colors.border }]}>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Text style={[styles.settingLabel, { color: colors.foreground }]}>
+                    {item.label}
+                  </Text>
+                  {item.proOnly && !isPro && <ProBadge />}
+                </View>
+                <Text style={[styles.settingValue, { color: colors.mutedForeground }]}>
+                  {item.desc}
+                </Text>
+              </View>
+              <Switch
+                value={notifPrefs[item.key] ?? true}
+                onValueChange={(val) => handleNotifToggle(item.key, val)}
+                disabled={item.proOnly && !isPro}
+                trackColor={{ false: "#555", true: "#00ff87" }}
+                thumbColor="#fff"
+              />
+            </View>
+          ))}
+
+          {!notifPermissionGranted && (
+            <Pressable
+              onPress={() => Linking.openSettings()}
+              style={[styles.settingRow, { borderBottomColor: colors.border }]}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.settingLabel, { color: "#f59e0b" }]}>
+                  Notifications disabled
+                </Text>
+                <Text style={[styles.settingValue, { color: colors.mutedForeground }]}>
+                  Tap to open device settings and enable notifications
+                </Text>
+              </View>
+              <Feather name="external-link" size={18} color={colors.mutedForeground} />
+            </Pressable>
           )}
         </View>
 
