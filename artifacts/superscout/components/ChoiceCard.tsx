@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 import FixtureTicker from "@/components/FixtureTicker";
+import OwnershipSpectrum from "@/components/OwnershipSpectrum";
 import type { CaptainRecommendation } from "@/services/fpl/types";
 
 interface ChoiceCardProps {
@@ -93,12 +94,11 @@ export default function ChoiceCard({ recommendation }: ChoiceCardProps) {
           </Text>
         </View>
 
-        {recommendation.ownership_context ? (
-          <View style={styles.ownershipContextContainer}>
-            <Text style={[styles.ownershipContextText, { color: colors.mutedForeground }]}>
-              {recommendation.ownership_context}
-            </Text>
-          </View>
+        {recommendation.ownership_context && recommendation.ownership_pct > 0 ? (
+          <OwnershipSpectrum
+            ownershipPct={recommendation.ownership_pct}
+            ownershipContext={recommendation.ownership_context}
+          />
         ) : null}
 
         <View style={styles.reasoningContainer}>
@@ -269,14 +269,6 @@ const styles = StyleSheet.create({
   },
   ownership: {
     fontSize: 12,
-  },
-  ownershipContextContainer: {
-    marginBottom: 10,
-  },
-  ownershipContextText: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontStyle: "italic",
   },
   reasoningContainer: {
     gap: 6,
