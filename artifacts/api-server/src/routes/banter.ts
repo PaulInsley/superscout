@@ -343,7 +343,7 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
       const client = getClient();
       const vibeSystemPrompt = VIBE_PROMPTS[String(vibe) as keyof typeof VIBE_PROMPTS] ?? VIBE_PROMPTS.expert;
       const response = await client.messages.create({
-        model: "claude-sonnet-4-6", max_tokens: 800,
+        model: "claude-haiku-4-5-20251001", max_tokens: 800,
         system: `${vibeSystemPrompt}\n\nYou generate mini-league banter between FPL managers. Respond ONLY with valid JSON.`,
         messages: [{ role: "user", content: banterPrompt }],
       });

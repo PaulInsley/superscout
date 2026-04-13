@@ -267,7 +267,7 @@ IMPORTANT: Return ONLY the quip text. No quotes, no preamble, no explanation. Ju
 
       const client = getClient();
       const message = await client.messages.create({
-        model: "claude-sonnet-4-6",
+        model: "claude-haiku-4-5-20251001",
         max_tokens: 200,
         system: vibePrompt,
         messages: [{ role: "user", content: quipContext }],

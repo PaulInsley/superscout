@@ -1130,7 +1130,7 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
 
     const client = getClient(45000);
     const message = await client.messages.create({
-      model: "claude-sonnet-4-6",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 4000,
       system: systemPrompt,
       messages: [{ role: "user", content: context }],
@@ -1335,7 +1335,7 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
       ].filter(Boolean).join("\n\n");
 
       const retryMessage = await client.messages.create({
-        model: "claude-sonnet-4-6",
+        model: "claude-haiku-4-5-20251001",
         max_tokens: 4000,
         system: retrySystemPrompt,
         messages: [{ role: "user", content: context }],
