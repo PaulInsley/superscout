@@ -27,6 +27,25 @@ router.post("/users/profile", async (req: Request, res: Response) => {
     if (beginner_rounds_completed !== undefined) updates.beginner_rounds_completed = beginner_rounds_completed;
     if (beginner_lessons_seen !== undefined) updates.beginner_lessons_seen = beginner_lessons_seen;
 
+    if (updates.email) {
+      const { data: existing } = await supabase
+        .from("users")
+        .select("id")
+        .eq("email", updates.email as string)
+        .neq("id", user_id)
+        .maybeSingle();
+
+      if (existing) {
+        const { error: delErr } = await supabase
+          .from("users")
+          .delete()
+          .eq("id", existing.id);
+        if (delErr) {
+          req.log.warn({ err: delErr, old_id: existing.id }, "Failed to remove old profile for email");
+        }
+      }
+    }
+
     const { error } = await supabase.from("users").upsert(
       { id: user_id, ...updates },
       { onConflict: "id" },
