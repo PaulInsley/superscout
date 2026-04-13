@@ -884,7 +884,7 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
       if (!diverseCandidates.includes(c)) diverseCandidates.push(c);
     }
 
-    const candidatesSummary = diverseCandidates.slice(0, 30).map((c) => {
+    const candidatesSummary = diverseCandidates.slice(0, 20).map((c) => {
       const pos = POSITION_MAP[c.player.element_type] ?? "UNK";
       return `- ${c.player.web_name} (${pos}, ${c.team.short_name}) £${(c.player.now_cost / 10).toFixed(1)}m | Form: ${c.player.form} | Pts: ${c.player.total_points} | Own: ${c.player.selected_by_percent}% | FDR: ${c.upcomingFdr.join(",")}`;
     }).join("\n");
@@ -987,76 +987,22 @@ ALWAYS include a hold option as the LAST recommendation with is_hold_recommendat
 
 CRITICAL COUNT REQUIREMENT: ${recommendationCount}. Do NOT return fewer recommendations than specified. The user needs multiple genuine choices.
 
-CRITICAL COMMENTARY RULE — ZERO CROSS-REFERENCES:
-Each recommendation is displayed as an ISOLATED card. The user sees ONE card at a time with NO visibility of other cards.
-Therefore: the "upside", "risk", and "case" fields MUST focus on the player_in (the player being brought IN). They should NOT discuss the player_out's fixtures, form, or reasons for dropping them — the user already sees who is going OUT from the card header.
-DO NOT reference, compare, contrast, or allude to any player from ANY other recommendation.
-If a card says "Bernardo OUT → Wieffer IN", the upside/risk/case must discuss ONLY Wieffer — why Wieffer is a good pick, Wieffer's fixtures, Wieffer's form. Do NOT write about Bernardo's fixtures or why Bernardo should be dropped.
-Treat each recommendation as if it is the ONLY recommendation you are writing. No "both of these", no "this pairs with", no mentioning other transfers.
+COMMENTARY RULES:
+- upside/risk/case must focus on player_in only. Do NOT discuss player_out.
+- Each card is shown in isolation. Never reference other recommendations.
+- Every recommendation must have a different player_in. No duplicates.
+- Use exact web_name from squad/candidate data (e.g. "Cunha", "B.Fernandes").
+- Exactly one recommendation: is_superscout_pick: true.
+- Last recommendation: is_hold_recommendation: true.
 
-CRITICAL DEDUPLICATION RULE: Every recommendation MUST involve a different player_in. Never recommend the same incoming player twice, even if paired with different outgoing players. Each card must offer a genuinely distinct transfer option.
+For PACKAGES: is_package: true, package_name, transfers array, total_net_cost, total_hit_cost, uses_free_transfers, total_expected_points_gain_3gw.
+For INDIVIDUAL swaps: player_out, player_in, player_out_team, player_in_team, player_out_selling_price, player_in_price, net_cost, uses_free_transfer, hit_cost, expected_points_gain_3gw.
+Both types: confidence (BANKER|CALCULATED_RISK|BOLD_PUNT), upside, risk, case, is_superscout_pick, is_hold_recommendation.
 
-Exactly one recommendation should have is_superscout_pick: true.
-Mark hold recommendations with is_hold_recommendation: true.
-
-For PACKAGE recommendations (multiple transfers grouped together):
-- Set is_package: true
-- Set package_name to a creative name for the package
-- Set transfers array with each individual swap in the package
-- Set combined fields: total_expected_points_gain_3gw, total_net_cost, total_hit_cost
-- The "case" field should explain why these transfers work TOGETHER
-
-For INDIVIDUAL recommendations (single swap):
-- Set is_package: false (or omit)
-- Use the flat fields: player_out, player_in, net_cost, etc.
-- IMPORTANT: For player_out and player_in, use the exact web_name as shown in the squad/candidate data above (e.g. "Cunha", "Salah", "B.Fernandes", "Beto"). Do NOT use full legal names.
-
-You MUST respond with valid JSON only — no markdown, no backticks, no preamble.
+Respond with valid JSON only — no markdown, no backticks.
 
 JSON structure:
-{
-  "gameweek": ${currentGw},
-  "free_transfers": ${freeTransfers},
-  "budget_remaining": ${bank.toFixed(1)},
-  "recommendations": [
-    {
-      "is_package": false,
-      "player_out": "Surname or null",
-      "player_out_team": "Team or null",
-      "player_out_selling_price": 10.2,
-      "player_in": "Surname or null",
-      "player_in_team": "Team or null",
-      "player_in_price": 13.0,
-      "net_cost": 2.8,
-      "uses_free_transfer": true,
-      "hit_cost": 0,
-      "expected_points_gain_3gw": 4.5,
-      "confidence": "BANKER|CALCULATED_RISK|BOLD_PUNT",
-      "upside": "text",
-      "risk": "text",
-      "case": "persona text",
-      "is_superscout_pick": false,
-      "is_hold_recommendation": false
-    },
-    {
-      "is_package": true,
-      "package_name": "The Fixture Swing",
-      "transfers": [
-        { "player_out": "Surname", "player_out_team": "Team", "player_out_selling_price": 5.0, "player_in": "Surname", "player_in_team": "Team", "player_in_price": 5.5 },
-        { "player_out": "Surname", "player_out_team": "Team", "player_out_selling_price": 7.0, "player_in": "Surname", "player_in_team": "Team", "player_in_price": 6.5 }
-      ],
-      "total_net_cost": -1.0,
-      "total_hit_cost": 0,
-      "uses_free_transfers": 2,
-      "total_expected_points_gain_3gw": 8.0,
-      "confidence": "CALCULATED_RISK",
-      "upside": "text",
-      "risk": "text",
-      "case": "persona text explaining why these moves work TOGETHER",
-      "is_superscout_pick": true,
-      "is_hold_recommendation": false
-    }
-  ]
+{"gameweek":${currentGw},"free_transfers":${freeTransfers},"budget_remaining":${bank.toFixed(1)},"recommendations":[...]}
 }`;
 
     const context = `GAMEWEEK: ${currentGw}
@@ -1120,7 +1066,6 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
 
     const systemPrompt = [
       vibePrompt,
-      rulesContext,
       gwAnalysisPrompt,
       chipPrompt,
       captainContextPrompt,
@@ -1134,7 +1079,7 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
     const client = getClient(45000);
     const message = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 3000,
+      max_tokens: 4000,
       system: systemPrompt,
       messages: [{ role: "user", content: context }],
     });
@@ -1339,7 +1284,7 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
 
       const retryMessage = await client.messages.create({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 3000,
+        max_tokens: 4000,
         system: retrySystemPrompt,
         messages: [{ role: "user", content: context }],
       });
