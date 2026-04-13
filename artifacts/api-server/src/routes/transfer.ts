@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { getRulesContext } from "../lib/rulesEngine";
-import { getCached, getStale, cacheKey, TTL, setCache } from "../lib/fplCache";
+import { getCached, getStale, cacheKey, TTL, setCache, clearCache } from "../lib/fplCache";
 import { fetchFromFpl } from "../lib/fplRateLimiter";
 import { VIBE_PROMPTS } from "../lib/vibes";
 import {
@@ -565,6 +565,17 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
 
     const managerId = String(manager_id);
 
+    if (skipCache) {
+      clearCache(cacheKey("entry", managerId));
+      clearCache(cacheKey("transfers", managerId));
+      clearCache(cacheKey("history", managerId));
+      clearCache(cacheKey("picks", managerId, String(31)));
+      clearCache(cacheKey("picks", managerId, String(32)));
+      clearCache(cacheKey("picks", managerId, String(33)));
+      clearCache(cacheKey("picks", managerId, String(34)));
+      req.log.info("skip_cache=true — cleared FPL data cache for manager");
+    }
+
     const [bootstrap, managerInfo] = await Promise.all([
       fetchCachedData<BootstrapData>(
         cacheKey("bootstrap-static"),
@@ -771,10 +782,44 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
 
     const [fixtures, transferHistory, historyData] = await parallelDataPromise;
 
-    req.log.info({ managerId, picksGw: picksData.entry_history.event }, "FPL data fetched");
-
     const playerMap = new Map(bootstrap.elements.map((p) => [p.id, p]));
     const teamMap = new Map(bootstrap.teams.map((t) => [t.id, t]));
+
+    req.log.info(
+      {
+        managerId,
+        picksGw: picksData.entry_history.event,
+        picksBank: picksData.entry_history.bank,
+        picksValue: picksData.entry_history.value,
+        picksEventTransfers: picksData.entry_history.event_transfers,
+        entryBank: managerInfo.last_deadline_bank,
+        entryValue: managerInfo.last_deadline_value,
+        entryTotalTransfers: managerInfo.last_deadline_total_transfers,
+        transferHistoryCount: transferHistory.length,
+        transferHistoryGw33: transferHistory.filter((t) => t.event === currentGw).length,
+        currentGw,
+        squad: picksData.picks.map((p) => {
+          const pl = playerMap.get(p.element);
+          return pl ? `${pl.web_name}(${p.element})` : String(p.element);
+        }),
+      },
+      "Raw FPL API data",
+    );
+
+    if (transferHistory.length > 0) {
+      req.log.info(
+        {
+          transfers: transferHistory.map((t) => ({
+            event: t.event,
+            playerIn: playerMap.get(t.element_in)?.web_name ?? t.element_in,
+            playerOut: playerMap.get(t.element_out)?.web_name ?? t.element_out,
+            inCost: t.element_in_cost,
+            outCost: t.element_out_cost,
+          })),
+        },
+        "Transfer history detail",
+      );
+    }
 
     const squadIds = new Set(picksData.picks.map((p) => p.element));
 
