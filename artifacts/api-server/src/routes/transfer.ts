@@ -406,6 +406,19 @@ function splitIntoSegments(text: string): string[] {
   return segments;
 }
 
+function getCardOutPlayerNames(rec: Record<string, unknown>): Set<string> {
+  const names = new Set<string>();
+  if (rec.is_hold_recommendation) return names;
+  if (rec.is_package && Array.isArray(rec.transfers)) {
+    for (const t of rec.transfers as Array<Record<string, string>>) {
+      if (t.player_out) names.add(t.player_out);
+    }
+  } else {
+    if (rec.player_out) names.add(String(rec.player_out));
+  }
+  return names;
+}
+
 function sanitiseCommentary(
   recs: Array<Record<string, unknown>>,
   logger: Request["log"],
@@ -417,7 +430,11 @@ function sanitiseCommentary(
     if (rec.is_hold_recommendation) return rec;
 
     const ownNames = allCardNames[idx];
+    const outNames = getCardOutPlayerNames(rec);
     const foreignNames = new Set<string>();
+    for (const name of outNames) {
+      foreignNames.add(name);
+    }
     for (let i = 0; i < allCardNames.length; i++) {
       if (i === idx) continue;
       for (const name of allCardNames[i]) {
@@ -432,7 +449,7 @@ function sanitiseCommentary(
       if (commentaryText) {
         const words = new Set(commentaryText.split(/[\s.,;:!?()"'—–-]+/).filter(Boolean));
         for (const pName of allPlayerNames) {
-          if (ownNames.has(pName)) continue;
+          if (ownNames.has(pName) && !outNames.has(pName)) continue;
           if (foreignNames.has(pName)) continue;
           const parts = pName.split(/\s+/);
           const lastPart = parts[parts.length - 1];
@@ -969,9 +986,9 @@ CRITICAL COUNT REQUIREMENT: ${recommendationCount}. Do NOT return fewer recommen
 
 CRITICAL COMMENTARY RULE — ZERO CROSS-REFERENCES:
 Each recommendation is displayed as an ISOLATED card. The user sees ONE card at a time with NO visibility of other cards.
-Therefore: the "upside", "risk", and "case" fields for a recommendation must mention ONLY the player_out and player_in named in THAT card (or the players in that card's transfers array for packages).
+Therefore: the "upside", "risk", and "case" fields MUST focus on the player_in (the player being brought IN). They should NOT discuss the player_out's fixtures, form, or reasons for dropping them — the user already sees who is going OUT from the card header.
 DO NOT reference, compare, contrast, or allude to any player from ANY other recommendation.
-If a card says "Bernardo OUT → Wieffer IN", the upside/risk/case must discuss ONLY Bernardo and Wieffer — not Bijol, not Mavropanos, not any other player appearing in other cards.
+If a card says "Bernardo OUT → Wieffer IN", the upside/risk/case must discuss ONLY Wieffer — why Wieffer is a good pick, Wieffer's fixtures, Wieffer's form. Do NOT write about Bernardo's fixtures or why Bernardo should be dropped.
 Treat each recommendation as if it is the ONLY recommendation you are writing. No "both of these", no "this pairs with", no mentioning other transfers.
 
 Exactly one recommendation should have is_superscout_pick: true.
