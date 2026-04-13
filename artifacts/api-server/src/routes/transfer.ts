@@ -562,11 +562,24 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
 
     const managerId = String(manager_id);
 
-    const bootstrap = await fetchCachedData<BootstrapData>(
-      cacheKey("bootstrap-static"),
-      "/bootstrap-static/",
-      TTL.STATIC,
-    );
+    const [bootstrap, managerInfo] = await Promise.all([
+      fetchCachedData<BootstrapData>(
+        cacheKey("bootstrap-static"),
+        "/bootstrap-static/",
+        TTL.STATIC,
+      ),
+      fetchCachedData<{
+        started_event: number;
+        entered_events?: number[];
+        last_deadline_bank: number;
+        last_deadline_value: number;
+        last_deadline_total_transfers: number;
+      }>(
+        cacheKey("entry", managerId),
+        `/entry/${managerId}/`,
+        TTL.USER,
+      ),
+    ]);
 
     const currentEvent = bootstrap.events.find((e) => e.is_current);
     const nextEvent = bootstrap.events.find((e) => e.is_next);
@@ -580,18 +593,6 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
     }
     const currentGw = activeEvent.id;
     const deadline = activeEvent.deadline_time;
-
-    const managerInfo = await fetchCachedData<{
-      started_event: number;
-      entered_events?: number[];
-      last_deadline_bank: number;
-      last_deadline_value: number;
-      last_deadline_total_transfers: number;
-    }>(
-      cacheKey("entry", managerId),
-      `/entry/${managerId}/`,
-      TTL.USER,
-    );
 
     const enteredEvents = managerInfo.entered_events ?? [];
     const hasPlayedGameweeks = enteredEvents.length > 0;
@@ -727,6 +728,20 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
     if (picksGw > 1) gwsToTry.push(picksGw - 1);
     if (picksGw > 2) gwsToTry.push(picksGw - 2);
 
+    const parallelDataPromise = Promise.all([
+      fetchCachedData<FPLFixture[]>(cacheKey("fixtures"), "/fixtures/", TTL.STATIC),
+      fetchCachedData<FPLTransfer[]>(
+        cacheKey("transfers", managerId),
+        `/entry/${managerId}/transfers/`,
+        TTL.USER,
+      ),
+      fetchCachedData<FPLHistory>(
+        cacheKey("history", managerId),
+        `/entry/${managerId}/history/`,
+        TTL.USER,
+      ),
+    ]);
+
     let picksData: FPLPicksResponse | null = null;
     for (const gw of gwsToTry) {
       try {
@@ -751,19 +766,7 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
 
     sendStage("market");
 
-    const [fixtures, transferHistory, historyData] = await Promise.all([
-      fetchCachedData<FPLFixture[]>(cacheKey("fixtures"), "/fixtures/", TTL.STATIC),
-      fetchCachedData<FPLTransfer[]>(
-        cacheKey("transfers", managerId),
-        `/entry/${managerId}/transfers/`,
-        TTL.USER,
-      ),
-      fetchCachedData<FPLHistory>(
-        cacheKey("history", managerId),
-        `/entry/${managerId}/history/`,
-        TTL.USER,
-      ),
-    ]);
+    const [fixtures, transferHistory, historyData] = await parallelDataPromise;
 
     req.log.info({ managerId, picksGw: picksData.entry_history.event }, "FPL data fetched");
 
@@ -1131,7 +1134,7 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
     const client = getClient(45000);
     const message = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 4000,
+      max_tokens: 3000,
       system: systemPrompt,
       messages: [{ role: "user", content: context }],
     });
@@ -1336,7 +1339,7 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
 
       const retryMessage = await client.messages.create({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 4000,
+        max_tokens: 3000,
         system: retrySystemPrompt,
         messages: [{ role: "user", content: context }],
       });
