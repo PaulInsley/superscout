@@ -991,6 +991,8 @@ DO NOT reference, compare, contrast, or allude to any player from ANY other reco
 If a card says "Bernardo OUT → Wieffer IN", the upside/risk/case must discuss ONLY Wieffer — why Wieffer is a good pick, Wieffer's fixtures, Wieffer's form. Do NOT write about Bernardo's fixtures or why Bernardo should be dropped.
 Treat each recommendation as if it is the ONLY recommendation you are writing. No "both of these", no "this pairs with", no mentioning other transfers.
 
+CRITICAL DEDUPLICATION RULE: Every recommendation MUST involve a different player_in. Never recommend the same incoming player twice, even if paired with different outgoing players. Each card must offer a genuinely distinct transfer option.
+
 Exactly one recommendation should have is_superscout_pick: true.
 Mark hold recommendations with is_hold_recommendation: true.
 
@@ -1362,10 +1364,54 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
 
     req.log.info({ finalCount: halChecked.length }, "Hallucination check done");
 
+    const seenSwaps = new Set<string>();
+    const seenInPlayers = new Set<string>();
+    const deduped = halChecked.filter((rec) => {
+      if (rec.is_hold_recommendation) return true;
+      if (rec.is_package && Array.isArray(rec.transfers)) {
+        const transfers = rec.transfers as Array<{ player_out?: string; player_in?: string }>;
+        const packageKey = transfers
+          .map((t) => `${String(t.player_out ?? "").toLowerCase()}>${String(t.player_in ?? "").toLowerCase()}`)
+          .sort()
+          .join("|");
+        if (seenSwaps.has(packageKey)) {
+          req.log.info({ packageName: rec.package_name }, "Duplicate package removed");
+          return false;
+        }
+        const inNames = transfers.map((t) => String(t.player_in ?? "").toLowerCase());
+        const hasOverlap = inNames.some((n) => n && seenInPlayers.has(n));
+        if (hasOverlap) {
+          req.log.info({ packageName: rec.package_name, inNames }, "Package removed — overlapping player_in with earlier card");
+          return false;
+        }
+        seenSwaps.add(packageKey);
+        inNames.forEach((n) => { if (n) seenInPlayers.add(n); });
+        return true;
+      }
+      const outKey = String(rec.player_out ?? "").toLowerCase();
+      const inKey = String(rec.player_in ?? "").toLowerCase();
+      const swapKey = `${outKey}>${inKey}`;
+      if (seenSwaps.has(swapKey)) {
+        req.log.info({ playerOut: rec.player_out, playerIn: rec.player_in }, "Duplicate swap removed");
+        return false;
+      }
+      if (inKey && seenInPlayers.has(inKey)) {
+        req.log.info({ playerOut: rec.player_out, playerIn: rec.player_in }, "Duplicate player_in removed — already recommended");
+        return false;
+      }
+      seenSwaps.add(swapKey);
+      if (inKey) seenInPlayers.add(inKey);
+      return true;
+    });
+
+    if (deduped.length < halChecked.length) {
+      req.log.info({ before: halChecked.length, after: deduped.length }, "Duplicates removed from recommendations");
+    }
+
     const playerNameSet = new Set<string>(
       (bootstrap.elements as FPLPlayer[]).map((p) => p.web_name),
     );
-    const sanitised = sanitiseCommentary(halChecked, req.log, playerNameSet);
+    const sanitised = sanitiseCommentary(deduped, req.log, playerNameSet);
 
     const chipName = isWildcardActive ? "wildcard" : isFreeHitActive ? "freehit" : isTripleCaptainActive ? "3xc" : isBenchBoostActive ? "bboost" : null;
 
