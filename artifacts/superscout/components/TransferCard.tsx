@@ -409,10 +409,16 @@ const s = StyleSheet.create({
   },
 
   singleSwapSection: {
-    marginBottom: 16,
+    marginBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.06)",
   },
   packageSection: {
-    marginBottom: 16,
+    marginBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.06)",
   },
   packageBanner: {
     flexDirection: "row",
@@ -444,7 +450,7 @@ const s = StyleSheet.create({
   },
 
   swapContainer: {
-    gap: 12,
+    gap: 16,
   },
   swapRow: {
     flexDirection: "row",
@@ -457,24 +463,24 @@ const s = StyleSheet.create({
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 1,
-    marginBottom: 4,
+    marginBottom: 5,
   },
   playerName: {
     fontSize: 18,
     fontWeight: "700",
-    marginBottom: 4,
+    marginBottom: 5,
   },
   playerMeta: {
     fontSize: 13,
-    lineHeight: 18,
+    lineHeight: 19,
   },
   arrowContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    marginHorizontal: 8,
+    marginHorizontal: 10,
   },
   arrow: {
     fontSize: 18,
@@ -482,12 +488,13 @@ const s = StyleSheet.create({
   },
 
   fixtureSection: {
-    gap: 6,
+    gap: 8,
+    paddingTop: 4,
   },
   fixtureRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
   },
   fixtureDot: {
     width: 6,
@@ -498,8 +505,8 @@ const s = StyleSheet.create({
   metaRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
-    gap: 8,
+    marginBottom: 20,
+    gap: 10,
     flexWrap: "wrap",
   },
   inlineRow: {
@@ -544,10 +551,10 @@ const s = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginBottom: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginBottom: 20,
   },
   impactLabel: {
     fontSize: 13,
@@ -559,39 +566,39 @@ const s = StyleSheet.create({
   },
 
   reasoningSection: {
-    gap: 8,
-    marginBottom: 16,
+    gap: 12,
+    marginBottom: 20,
   },
   reasonRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 8,
+    gap: 10,
   },
   reasonLabel: {
     fontSize: 12,
     fontWeight: "700",
     width: 48,
     letterSpacing: 0.3,
-    paddingTop: 1,
+    paddingTop: 2,
   },
   reasonText: {
     fontSize: 14,
     flex: 1,
-    lineHeight: 20,
+    lineHeight: 22,
   },
 
   caseContainer: {
-    padding: 12,
-    borderRadius: 8,
+    padding: 14,
+    borderRadius: 10,
   },
   caseText: {
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 22,
   },
 
   expandRow: {
     alignItems: "center",
-    paddingTop: 12,
+    paddingTop: 14,
   },
   expandText: {
     fontSize: 12,

@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import config from "@/constants/config";
+import { fetchCaptainCandidates } from "@/services/fpl/api";
 
 interface Props {
   teamName: string | null;
@@ -34,33 +35,43 @@ export default function YoureInScreen({ teamName, managerId, vibe, onFinish }: P
 
     (async () => {
       try {
-        const bootstrapRes = await fetch(`${apiBase}/fpl/bootstrap-static`);
-        if (!bootstrapRes.ok) throw new Error(`Bootstrap HTTP ${bootstrapRes.status}`);
-        const bootstrap = await bootstrapRes.json();
+        const result = await fetchCaptainCandidates(managerId);
+        if (!result.candidates.length) throw new Error("No candidates available");
 
-        const currentGw =
-          bootstrap.events?.find((e: { is_current: boolean }) => e.is_current)?.id ?? 1;
-        const deadlineTime =
-          bootstrap.events?.find((e: { id: number }) => e.id === currentGw)?.deadline_time ?? "";
+        const squadSummary = result.candidates
+          .map(
+            (c) =>
+              `- ${c.name} (${c.position}, ${c.team}) | Pos: ${c.pickPosition}${c.isBench ? " [BENCH]" : ""} | Form: ${c.form} | Total Pts: ${c.totalPoints} | Ownership: ${c.ownershipPct}% | Price: £${c.price}m | vs ${c.opponent} | FDR: ${c.fixtureDifficulty} | Status: ${c.status}${c.chanceOfPlaying !== null && c.chanceOfPlaying < 100 ? ` (${c.chanceOfPlaying}% chance)` : ""}`,
+          )
+          .join("\n");
 
-        const picksRes = await fetch(`${apiBase}/fpl/entry/${managerId}/event/${currentGw}/picks`);
-        if (!picksRes.ok) throw new Error(`Picks HTTP ${picksRes.status}`);
-        const picksData = await picksRes.json();
+        const context = `GAMEWEEK: ${result.gameweek}
+DEADLINE: ${result.deadlineTime}
+VIBE: ${persona}
 
-        const squad = (picksData.picks ?? []).slice(0, 11);
-        const elements = bootstrap.elements ?? [];
-        const teams = bootstrap.teams ?? [];
+SQUAD (15 players — positions 1-11 = starting XI, 12-15 = bench):
+${squadSummary}
 
-        const candidates = squad.map(
-          (pick: { element: number; position: number; is_captain: boolean }) => {
-            const el = elements.find((e: { id: number }) => e.id === pick.element);
-            if (!el) return null;
-            const team = teams.find((t: { id: number }) => t.id === el.team);
-            return `${el.web_name} (${team?.short_name ?? "?"}) - Form: ${el.form}, Pts: ${el.total_points}, Own: ${el.selected_by_percent}%`;
-          },
-        );
+You are generating captain recommendations for this FPL manager. Analyse their squad and upcoming fixtures. Return exactly 3 captain options. For each option provide: the player name, their team, the opponent and whether it is home or away, an expected points estimate, a confidence level (one of: BANKER, CALCULATED_RISK, or BOLD_PUNT), the player's ownership percentage, one clear upside sentence, one clear risk sentence, a persona-voiced one-liner making the case for this pick, and whether this is the SuperScout Pick (exactly one must be true).
 
-        const context = `Gameweek ${currentGw}. Deadline: ${deadlineTime}. Manager's starting XI:\n${candidates.filter(Boolean).join("\n")}`;
+You MUST respond with valid JSON only — no markdown, no preamble, no backticks. Use this exact JSON structure:
+{
+  "gameweek": ${result.gameweek},
+  "recommendations": [
+    {
+      "player_name": "Player Name",
+      "team": "Team Short Name",
+      "opponent": "OPP (H/A)",
+      "expected_points": 8,
+      "confidence": "BANKER",
+      "ownership_pct": 50,
+      "upside": "One sentence",
+      "risk": "One sentence",
+      "case": "Persona one-liner",
+      "is_superscout_pick": true
+    }
+  ]
+}`;
 
         const captainRes = await fetch(`${apiBase}/captain-picks`, {
           method: "POST",
