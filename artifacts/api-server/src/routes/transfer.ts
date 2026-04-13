@@ -703,7 +703,7 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
               );
             }
 
-            const result = { ...responseJson, source: "cached" };
+            const result = { ...responseJson, source: "cached", generated_at: cacheRow.generated_at };
 
             if (isSSE) {
               sendStage("done");
@@ -1421,6 +1421,7 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
       budget_remaining: parsed.budget_remaining ?? bank,
       recommendations: sanitised,
       source: "live",
+      generated_at: new Date().toISOString(),
       ...(gwAnalysis.type !== "normal" && {
         gw_type: gwAnalysis.type,
         blank_teams: gwAnalysis.blankTeams.map((t) => t.short_name),

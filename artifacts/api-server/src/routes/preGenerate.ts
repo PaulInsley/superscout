@@ -1067,7 +1067,7 @@ router.get("/pre-generated/:gameweek", async (req: Request, res: Response) => {
       }
     }
 
-    res.json({ found: true, response: data.response_json, source: "cached" });
+    res.json({ found: true, response: data.response_json, source: "cached", generated_at: data.generated_at });
   } catch (error) {
     req.log.error({ err: error }, "Pre-gen check failed");
     res.json({ found: false });

@@ -225,7 +225,7 @@ router.post("/captain-picks", async (req: Request, res: Response) => {
               req.log.info({ reason: staleness.reason }, "Cache discarded — stale data detected");
             } else {
               req.log.info({ cacheId: cached.id, gameweek }, "Serving cached captain picks");
-              res.json({ ...responseJson, source: "cached" });
+              res.json({ ...responseJson, source: "cached", generated_at: cached.generated_at });
               return;
             }
           } else {
@@ -375,7 +375,7 @@ NEVER imply low ownership is automatically better. If a differential pick has 3+
       }
     }
 
-    const liveResult = { ...parsed, source: "live" };
+    const liveResult = { ...parsed, source: "live", generated_at: new Date().toISOString() };
     res.json(liveResult);
 
     if (clientUserId && gameweek) {

@@ -35,6 +35,18 @@ import type {
 
 const PERSONA_KEY = "superscout_persona";
 
+function formatGeneratedAt(isoString: string): string {
+  const date = new Date(isoString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
 function getApiBaseUrl(): string {
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
   return `https://${domain}/api`;
@@ -59,6 +71,7 @@ export default function CaptainPickerScreen() {
   const [showPulse, setShowPulse] = useState(false);
   const [coachingDismissed, setCoachingDismissed] = useState(false);
   const [showGraduation, setShowGraduation] = useState(false);
+  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const stageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useFocusEffect(
@@ -176,6 +189,7 @@ export default function CaptainPickerScreen() {
               setGameweek(candidateData.gameweek);
               setDeadlineTime(candidateData.deadlineTime);
               setRecommendations(recsArray);
+              setGeneratedAt(preGenData.generated_at ?? null);
               logRecommendationSilently({ recommendations: recsArray } as CaptainPicksResponse, candidateData.gameweek);
               trackStreakActivity();
               return;
@@ -212,6 +226,7 @@ export default function CaptainPickerScreen() {
         clearStageTimers();
         setLoadingStage("done");
         setRecommendations(data.recommendations);
+        setGeneratedAt((data as any).generated_at ?? null);
         logRecommendationSilently(data, candidateData.gameweek);
         trackStreakActivity();
       } else {
@@ -545,6 +560,11 @@ export default function CaptainPickerScreen() {
                 Regenerate
               </Text>
             </Pressable>
+            {generatedAt && (
+              <Text style={[styles.generatedAtText, { color: colors.mutedForeground }]}>
+                Generated {formatGeneratedAt(generatedAt)}
+              </Text>
+            )}
           </>
         )}
       </ScrollView>
@@ -754,5 +774,10 @@ const styles = StyleSheet.create({
   regenerateText: {
     fontSize: 13,
     fontWeight: "600",
+  },
+  generatedAtText: {
+    fontSize: 11,
+    textAlign: "center" as const,
+    marginTop: 6,
   },
 });

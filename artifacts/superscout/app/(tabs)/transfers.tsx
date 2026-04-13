@@ -28,6 +28,18 @@ import type { TransferRecommendation } from "@/components/TransferCard";
 
 const PERSONA_KEY = "superscout_persona";
 
+function formatGeneratedAt(isoString: string): string {
+  const date = new Date(isoString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
 function getApiBaseUrl(): string {
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
   return `https://${domain}/api`;
@@ -65,6 +77,7 @@ export default function TransferAdvisorScreen() {
   const [activeChip, setActiveChip] = useState<string | null>(null);
   const [coachingDismissed, setCoachingDismissed] = useState(false);
   const [showGraduation, setShowGraduation] = useState(false);
+  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -103,7 +116,7 @@ export default function TransferAdvisorScreen() {
     stageTimersRef.current = [t1, t2, t3, t4, t5, t6];
   }, [clearStageTimers]);
 
-  const applyTransferResult = useCallback((data: TransferAdviceResponse) => {
+  const applyTransferResult = useCallback((data: TransferAdviceResponse & { generated_at?: string }) => {
     setRecommendations(data.recommendations ?? []);
     trackStreakActivity();
     setGameweek(data.gameweek ?? 0);
@@ -113,6 +126,7 @@ export default function TransferAdvisorScreen() {
     setBlankTeams(data.blank_teams ?? []);
     setDoubleTeams(data.double_teams ?? []);
     setActiveChip(data.active_chip ?? null);
+    setGeneratedAt(data.generated_at ?? null);
     logRecommendationSilently(data);
   }, [vibe, isPro]);
 
@@ -464,6 +478,11 @@ export default function TransferAdvisorScreen() {
                 Regenerate
               </Text>
             </Pressable>
+            {generatedAt && (
+              <Text style={[styles.generatedAtText, { color: colors.mutedForeground }]}>
+                Generated {formatGeneratedAt(generatedAt)}
+              </Text>
+            )}
           </>
         )}
       </ScrollView>
@@ -595,5 +614,10 @@ const styles = StyleSheet.create({
   regenerateText: {
     fontSize: 13,
     fontWeight: "600",
+  },
+  generatedAtText: {
+    fontSize: 11,
+    textAlign: "center" as const,
+    marginTop: 6,
   },
 });
