@@ -172,7 +172,7 @@ router.post("/decision-log/recommendation", async (req: Request, res: Response) 
 
     const { user_id, gameweek, decision_type, options_shown, persona_used, tier_at_time, options } = req.body;
 
-    if (!gameweek || !decision_type || !persona_used) {
+    if (!user_id || !gameweek || !decision_type || !persona_used) {
       res.status(400).json({ error: "Missing required fields" });
       return;
     }
@@ -194,7 +194,7 @@ router.post("/decision-log/recommendation", async (req: Request, res: Response) 
     const { data: rec, error: recError } = await supabase
       .from("recommendations")
       .insert({
-        user_id: user_id || "00000000-0000-0000-0000-000000000000",
+        user_id: user_id,
         gameweek,
         season: "2026-27",
         decision_type,
@@ -283,7 +283,7 @@ router.post("/decision-log/decision", async (req: Request, res: Response) => {
 
     const { recommendation_id, recommendation_option_id, user_id, chosen_option, hours_before_deadline } = req.body;
 
-    if (!recommendation_id || !chosen_option) {
+    if (!recommendation_id || !user_id || !chosen_option) {
       res.status(400).json({ error: "Missing required fields" });
       return;
     }
@@ -300,7 +300,7 @@ router.post("/decision-log/decision", async (req: Request, res: Response) => {
 
     const { error } = await supabase.from("user_decisions").insert({
       recommendation_id,
-      user_id: user_id || "00000000-0000-0000-0000-000000000000",
+      user_id: user_id,
       recommendation_option_id: optionId,
       chosen_option,
       hours_before_deadline: hours_before_deadline ?? null,

@@ -156,7 +156,10 @@ export default function CaptainPickerScreen() {
       const apiBase = getApiBaseUrl();
 
       const userId = await getAuthenticatedUserId();
-      if (!userId) return;
+      if (!userId) {
+        setAiError("Please sign in to get captain picks.");
+        return;
+      }
 
       if (!skipCache) {
         const preGenUrl = `${apiBase}/pre-generated/${candidateData.gameweek}?user_id=${userId}&decision_type=captain&vibe=${vibe}`;
@@ -246,10 +249,13 @@ export default function CaptainPickerScreen() {
   ) => {
     try {
       const apiBase = getApiBaseUrl();
+      const logUserId = await getAuthenticatedUserId();
+      if (!logUserId) return;
       await fetch(`${apiBase}/decision-log/recommendation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          user_id: logUserId,
           gameweek: gw,
           decision_type: "captain",
           options_shown: data.recommendations,

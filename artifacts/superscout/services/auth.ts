@@ -3,6 +3,10 @@ import { supabase } from "./supabase";
 export async function getAuthenticatedUserId(): Promise<string | null> {
   try {
     const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (session?.user?.id) return session.user.id;
+    const {
       data: { user },
     } = await supabase.auth.getUser();
     return user?.id ?? null;

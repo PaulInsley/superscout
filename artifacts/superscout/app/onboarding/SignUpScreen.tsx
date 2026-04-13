@@ -73,11 +73,16 @@ export default function SignUpScreen({
           if (managerId) updates.fpl_manager_id = String(managerId);
           if (vibe) updates.default_persona = vibe;
 
-          await supabase.from("users").upsert(
+          const { error: upsertError } = await supabase.from("users").upsert(
             { id: result.userId, ...updates },
             { onConflict: "id" },
           );
-        } catch {}
+          if (upsertError) {
+            console.error("[SuperScout] User upsert failed:", upsertError.message);
+          }
+        } catch (e: any) {
+          console.error("[SuperScout] User upsert exception:", e?.message);
+        }
 
         onSignUpComplete(result.userId);
         return;

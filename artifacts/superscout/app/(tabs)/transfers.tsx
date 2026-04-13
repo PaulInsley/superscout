@@ -140,7 +140,10 @@ export default function TransferAdvisorScreen() {
       const apiBase = getApiBaseUrl();
 
       const userId = await getAuthenticatedUserId();
-      if (!userId) return;
+      if (!userId) {
+        setAiError("Please sign in to get transfer advice.");
+        return;
+      }
 
       if (!skipCache) {
         const preGenUrl = `${apiBase}/pre-generated/current?user_id=${userId}&decision_type=transfer&vibe=${vibe}`;
@@ -233,10 +236,13 @@ export default function TransferAdvisorScreen() {
   const logRecommendationSilently = async (data: TransferAdviceResponse) => {
     try {
       const apiBase = getApiBaseUrl();
+      const logUserId = await getAuthenticatedUserId();
+      if (!logUserId) return;
       await fetch(`${apiBase}/decision-log/recommendation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          user_id: logUserId,
           gameweek: data.gameweek,
           decision_type: "transfer",
           options_shown: data.recommendations,

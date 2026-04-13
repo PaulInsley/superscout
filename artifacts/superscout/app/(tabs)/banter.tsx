@@ -112,7 +112,11 @@ export default function BanterScreen() {
     try {
       const apiBase = getApiBaseUrl();
       const userId = await getAuthenticatedUserId();
-      if (!userId) return;
+      if (!userId) {
+        setError("Please sign in to get banter cards.");
+        setLoading(false);
+        return;
+      }
 
       const res = await fetch(
         `${apiBase}/banter/current?user_id=${userId}&vibe=${vibe}&manager_id=${managerId}`,

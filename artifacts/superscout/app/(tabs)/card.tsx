@@ -11,6 +11,7 @@ import {
   Share,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getAuthenticatedUserId } from "@/services/auth";
 import { useFocusEffect } from "expo-router";
 import ViewShot from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
@@ -220,15 +221,19 @@ export default function CardScreen() {
     if (didShare && cardData) {
       try {
         const baseUrl = getApiBaseUrl();
-        await fetch(`${baseUrl}/squad-card/share`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            card_id: cardData.cardId,
-            gameweek: cardData.gameweek,
-            platform,
-          }),
-        });
+        const userId = await getAuthenticatedUserId();
+        if (userId) {
+          await fetch(`${baseUrl}/squad-card/share`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              card_id: cardData.cardId,
+              gameweek: cardData.gameweek,
+              platform,
+              user_id: userId,
+            }),
+          });
+        }
       } catch {}
     }
   }, [captureCard, cardData]);

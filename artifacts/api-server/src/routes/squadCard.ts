@@ -289,15 +289,28 @@ IMPORTANT: Return ONLY the quip text. No quotes, no preamble, no explanation. Ju
     try {
       const supabase = getSupabase();
       if (supabase) {
-        const { data: cardRow } = await supabase.from("squad_cards").insert({
-          user_id: "00000000-0000-0000-0000-000000000000",
-          season: "2026-27",
-          gameweek: targetGw,
-          skin_name: "default",
-          was_shared: false,
-          quip_text: quipText,
-        }).select("id").single();
-        cardId = cardRow?.id ?? null;
+        let userId: string | null = null;
+        try {
+          const { data: userRow } = await supabase
+            .from("users")
+            .select("id")
+            .eq("fpl_manager_id", String(manager_id))
+            .limit(1)
+            .single();
+          if (userRow?.id) userId = userRow.id;
+        } catch {}
+
+        if (userId) {
+          const { data: cardRow } = await supabase.from("squad_cards").insert({
+            user_id: userId,
+            season: "2026-27",
+            gameweek: targetGw,
+            skin_name: "default",
+            was_shared: false,
+            quip_text: quipText,
+          }).select("id").single();
+          cardId = cardRow?.id ?? null;
+        }
       }
     } catch (err) {
       req.log.warn({ err }, "Failed to log squad card to DB");
@@ -353,9 +366,13 @@ router.post("/squad-card/share", async (req: Request, res: Response) => {
       return;
     }
 
-    const { card_id, gameweek, platform } = req.body;
+    const { card_id, gameweek, platform, user_id } = req.body;
     if (!card_id && !gameweek) {
       res.status(400).json({ error: "Missing card_id or gameweek" });
+      return;
+    }
+    if (!user_id) {
+      res.status(400).json({ error: "Missing user_id" });
       return;
     }
 
@@ -368,13 +385,13 @@ router.post("/squad-card/share", async (req: Request, res: Response) => {
         .from("squad_cards")
         .update({ was_shared: true, share_platform: sharePlatform })
         .eq("id", card_id)
-        .eq("user_id", "00000000-0000-0000-0000-000000000000")
+        .eq("user_id", user_id)
         .select("id, was_shared, share_platform");
     } else {
       updateResult = await supabase
         .from("squad_cards")
         .update({ was_shared: true, share_platform: sharePlatform })
-        .eq("user_id", "00000000-0000-0000-0000-000000000000")
+        .eq("user_id", user_id)
         .eq("gameweek", gameweek)
         .order("created_at", { ascending: false })
         .limit(1)

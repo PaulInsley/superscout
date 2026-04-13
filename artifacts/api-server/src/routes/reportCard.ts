@@ -69,7 +69,7 @@ router.post(
         return;
       }
 
-      let userId = "00000000-0000-0000-0000-000000000000";
+      let userId: string | null = null;
       try {
         const { data: userRow } = await supabase
           .from("users")
@@ -79,6 +79,12 @@ router.post(
           .single();
         if (userRow?.id) userId = userRow.id;
       } catch {}
+
+      if (!userId) {
+        req.log.warn({ managerId, gw }, "No user found for manager_id");
+        res.status(404).json({ error: "User not found. Please sign in and link your FPL team." });
+        return;
+      }
 
       const { data: existingReport } = await supabase
         .from("report_cards")
@@ -393,7 +399,7 @@ router.get(
         return;
       }
 
-      let userId = "00000000-0000-0000-0000-000000000000";
+      let userId: string | null = null;
       try {
         const { data: userRow } = await supabase
           .from("users")
@@ -403,6 +409,11 @@ router.get(
           .single();
         if (userRow?.id) userId = userRow.id;
       } catch {}
+
+      if (!userId) {
+        res.status(404).json({ error: "User not found" });
+        return;
+      }
 
       const { data: report, error } = await supabase
         .from("report_cards")
