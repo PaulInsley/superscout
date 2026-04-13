@@ -821,8 +821,6 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
       );
     }
 
-    const squadIds = new Set(picksData.picks.map((p) => p.element));
-
     const pendingTransfers = transferHistory.filter((t) => t.event === currentGw);
     const pendingBankDelta = pendingTransfers.reduce(
       (sum, t) => sum + (t.element_out_cost || 0) - (t.element_in_cost || 0),
@@ -865,7 +863,29 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
       );
     }
 
-    const squadWithDetails = picksData.picks.map((pick) => {
+    let adjustedPicks = [...picksData.picks];
+    if (pendingTransfers.length > 0) {
+      for (const transfer of pendingTransfers) {
+        const idx = adjustedPicks.findIndex((p) => p.element === transfer.element_out);
+        if (idx !== -1) {
+          adjustedPicks[idx] = { ...adjustedPicks[idx], element: transfer.element_in };
+        }
+      }
+      req.log.info(
+        {
+          swaps: pendingTransfers.map((t) => ({
+            out: playerMap.get(t.element_out)?.web_name ?? t.element_out,
+            in: playerMap.get(t.element_in)?.web_name ?? t.element_in,
+          })),
+          adjustedSquad: adjustedPicks.map((p) => playerMap.get(p.element)?.web_name ?? p.element),
+        },
+        "Squad adjusted for pending GW transfers",
+      );
+    }
+
+    const adjustedSquadIds = new Set(adjustedPicks.map((p) => p.element));
+
+    const squadWithDetails = adjustedPicks.map((pick) => {
       const player = playerMap.get(pick.element);
       const team = player ? teamMap.get(player.team) : undefined;
       const purchaseCost = transferHistory.find((t) => t.element_in === pick.element)?.element_in_cost;
@@ -911,7 +931,7 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
 
     const candidates = preFilterCandidates(
       bootstrap.elements,
-      squadIds,
+      adjustedSquadIds,
       maxAffordable,
       fixtures,
       currentGw,
