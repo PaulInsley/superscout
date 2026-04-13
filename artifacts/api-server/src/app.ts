@@ -34,8 +34,8 @@ app.use(
   }),
 );
 const allowedOrigins = new Set([
-  'https://superscout.pro',
-  process.env.CORS_ALLOWED_ORIGIN || 'http://localhost:3000',
+  "https://superscout.pro",
+  process.env.CORS_ALLOWED_ORIGIN || "http://localhost:3000",
 ]);
 if (process.env.REPLIT_DEV_DOMAIN) {
   allowedOrigins.add(`https://${process.env.REPLIT_DEV_DOMAIN}`);
@@ -46,19 +46,21 @@ if (process.env.REPLIT_EXPO_DEV_DOMAIN) {
 if (process.env.REPLIT_DEPLOYMENT_URL) {
   allowedOrigins.add(process.env.REPLIT_DEPLOYMENT_URL);
 }
-allowedOrigins.add('https://super-scout.replit.app');
-const isDev = process.env.NODE_ENV !== 'production';
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.has(origin)) {
-      callback(null, true);
-    } else if (isDev && /^https:\/\/[a-z0-9-]+\.(?:worf\.)?replit\.dev$/.test(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  }
-}));
+allowedOrigins.add("https://super-scout.replit.app");
+const isDev = process.env.NODE_ENV !== "production";
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.has(origin)) {
+        callback(null, true);
+      } else if (isDev && /^https:\/\/[a-z0-9-]+\.(?:worf\.)?replit\.dev$/.test(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+  }),
+);
 app.use(cookieParser(process.env.COOKIE_SECRET || "superscout-dev-secret"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -68,7 +70,7 @@ const aiRateLimiter = rateLimit({
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many requests. Please wait a moment before trying again.' },
+  message: { error: "Too many requests. Please wait a moment before trying again." },
 });
 
 const dataRateLimiter = rateLimit({
@@ -76,7 +78,7 @@ const dataRateLimiter = rateLimit({
   max: 60,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many requests. Please wait a moment before trying again.' },
+  message: { error: "Too many requests. Please wait a moment before trying again." },
 });
 
 app.use("/api/captain-picks", aiRateLimiter);

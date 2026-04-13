@@ -24,10 +24,9 @@ import { supabase } from "@/services/supabase";
 import { getAuthenticatedUserId, signOut as authSignOut } from "@/services/auth";
 import { scheduleNotification } from "@/services/notifications/pushNotificationService";
 import { fetchManagerLeagues } from "@/services/fpl/api";
+import Constants from "expo-constants";
 import config from "@/constants/config";
-import ChooseVibeScreen, {
-  VIBES,
-} from "@/app/onboarding/ChooseVibeScreen";
+import ChooseVibeScreen, { VIBES } from "@/app/onboarding/ChooseVibeScreen";
 import ConnectFPLScreen from "@/app/onboarding/ConnectFPLScreen";
 import Paywall from "@/components/Paywall";
 import ProBadge from "@/components/ProBadge";
@@ -111,23 +110,26 @@ export default function SettingsScreen() {
     loadNotifPrefs();
   }, []);
 
-  const handleNotifToggle = useCallback(async (key: string, value: boolean) => {
-    const updated = { ...notifPrefs, [key]: value };
-    setNotifPrefs(updated);
-    await AsyncStorage.setItem("superscout_notif_prefs", JSON.stringify(updated));
-    try {
-      const userId = await getAuthenticatedUserId();
-      if (!userId) return;
-      const apiBase = getApiBaseUrl();
-      await fetch(`${apiBase}/notifications/preferences`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId, preferences: updated }),
-      });
-    } catch (err) {
-      console.warn("[Settings] failed to sync notif prefs to server:", err);
-    }
-  }, [notifPrefs]);
+  const handleNotifToggle = useCallback(
+    async (key: string, value: boolean) => {
+      const updated = { ...notifPrefs, [key]: value };
+      setNotifPrefs(updated);
+      await AsyncStorage.setItem("superscout_notif_prefs", JSON.stringify(updated));
+      try {
+        const userId = await getAuthenticatedUserId();
+        if (!userId) return;
+        const apiBase = getApiBaseUrl();
+        await fetch(`${apiBase}/notifications/preferences`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: userId, preferences: updated }),
+        });
+      } catch (err) {
+        console.warn("[Settings] failed to sync notif prefs to server:", err);
+      }
+    },
+    [notifPrefs],
+  );
 
   const loadSavedLeagues = useCallback(async () => {
     try {
@@ -138,7 +140,9 @@ export default function SettingsScreen() {
       if (res.ok) {
         const data = await res.json();
         setSavedLeagues(data.leagues ?? []);
-        setSelectedLeagueIds(new Set((data.leagues ?? []).map((l: SavedLeague) => Number(l.mini_league_id))));
+        setSelectedLeagueIds(
+          new Set((data.leagues ?? []).map((l: SavedLeague) => Number(l.mini_league_id))),
+        );
       }
     } catch (err) {
       console.warn("[Settings] failed to load saved leagues:", err);
@@ -182,7 +186,10 @@ export default function SettingsScreen() {
     setLeaguesSaving(true);
     try {
       const userId = await getAuthenticatedUserId();
-      if (!userId) { setLeaguesSaving(false); return; }
+      if (!userId) {
+        setLeaguesSaving(false);
+        return;
+      }
 
       const leaguesToSave = availableLeagues
         .filter((l) => selectedLeagueIds.has(l.id))
@@ -218,25 +225,21 @@ export default function SettingsScreen() {
     setCurrentVibe(v);
     setShowVibePicker(false);
 
-    AsyncStorage.setItem(PERSONA_KEY, v).catch((err: unknown) => console.warn("[Settings] persona save failed:", err));
+    AsyncStorage.setItem(PERSONA_KEY, v).catch((err: unknown) =>
+      console.warn("[Settings] persona save failed:", err),
+    );
 
     supabase.auth
       .getUser()
       .then(({ data: { user } }) => {
         if (user) {
-          supabase
-            .from("users")
-            .update({ default_persona: v })
-            .eq("id", user.id);
+          supabase.from("users").update({ default_persona: v }).eq("id", user.id);
         }
       })
       .catch((err: unknown) => console.warn("[Settings] vibe DB sync failed:", err));
   };
 
-  const handleFPLConnect = async (
-    id: number | null,
-    name: string | null,
-  ) => {
+  const handleFPLConnect = async (id: number | null, name: string | null) => {
     if (id && name) {
       await setManager(id, name);
     }
@@ -247,18 +250,15 @@ export default function SettingsScreen() {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View
-          style={[
-            styles.fplConnectHeader,
-            { paddingTop: Platform.OS === "web" ? 67 : insets.top },
-          ]}
+          style={[styles.fplConnectHeader, { paddingTop: Platform.OS === "web" ? 67 : insets.top }]}
         >
-          <Pressable
-            onPress={() => setShowLeaguePicker(false)}
-            style={styles.backButton}
-          >
+          <Pressable onPress={() => setShowLeaguePicker(false)} accessibilityLabel="Go back" accessibilityRole="button" style={styles.backButton}>
             <Feather name="arrow-left" size={22} color={colors.foreground} />
           </Pressable>
-          <Text style={[styles.screenTitle, { color: colors.foreground, marginBottom: 0, flex: 1 }]}>
+          <Text
+            style={[styles.screenTitle, { color: colors.foreground, marginBottom: 0, flex: 1 }]}
+            accessibilityRole="header"
+          >
             Select Leagues
           </Text>
         </View>
@@ -280,7 +280,16 @@ export default function SettingsScreen() {
           )}
 
           {!leaguesLoading && availableLeagues.length === 0 && (
-            <View style={[styles.emptyLeagueCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
+            <View
+              style={[
+                styles.emptyLeagueCard,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                  borderRadius: colors.radius,
+                },
+              ]}
+            >
               <Feather name="info" size={24} color={colors.mutedForeground} />
               <Text style={[styles.settingLabel, { color: colors.foreground, marginTop: 8 }]}>
                 No leagues found
@@ -291,54 +300,67 @@ export default function SettingsScreen() {
             </View>
           )}
 
-          {!leaguesLoading && availableLeagues.map((league) => {
-            const isSelected = selectedLeagueIds.has(league.id);
-            const isDisabled = !isSelected && selectedLeagueIds.size >= 3;
-            return (
-              <Pressable
-                key={league.id}
-                onPress={() => !isDisabled && toggleLeague(league.id)}
-                style={({ pressed }) => [
-                  styles.leagueRow,
-                  {
-                    backgroundColor: isSelected ? colors.accent + "15" : colors.card,
-                    borderColor: isSelected ? colors.accent : colors.border,
-                    borderRadius: colors.radius,
-                    opacity: pressed ? 0.7 : isDisabled ? 0.5 : 1,
-                  },
-                ]}
-              >
-                <View style={styles.leagueRowLeft}>
-                  <View
-                    style={[
-                      styles.leagueCheck,
-                      {
-                        backgroundColor: isSelected ? colors.accent : "transparent",
-                        borderColor: isSelected ? colors.accent : colors.mutedForeground,
-                      },
-                    ]}
-                  >
-                    {isSelected && <Feather name="check" size={14} color="#1a472a" />}
+          {!leaguesLoading &&
+            availableLeagues.map((league) => {
+              const isSelected = selectedLeagueIds.has(league.id);
+              const isDisabled = !isSelected && selectedLeagueIds.size >= 3;
+              return (
+                <Pressable
+                  key={league.id}
+                  onPress={() => !isDisabled && toggleLeague(league.id)}
+                  accessibilityLabel={`${isSelected ? "Deselect" : "Select"} ${league.name}`}
+                  accessibilityRole="button"
+                  style={({ pressed }) => [
+                    styles.leagueRow,
+                    {
+                      backgroundColor: isSelected ? colors.accent + "15" : colors.card,
+                      borderColor: isSelected ? colors.accent : colors.border,
+                      borderRadius: colors.radius,
+                      opacity: pressed ? 0.7 : isDisabled ? 0.5 : 1,
+                    },
+                  ]}
+                >
+                  <View style={styles.leagueRowLeft}>
+                    <View
+                      style={[
+                        styles.leagueCheck,
+                        {
+                          backgroundColor: isSelected ? colors.accent : "transparent",
+                          borderColor: isSelected ? colors.accent : colors.mutedForeground,
+                        },
+                      ]}
+                    >
+                      {isSelected && <Feather name="check" size={14} color="#1a472a" />}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[styles.settingLabel, { color: colors.foreground }]}
+                        numberOfLines={1}
+                      >
+                        {league.name}
+                      </Text>
+                      <Text style={[styles.settingValue, { color: colors.mutedForeground }]}>
+                        Rank {league.entry_rank} · {league.league_type === "x" ? "H2H" : "Classic"}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.settingLabel, { color: colors.foreground }]} numberOfLines={1}>
-                      {league.name}
-                    </Text>
-                    <Text style={[styles.settingValue, { color: colors.mutedForeground }]}>
-                      Rank {league.entry_rank} · {league.league_type === "x" ? "H2H" : "Classic"}
-                    </Text>
-                  </View>
-                </View>
-              </Pressable>
-            );
-          })}
+                </Pressable>
+              );
+            })}
         </ScrollView>
 
         {!leaguesLoading && availableLeagues.length > 0 && (
-          <View style={[styles.saveLeagueBar, { paddingBottom: insets.bottom + 70, backgroundColor: colors.background }]}>
+          <View
+            style={[
+              styles.saveLeagueBar,
+              { paddingBottom: insets.bottom + 70, backgroundColor: colors.background },
+            ]}
+          >
             <Pressable
               onPress={saveLeagues}
               disabled={leaguesSaving || selectedLeagueIds.size === 0}
+              accessibilityLabel={`Save ${selectedLeagueIds.size} leagues`}
+              accessibilityRole="button"
               style={({ pressed }) => [
                 styles.saveLeagueButton,
                 {
@@ -382,10 +404,7 @@ export default function SettingsScreen() {
             },
           ]}
         >
-          <Pressable
-            onPress={() => setShowFPLConnect(false)}
-            style={styles.backButton}
-          >
+          <Pressable onPress={() => setShowFPLConnect(false)} accessibilityLabel="Go back" accessibilityRole="button" style={styles.backButton}>
             <Feather name="arrow-left" size={22} color={colors.foreground} />
           </Pressable>
         </View>
@@ -394,8 +413,7 @@ export default function SettingsScreen() {
     );
   }
 
-  const vibeLabel =
-    VIBES.find((p) => p.key === currentVibe)?.name ?? "Not set";
+  const vibeLabel = VIBES.find((p) => p.key === currentVibe)?.name ?? "Not set";
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -404,15 +422,12 @@ export default function SettingsScreen() {
           styles.scrollContent,
           {
             paddingTop: Platform.OS === "web" ? 67 + 16 : insets.top + 8,
-            paddingBottom:
-              Platform.OS === "web" ? 34 + 84 : insets.bottom + 84,
+            paddingBottom: Platform.OS === "web" ? 34 + 84 : insets.bottom + 84,
           },
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.screenTitle, { color: colors.foreground }]}>
-          Settings
-        </Text>
+        <Text style={[styles.screenTitle, { color: colors.foreground }]} accessibilityRole="header">Settings</Text>
 
         <View
           style={[
@@ -424,18 +439,13 @@ export default function SettingsScreen() {
             },
           ]}
         >
-          <Text
-            style={[styles.sectionTitle, { color: colors.mutedForeground }]}
-          >
-            FPL Account
-          </Text>
+          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>FPL Account</Text>
 
           <Pressable
             onPress={() => setShowFPLConnect(true)}
-            style={({ pressed }) => [
-              styles.settingRow,
-              { opacity: pressed ? 0.7 : 1 },
-            ]}
+            accessibilityLabel={managerId ? "Change FPL connection" : "Connect your FPL team"}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.settingRow, { opacity: pressed ? 0.7 : 1 }]}
           >
             <View style={styles.settingLeft}>
               <Feather
@@ -444,20 +454,11 @@ export default function SettingsScreen() {
                 color={managerId ? "#22c55e" : colors.foreground}
               />
               <View>
-                <Text
-                  style={[styles.settingLabel, { color: colors.foreground }]}
-                >
-                  {managerId ? teamName ?? "Connected" : "Connect your FPL Team"}
+                <Text style={[styles.settingLabel, { color: colors.foreground }]}>
+                  {managerId ? (teamName ?? "Connected") : "Connect your FPL Team"}
                 </Text>
-                <Text
-                  style={[
-                    styles.settingValue,
-                    { color: colors.mutedForeground },
-                  ]}
-                >
-                  {managerId
-                    ? `Manager ID: ${managerId}`
-                    : "Tap to search or enter your ID"}
+                <Text style={[styles.settingValue, { color: colors.mutedForeground }]}>
+                  {managerId ? `Manager ID: ${managerId}` : "Tap to search or enter your ID"}
                 </Text>
               </View>
             </View>
@@ -483,17 +484,12 @@ export default function SettingsScreen() {
               },
             ]}
           >
-            <Text
-              style={[styles.sectionTitle, { color: colors.mutedForeground }]}
-            >
-              Streak
-            </Text>
+            <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Streak</Text>
             <Pressable
               onPress={() => setShowStreakDetail(true)}
-              style={({ pressed }) => [
-                styles.settingRow,
-                { opacity: pressed ? 0.7 : 1 },
-              ]}
+              accessibilityLabel="View streak details"
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.settingRow, { opacity: pressed ? 0.7 : 1 }]}
             >
               <View style={styles.settingLeft}>
                 <StreakBadge
@@ -503,28 +499,17 @@ export default function SettingsScreen() {
                   size="large"
                 />
                 <View style={{ marginLeft: 8 }}>
-                  <Text
-                    style={[styles.settingLabel, { color: colors.foreground }]}
-                  >
+                  <Text style={[styles.settingLabel, { color: colors.foreground }]}>
                     {streak.current_streak > 0
                       ? `${streak.current_streak} gameweek streak`
                       : "No active streak"}
                   </Text>
-                  <Text
-                    style={[
-                      styles.settingValue,
-                      { color: colors.mutedForeground },
-                    ]}
-                  >
+                  <Text style={[styles.settingValue, { color: colors.mutedForeground }]}>
                     Personal best: {streak.longest_streak}
                   </Text>
                 </View>
               </View>
-              <Feather
-                name="chevron-right"
-                size={18}
-                color={colors.mutedForeground}
-              />
+              <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
             </Pressable>
           </View>
         )}
@@ -539,11 +524,7 @@ export default function SettingsScreen() {
             },
           ]}
         >
-          <Text
-            style={[styles.sectionTitle, { color: colors.mutedForeground }]}
-          >
-            Vibe
-          </Text>
+          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Vibe</Text>
 
           <Pressable
             onPress={() => {
@@ -553,36 +534,24 @@ export default function SettingsScreen() {
                 setShowPaywall(true);
               }
             }}
-            style={({ pressed }) => [
-              styles.settingRow,
-              { opacity: pressed ? 0.7 : 1 },
-            ]}
+            accessibilityLabel="Change your vibe"
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.settingRow, { opacity: pressed ? 0.7 : 1 }]}
           >
             <View style={styles.settingLeft}>
               <Feather name="mic" size={18} color={colors.foreground} />
               <View>
-                <Text
-                  style={[styles.settingLabel, { color: colors.foreground }]}
-                >
+                <Text style={[styles.settingLabel, { color: colors.foreground }]}>
                   Change your Vibe
                 </Text>
-                <Text
-                  style={[
-                    styles.settingValue,
-                    { color: colors.mutedForeground },
-                  ]}
-                >
+                <Text style={[styles.settingValue, { color: colors.mutedForeground }]}>
                   {isPro ? vibeLabel : "Expert (free tier)"}
                 </Text>
               </View>
             </View>
             <View style={styles.settingRight}>
               {!isPro && <ProBadge />}
-              <Feather
-                name="chevron-right"
-                size={18}
-                color={colors.mutedForeground}
-              />
+              <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
             </View>
           </Pressable>
         </View>
@@ -598,18 +567,15 @@ export default function SettingsScreen() {
               },
             ]}
           >
-            <Text
-              style={[styles.sectionTitle, { color: colors.mutedForeground }]}
-            >
+            <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
               Banter Leagues
             </Text>
 
             <Pressable
               onPress={openLeaguePicker}
-              style={({ pressed }) => [
-                styles.settingRow,
-                { opacity: pressed ? 0.7 : 1 },
-              ]}
+              accessibilityLabel="Select banter leagues"
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.settingRow, { opacity: pressed ? 0.7 : 1 }]}
             >
               <View style={styles.settingLeft}>
                 <Feather
@@ -618,30 +584,19 @@ export default function SettingsScreen() {
                   color={savedLeagues.length > 0 ? "#22c55e" : colors.foreground}
                 />
                 <View>
-                  <Text
-                    style={[styles.settingLabel, { color: colors.foreground }]}
-                  >
+                  <Text style={[styles.settingLabel, { color: colors.foreground }]}>
                     {savedLeagues.length > 0
                       ? `${savedLeagues.length} League${savedLeagues.length > 1 ? "s" : ""} Connected`
                       : "Connect Mini-Leagues"}
                   </Text>
-                  <Text
-                    style={[
-                      styles.settingValue,
-                      { color: colors.mutedForeground },
-                    ]}
-                  >
+                  <Text style={[styles.settingValue, { color: colors.mutedForeground }]}>
                     {savedLeagues.length > 0
                       ? savedLeagues.map((l) => l.mini_league_name).join(", ")
                       : "Select leagues for banter generation"}
                   </Text>
                 </View>
               </View>
-              <Feather
-                name="chevron-right"
-                size={18}
-                color={colors.mutedForeground}
-              />
+              <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
             </Pressable>
           </View>
         )}
@@ -656,9 +611,7 @@ export default function SettingsScreen() {
             },
           ]}
         >
-          <Text
-            style={[styles.sectionTitle, { color: colors.mutedForeground }]}
-          >
+          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
             Coaching Mode
           </Text>
 
@@ -666,17 +619,10 @@ export default function SettingsScreen() {
             <View style={styles.settingLeft}>
               <Feather name="book-open" size={18} color={colors.accent} />
               <View>
-                <Text
-                  style={[styles.settingLabel, { color: colors.foreground }]}
-                >
+                <Text style={[styles.settingLabel, { color: colors.foreground }]}>
                   Beginner Coaching
                 </Text>
-                <Text
-                  style={[
-                    styles.settingValue,
-                    { color: colors.mutedForeground },
-                  ]}
-                >
+                <Text style={[styles.settingValue, { color: colors.mutedForeground }]}>
                   {beginner.isBeginner
                     ? `${beginner.roundsCompleted} of 4 lessons completed`
                     : "Completed"}
@@ -688,6 +634,8 @@ export default function SettingsScreen() {
               onValueChange={(val) => beginner.setBeginnerFlag(val)}
               trackColor={{ false: "#3e3e5e", true: colors.accent }}
               thumbColor="#ffffff"
+              accessibilityLabel="Toggle beginner coaching"
+              accessibilityRole="switch"
             />
           </View>
 
@@ -696,34 +644,22 @@ export default function SettingsScreen() {
               <View style={[styles.legalDivider, { backgroundColor: colors.border }]} />
               <Pressable
                 onPress={() => beginner.resetCoaching()}
-                style={({ pressed }) => [
-                  styles.settingRow,
-                  { opacity: pressed ? 0.7 : 1 },
-                ]}
+                accessibilityLabel="Restart coaching"
+                accessibilityRole="button"
+                style={({ pressed }) => [styles.settingRow, { opacity: pressed ? 0.7 : 1 }]}
               >
                 <View style={styles.settingLeft}>
                   <Feather name="rotate-ccw" size={18} color={colors.mutedForeground} />
                   <View>
-                    <Text
-                      style={[styles.settingLabel, { color: colors.foreground }]}
-                    >
+                    <Text style={[styles.settingLabel, { color: colors.foreground }]}>
                       Restart Coaching
                     </Text>
-                    <Text
-                      style={[
-                        styles.settingValue,
-                        { color: colors.mutedForeground },
-                      ]}
-                    >
+                    <Text style={[styles.settingValue, { color: colors.mutedForeground }]}>
                       Start the beginner lessons from scratch
                     </Text>
                   </View>
                 </View>
-                <Feather
-                  name="chevron-right"
-                  size={18}
-                  color={colors.mutedForeground}
-                />
+                <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
               </Pressable>
             </>
           )}
@@ -739,18 +675,33 @@ export default function SettingsScreen() {
             },
           ]}
         >
-          <Text
-            style={[styles.sectionTitle, { color: colors.mutedForeground }]}
-          >
+          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
             Notifications
           </Text>
 
           {(
             [
-              { key: "deadline_reminder", label: "Deadline Reminders", desc: "2 hours before each deadline" },
-              { key: "post_gw_results", label: "Results Updates", desc: "Monday morning after all games" },
-              { key: "price_change", label: "Price Change Alerts", desc: "When your players may drop in price", proOnly: true },
-              { key: "streak_at_risk", label: "Streak Reminders", desc: "When your streak is at risk" },
+              {
+                key: "deadline_reminder",
+                label: "Deadline Reminders",
+                desc: "2 hours before each deadline",
+              },
+              {
+                key: "post_gw_results",
+                label: "Results Updates",
+                desc: "Monday morning after all games",
+              },
+              {
+                key: "price_change",
+                label: "Price Change Alerts",
+                desc: "When your players may drop in price",
+                proOnly: true,
+              },
+              {
+                key: "streak_at_risk",
+                label: "Streak Reminders",
+                desc: "When your streak is at risk",
+              },
             ] as const
           ).map((item) => (
             <View key={item.key} style={[styles.settingRow, { borderBottomColor: colors.border }]}>
@@ -771,6 +722,8 @@ export default function SettingsScreen() {
                 disabled={item.proOnly && !isPro}
                 trackColor={{ false: "#555", true: "#00ff87" }}
                 thumbColor="#fff"
+                accessibilityLabel={`Toggle ${item.label.toLowerCase()}`}
+                accessibilityRole="switch"
               />
             </View>
           ))}
@@ -778,6 +731,8 @@ export default function SettingsScreen() {
           {!notifPermissionGranted && (
             <Pressable
               onPress={() => Linking.openSettings()}
+              accessibilityLabel="Open device notification settings"
+              accessibilityRole="button"
               style={[styles.settingRow, { borderBottomColor: colors.border }]}
             >
               <View style={{ flex: 1 }}>
@@ -803,11 +758,7 @@ export default function SettingsScreen() {
             },
           ]}
         >
-          <Text
-            style={[styles.sectionTitle, { color: colors.mutedForeground }]}
-          >
-            Subscription
-          </Text>
+          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Subscription</Text>
 
           {isPro ? (
             <View style={styles.aboutRow}>
@@ -821,34 +772,22 @@ export default function SettingsScreen() {
           ) : (
             <Pressable
               onPress={() => setShowPaywall(true)}
-              style={({ pressed }) => [
-                styles.settingRow,
-                { opacity: pressed ? 0.7 : 1 },
-              ]}
+              accessibilityLabel="Upgrade to Pro"
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.settingRow, { opacity: pressed ? 0.7 : 1 }]}
             >
               <View style={styles.settingLeft}>
                 <Feather name="zap" size={18} color="#4338ca" />
                 <View>
-                  <Text
-                    style={[styles.settingLabel, { color: colors.foreground }]}
-                  >
+                  <Text style={[styles.settingLabel, { color: colors.foreground }]}>
                     Upgrade to Pro
                   </Text>
-                  <Text
-                    style={[
-                      styles.settingValue,
-                      { color: colors.mutedForeground },
-                    ]}
-                  >
+                  <Text style={[styles.settingValue, { color: colors.mutedForeground }]}>
                     Unlock all features
                   </Text>
                 </View>
               </View>
-              <Feather
-                name="chevron-right"
-                size={18}
-                color={colors.mutedForeground}
-              />
+              <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
             </Pressable>
           )}
         </View>
@@ -863,42 +802,26 @@ export default function SettingsScreen() {
             },
           ]}
         >
-          <Text
-            style={[styles.sectionTitle, { color: colors.mutedForeground }]}
-          >
-            Feedback
-          </Text>
+          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Feedback</Text>
 
           <Pressable
             onPress={() => setShowFeedback(true)}
-            style={({ pressed }) => [
-              styles.settingRow,
-              { opacity: pressed ? 0.7 : 1 },
-            ]}
+            accessibilityLabel="Send feedback"
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.settingRow, { opacity: pressed ? 0.7 : 1 }]}
           >
             <View style={styles.settingLeft}>
               <Feather name="message-circle" size={18} color={colors.accent} />
               <View>
-                <Text
-                  style={[styles.settingLabel, { color: colors.foreground }]}
-                >
+                <Text style={[styles.settingLabel, { color: colors.foreground }]}>
                   Send Feedback
                 </Text>
-                <Text
-                  style={[
-                    styles.settingValue,
-                    { color: colors.mutedForeground },
-                  ]}
-                >
+                <Text style={[styles.settingValue, { color: colors.mutedForeground }]}>
                   Bug reports, feature requests, vibe feedback
                 </Text>
               </View>
             </View>
-            <Feather
-              name="chevron-right"
-              size={18}
-              color={colors.mutedForeground}
-            />
+            <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
           </Pressable>
         </View>
 
@@ -912,56 +835,38 @@ export default function SettingsScreen() {
             },
           ]}
         >
-          <Text
-            style={[styles.sectionTitle, { color: colors.mutedForeground }]}
-          >
-            Legal
-          </Text>
+          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Legal</Text>
 
           <Pressable
             onPress={() => Linking.openURL("https://superscout.pro/privacy")}
-            style={({ pressed }) => [
-              styles.settingRow,
-              { opacity: pressed ? 0.7 : 1 },
-            ]}
+            accessibilityLabel="Privacy Policy"
+            accessibilityRole="link"
+            style={({ pressed }) => [styles.settingRow, { opacity: pressed ? 0.7 : 1 }]}
           >
             <View style={styles.settingLeft}>
               <Feather name="shield" size={18} color={colors.foreground} />
-              <Text
-                style={[styles.settingLabel, { color: colors.foreground }]}
-              >
+              <Text style={[styles.settingLabel, { color: colors.foreground }]}>
                 Privacy Policy
               </Text>
             </View>
-            <Feather
-              name="external-link"
-              size={16}
-              color={colors.mutedForeground}
-            />
+            <Feather name="external-link" size={16} color={colors.mutedForeground} />
           </Pressable>
 
           <View style={[styles.legalDivider, { backgroundColor: colors.border }]} />
 
           <Pressable
             onPress={() => Linking.openURL("https://superscout.pro/terms")}
-            style={({ pressed }) => [
-              styles.settingRow,
-              { opacity: pressed ? 0.7 : 1 },
-            ]}
+            accessibilityLabel="Terms of Service"
+            accessibilityRole="link"
+            style={({ pressed }) => [styles.settingRow, { opacity: pressed ? 0.7 : 1 }]}
           >
             <View style={styles.settingLeft}>
               <Feather name="file-text" size={18} color={colors.foreground} />
-              <Text
-                style={[styles.settingLabel, { color: colors.foreground }]}
-              >
+              <Text style={[styles.settingLabel, { color: colors.foreground }]}>
                 Terms of Service
               </Text>
             </View>
-            <Feather
-              name="external-link"
-              size={16}
-              color={colors.mutedForeground}
-            />
+            <Feather name="external-link" size={16} color={colors.mutedForeground} />
           </Pressable>
         </View>
 
@@ -975,19 +880,13 @@ export default function SettingsScreen() {
             },
           ]}
         >
-          <Text
-            style={[styles.sectionTitle, { color: colors.mutedForeground }]}
-          >
-            About
-          </Text>
+          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>About</Text>
           <View style={styles.aboutRow}>
             <Text style={[styles.aboutLabel, { color: colors.foreground }]}>
               {config.brandName}
             </Text>
-            <Text
-              style={[styles.aboutValue, { color: colors.mutedForeground }]}
-            >
-              Phase 1
+            <Text style={[styles.aboutValue, { color: colors.mutedForeground }]}>
+              SuperScout v{Constants.expoConfig?.version ?? "0.0.1"}
             </Text>
           </View>
         </View>
@@ -1002,86 +901,82 @@ export default function SettingsScreen() {
             },
           ]}
         >
-          <Text
-            style={[styles.sectionTitle, { color: colors.mutedForeground }]}
-          >
-            Developer
-          </Text>
+          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Developer</Text>
 
           {__DEV__ && (
             <>
-            <View style={styles.settingRow}>
-              <View style={styles.settingLeft}>
-                <Feather name="unlock" size={18} color="#8b5cf6" />
-                <View>
-                  <Text
-                    style={[styles.settingLabel, { color: colors.foreground }]}
-                  >
-                    Dev Mode: Simulate Pro
-                  </Text>
-                  <Text
-                    style={[styles.settingValue, { color: colors.mutedForeground }]}
-                  >
-                    {devSimulatePro ? "All Pro features unlocked" : "Free tier active"}
-                  </Text>
+              <View style={styles.settingRow}>
+                <View style={styles.settingLeft}>
+                  <Feather name="unlock" size={18} color="#8b5cf6" />
+                  <View>
+                    <Text style={[styles.settingLabel, { color: colors.foreground }]}>
+                      Dev Mode: Simulate Pro
+                    </Text>
+                    <Text style={[styles.settingValue, { color: colors.mutedForeground }]}>
+                      {devSimulatePro ? "All Pro features unlocked" : "Free tier active"}
+                    </Text>
+                  </View>
                 </View>
+                <Switch
+                  value={devSimulatePro}
+                  onValueChange={setDevSimulatePro}
+                  trackColor={{ false: "#3e3e5e", true: "#8b5cf6" }}
+                  thumbColor="#ffffff"
+                  accessibilityLabel="Toggle simulate Pro mode"
+                  accessibilityRole="switch"
+                />
               </View>
-              <Switch
-                value={devSimulatePro}
-                onValueChange={setDevSimulatePro}
-                trackColor={{ false: "#3e3e5e", true: "#8b5cf6" }}
-                thumbColor="#ffffff"
-              />
-            </View>
 
-            <Pressable
-              onPress={async () => {
-                try {
-                  const Notifs = await import("expo-notifications");
-                  const { status: existing } = await Notifs.getPermissionsAsync();
-                  let finalStatus = existing;
-                  if (existing !== "granted") {
-                    const { status } = await Notifs.requestPermissionsAsync();
-                    finalStatus = status;
-                  }
-                  if (finalStatus !== "granted") {
-                    Alert.alert(
-                      "Permissions Required",
-                      "Please enable notifications for SuperScout in your device settings.",
+              <Pressable
+                accessibilityLabel="Test notification"
+                accessibilityRole="button"
+                onPress={async () => {
+                  try {
+                    const Notifs = await import("expo-notifications");
+                    const { status: existing } = await Notifs.getPermissionsAsync();
+                    let finalStatus = existing;
+                    if (existing !== "granted") {
+                      const { status } = await Notifs.requestPermissionsAsync();
+                      finalStatus = status;
+                    }
+                    if (finalStatus !== "granted") {
+                      Alert.alert(
+                        "Permissions Required",
+                        "Please enable notifications for SuperScout in your device settings.",
+                      );
+                      return;
+                    }
+                    const fire = new Date(Date.now() + 10_000);
+                    await scheduleNotification(
+                      "SuperScout",
+                      "Deadline in 2 hours! Lock in your captain pick.",
+                      fire,
+                      { screen: "captain" },
                     );
-                    return;
+                    Alert.alert(
+                      "Scheduled",
+                      "Test notification in 10 seconds — put your phone down!",
+                    );
+                  } catch (e: any) {
+                    console.error("[Notifications] Test failed:", e);
+                    Alert.alert("Error", e?.message ?? "Could not schedule notification");
                   }
-                  const fire = new Date(Date.now() + 10_000);
-                  await scheduleNotification(
-                    "SuperScout",
-                    "Deadline in 2 hours! Lock in your captain pick.",
-                    fire,
-                    { screen: "captain" },
-                  );
-                  Alert.alert("Scheduled", "Test notification in 10 seconds — put your phone down!");
-                } catch (e: any) {
-                  console.error("[Notifications] Test failed:", e);
-                  Alert.alert("Error", e?.message ?? "Could not schedule notification");
-                }
-              }}
-              style={({ pressed }) => [
-                styles.settingRow,
-                { opacity: pressed ? 0.7 : 1 },
-              ]}
-            >
-              <View style={styles.settingLeft}>
-                <Feather name="bell" size={18} color="#f59e0b" />
-                <View>
-                  <Text style={[styles.settingLabel, { color: colors.foreground }]}>
-                    Test Notification (10s)
-                  </Text>
-                  <Text style={[styles.settingValue, { color: colors.mutedForeground }]}>
-                    Fires in 10 seconds — lock your phone to test
-                  </Text>
+                }}
+                style={({ pressed }) => [styles.settingRow, { opacity: pressed ? 0.7 : 1 }]}
+              >
+                <View style={styles.settingLeft}>
+                  <Feather name="bell" size={18} color="#f59e0b" />
+                  <View>
+                    <Text style={[styles.settingLabel, { color: colors.foreground }]}>
+                      Test Notification (10s)
+                    </Text>
+                    <Text style={[styles.settingValue, { color: colors.mutedForeground }]}>
+                      Fires in 10 seconds — lock your phone to test
+                    </Text>
+                  </View>
                 </View>
-              </View>
-              <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
-            </Pressable>
+                <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+              </Pressable>
             </>
           )}
 
@@ -1092,23 +987,13 @@ export default function SettingsScreen() {
                 window.location.reload();
               }
             }}
-            style={({ pressed }) => [
-              styles.settingRow,
-              { opacity: pressed ? 0.5 : 1 },
-            ]}
+            accessibilityLabel="Sign out"
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.settingRow, { opacity: pressed ? 0.5 : 1 }]}
           >
             <View style={styles.settingRowInner}>
-              <Feather
-                name="log-out"
-                size={18}
-                color="#ef4444"
-                style={styles.settingIcon}
-              />
-              <Text
-                style={[styles.settingLabel, { color: "#ef4444" }]}
-              >
-                Sign Out
-              </Text>
+              <Feather name="log-out" size={18} color="#ef4444" style={styles.settingIcon} />
+              <Text style={[styles.settingLabel, { color: "#ef4444" }]}>Sign Out</Text>
             </View>
           </Pressable>
 
@@ -1127,10 +1012,9 @@ export default function SettingsScreen() {
                 window.location.reload();
               }
             }}
-            style={({ pressed }) => [
-              styles.settingRow,
-              { opacity: pressed ? 0.5 : 1 },
-            ]}
+            accessibilityLabel="Reset onboarding"
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.settingRow, { opacity: pressed ? 0.5 : 1 }]}
           >
             <View style={styles.settingRowInner}>
               <Feather
@@ -1139,17 +1023,11 @@ export default function SettingsScreen() {
                 color={colors.mutedForeground}
                 style={styles.settingIcon}
               />
-              <Text
-                style={[styles.settingLabel, { color: colors.foreground }]}
-              >
+              <Text style={[styles.settingLabel, { color: colors.foreground }]}>
                 Reset Onboarding
               </Text>
             </View>
-            <Feather
-              name="chevron-right"
-              size={18}
-              color={colors.mutedForeground}
-            />
+            <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
           </Pressable>
         </View>
       </ScrollView>

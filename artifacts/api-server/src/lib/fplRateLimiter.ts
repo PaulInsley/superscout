@@ -16,7 +16,12 @@ const MAX_RETRIES = 4;
 const BACKOFF_BASE = 1000;
 const BACKOFF_MAX = 60000;
 
-const outageLog: Array<{ timestamp: number; endpoint: string; errorCode: number | string; duration?: number }> = [];
+const outageLog: Array<{
+  timestamp: number;
+  endpoint: string;
+  errorCode: number | string;
+  duration?: number;
+}> = [];
 
 export function getOutageLog() {
   return outageLog.slice(-50);
@@ -53,7 +58,9 @@ async function processQueue(): Promise<void> {
       if (response.status === 429) {
         if (item.retries < MAX_RETRIES) {
           const backoff = getBackoffDelay(item.retries);
-          console.warn(`[fplRateLimiter] 429 on ${item.path}, retry ${item.retries + 1} after ${backoff}ms`);
+          console.warn(
+            `[fplRateLimiter] 429 on ${item.path}, retry ${item.retries + 1} after ${backoff}ms`,
+          );
           outageLog.push({ timestamp: Date.now(), endpoint: item.path, errorCode: 429 });
           await wait(backoff);
           queue.unshift({ ...item, retries: item.retries + 1 });
@@ -67,8 +74,14 @@ async function processQueue(): Promise<void> {
       if (response.status >= 500) {
         if (item.retries < MAX_RETRIES) {
           const backoff = getBackoffDelay(item.retries);
-          console.warn(`[fplRateLimiter] ${response.status} on ${item.path}, retry ${item.retries + 1} after ${backoff}ms`);
-          outageLog.push({ timestamp: Date.now(), endpoint: item.path, errorCode: response.status });
+          console.warn(
+            `[fplRateLimiter] ${response.status} on ${item.path}, retry ${item.retries + 1} after ${backoff}ms`,
+          );
+          outageLog.push({
+            timestamp: Date.now(),
+            endpoint: item.path,
+            errorCode: response.status,
+          });
           await wait(backoff);
           queue.unshift({ ...item, retries: item.retries + 1 });
           continue;
@@ -86,9 +99,15 @@ async function processQueue(): Promise<void> {
       const data = await response.json();
       item.resolve(data);
     } catch (error) {
-      if (item.retries < MAX_RETRIES && error instanceof Error && (error.name === "TimeoutError" || error.message.includes("fetch"))) {
+      if (
+        item.retries < MAX_RETRIES &&
+        error instanceof Error &&
+        (error.name === "TimeoutError" || error.message.includes("fetch"))
+      ) {
         const backoff = getBackoffDelay(item.retries);
-        console.warn(`[fplRateLimiter] Network error on ${item.path}, retry ${item.retries + 1} after ${backoff}ms`);
+        console.warn(
+          `[fplRateLimiter] Network error on ${item.path}, retry ${item.retries + 1} after ${backoff}ms`,
+        );
         outageLog.push({ timestamp: Date.now(), endpoint: item.path, errorCode: "network" });
         await wait(backoff);
         queue.unshift({ ...item, retries: item.retries + 1 });

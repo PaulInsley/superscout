@@ -63,8 +63,7 @@ export default function PlayersScreen() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const showReportBanner =
-    !!lastFinishedGw && !!managerId && reportDismissedGw !== lastFinishedGw;
+  const showReportBanner = !!lastFinishedGw && !!managerId && reportDismissedGw !== lastFinishedGw;
 
   const handleDismissReportBanner = async () => {
     if (!lastFinishedGw || !managerId) return;
@@ -85,31 +84,16 @@ export default function PlayersScreen() {
       ]}
     >
       <View style={styles.playerInfo}>
-        <Text style={[styles.playerName, { color: colors.foreground }]}>
-          {item.name}
-        </Text>
+        <Text style={[styles.playerName, { color: colors.foreground }]}>{item.name}</Text>
         <View style={styles.statsRow}>
-          <View
-            style={[
-              styles.priceBadge,
-              { backgroundColor: colors.secondary },
-            ]}
-          >
-            <Text
-              style={[styles.priceText, { color: colors.secondaryForeground }]}
-            >
+          <View style={[styles.priceBadge, { backgroundColor: colors.secondary }]}>
+            <Text style={[styles.priceText, { color: colors.secondaryForeground }]}>
               £{item.price.toFixed(1)}m
             </Text>
           </View>
           <View style={styles.formContainer}>
-            <Text
-              style={[styles.formLabel, { color: colors.mutedForeground }]}
-            >
-              Form
-            </Text>
-            <Text style={[styles.formValue, { color: colors.primary }]}>
-              {item.form}
-            </Text>
+            <Text style={[styles.formLabel, { color: colors.mutedForeground }]}>Form</Text>
+            <Text style={[styles.formValue, { color: colors.primary }]}>{item.form}</Text>
           </View>
         </View>
       </View>
@@ -118,9 +102,7 @@ export default function PlayersScreen() {
 
   if (isLoading) {
     return (
-      <View
-        style={[styles.centered, { backgroundColor: colors.background }]}
-      >
+      <View style={[styles.centered, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
           Loading players...
@@ -131,18 +113,16 @@ export default function PlayersScreen() {
 
   if (isError) {
     return (
-      <View
-        style={[styles.centered, { backgroundColor: colors.background }]}
-      >
-        <Feather name="wifi-off" size={48} color={colors.mutedForeground} />
-        <Text style={[styles.errorTitle, { color: colors.foreground }]}>
-          Connection Error
-        </Text>
+      <View style={[styles.centered, { backgroundColor: colors.background }]}>
+        <Feather name="wifi-off" size={48} color={colors.mutedForeground} accessibilityElementsHidden={true} />
+        <Text style={[styles.errorTitle, { color: colors.foreground }]}>Connection Error</Text>
         <Text style={[styles.errorMessage, { color: colors.mutedForeground }]}>
           Couldn't reach the FPL servers — try again in a moment.
         </Text>
         <Pressable
           onPress={() => refetch()}
+          accessibilityLabel="Try again"
+          accessibilityRole="button"
           style={({ pressed }) => [
             styles.retryButton,
             {
@@ -152,9 +132,7 @@ export default function PlayersScreen() {
             },
           ]}
         >
-          <Text style={[styles.retryText, { color: colors.primaryForeground }]}>
-            Try Again
-          </Text>
+          <Text style={[styles.retryText, { color: colors.primaryForeground }]}>Try Again</Text>
         </Pressable>
       </View>
     );
@@ -172,9 +150,7 @@ export default function PlayersScreen() {
         ]}
       >
         <View style={styles.headerTopRow}>
-          <Text style={[styles.headerTitle, { color: colors.foreground }]}>
-            {config.brandName}
-          </Text>
+          <Text style={[styles.headerTitle, { color: colors.foreground }]} accessibilityRole="header">{config.brandName}</Text>
           {streak && (
             <StreakBadge
               currentStreak={streak.current_streak}
@@ -193,16 +169,14 @@ export default function PlayersScreen() {
         <Pressable
           style={[styles.reportBanner, { backgroundColor: "#1a472a" }]}
           onPress={() => setShowReportCard(true)}
+          accessibilityLabel={`View gameweek ${lastFinishedGw} report card`}
+          accessibilityRole="button"
         >
           <View style={styles.reportBannerLeft}>
             <Feather name="award" size={20} color="#00ff87" />
             <View>
-              <Text style={styles.reportBannerTitle}>
-                Your GW{lastFinishedGw} report is ready
-              </Text>
-              <Text style={styles.reportBannerSub}>
-                See how your decisions scored
-              </Text>
+              <Text style={styles.reportBannerTitle}>Your GW{lastFinishedGw} report is ready</Text>
+              <Text style={styles.reportBannerSub}>See how your decisions scored</Text>
             </View>
           </View>
           <View style={styles.reportBannerActions}>
@@ -212,6 +186,8 @@ export default function PlayersScreen() {
                 handleDismissReportBanner();
               }}
               hitSlop={8}
+              accessibilityLabel="Dismiss report banner"
+              accessibilityRole="button"
             >
               <Feather name="x" size={16} color="#ffffffaa" />
             </Pressable>
@@ -227,8 +203,7 @@ export default function PlayersScreen() {
         contentContainerStyle={[
           styles.listContent,
           {
-            paddingBottom:
-              Platform.OS === "web" ? 34 + 84 : insets.bottom + 84,
+            paddingBottom: Platform.OS === "web" ? 34 + 84 : insets.bottom + 84,
           },
         ]}
         scrollEnabled={(players?.length ?? 0) > 0}

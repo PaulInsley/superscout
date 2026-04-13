@@ -37,7 +37,7 @@ A dynamic rules engine loads and caches sport-specific rules, injecting them int
 - **Privacy Policy Integration**: Provides access to privacy policy and terms of service, including consent logging during onboarding.
 - **In-App Feedback System**: Offers two channels for user feedback: a post-gameweek survey and a persistent feedback form.
 - **Authentication**: Supabase Auth with email/password, session persistence via AsyncStorage, and secure user ID management. 3-way app routing: (1) valid session → main app, (2) no session + onboarding completed → sign-in only screen, (3) no session + never onboarded → full onboarding flow. Sign-out preserves onboarding completion and user preferences.
-- **Onboarding Flow**: A guided first-time user experience covering FPL connect, vibe selection, account creation, beginner check, and feature overview. Returning users who sign out see only the sign-in screen, not the full onboarding.
+- **Onboarding Flow**: A guided first-time user experience with a 3-question Vibe Quiz (personality test mapping to Expert/Critic/Fanboy), FPL connect, account creation, beginner check, feature overview, and a real captain recommendation preview on the final screen. Returning users who sign out see only the sign-in screen, not the full onboarding.
 - **Mini-League Banter Engine**: AI-powered banter generation against mini-league rivals, with Pro-gated access.
 - **Push Notifications System**: Sport-agnostic notification infrastructure for deadline reminders, results, price changes, and streak alerts, with user-configurable preferences.
 - **Streak System**: Tracks consecutive gameweeks of user activity, offering milestones and a "Streak Shield" for retention.
@@ -45,9 +45,11 @@ A dynamic rules engine loads and caches sport-specific rules, injecting them int
 - **Auto-Pull Decisions**: Post-deadline process to automatically compare actual user captain choices with SuperScout recommendations.
 - **Pre-Generation Pipeline**: Caches AI recommendations per user/vibe/gameweek, with staleness checks to ensure data freshness.
 - **Admin Dashboard**: Web-based admin panel for browsing Supabase tables and running custom queries, protected by password authentication.
-- **API Security**: Implements Helmet security headers, two-tier rate limiting for AI generation and data endpoints, and Zod schema validation on all POST/PUT routes via `validateBody()` middleware.
+- **API Security**: Implements Helmet security headers, two-tier rate limiting for AI generation and data endpoints, Zod schema validation on all POST/PUT routes via `validateBody()` middleware, and per-request user-scoped Supabase clients (RLS enforced) for user-facing routes with service_role restricted to background jobs only.
 - **Error Observability**: All catch blocks log meaningful warnings with context (no silent failures). Sentry crash reporting integrated on mobile with user context.
 - **Test Suite**: Vitest test suite with 46 tests across 10 files covering Zod schemas, validation middleware, cache utilities, and JSON extraction.
+- **Code Quality**: ESLint + Prettier configured with TypeScript support. Zero ESLint errors across the codebase.
+- **Accessibility**: All interactive elements have accessibilityLabel and accessibilityRole attributes for VoiceOver/TalkBack support.
 
 ### UI/UX & Interaction
 The UI features expandable `ChoiceCard.tsx` components, consistent design using reusable components, and `ProgressLoadingIndicator.tsx` for enhanced user experience during long AI operations. The app primarily uses a dark theme and centrally manages Manager ID access.

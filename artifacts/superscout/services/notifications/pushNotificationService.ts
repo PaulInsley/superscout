@@ -25,8 +25,7 @@ export async function requestPushPermissions(): Promise<boolean> {
     return false;
   }
 
-  const { status: existingStatus } =
-    await Notifications.getPermissionsAsync();
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
 
   if (existingStatus === "granted") {
     await AsyncStorage.setItem(PERMISSION_ASKED_KEY, "true");
@@ -114,10 +113,7 @@ export async function scheduleNotification(
   triggerDate: Date,
   data?: Record<string, unknown>,
 ): Promise<string> {
-  const secondsFromNow = Math.max(
-    1,
-    Math.floor((triggerDate.getTime() - Date.now()) / 1000),
-  );
+  const secondsFromNow = Math.max(1, Math.floor((triggerDate.getTime() - Date.now()) / 1000));
 
   const triggerInput: Notifications.NotificationTriggerInput = {
     type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,

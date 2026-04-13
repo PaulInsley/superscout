@@ -1,0 +1,348 @@
+# REPLIT AGENT PROMPTS — SuperScout Phase C (Polish — Before App Store)
+
+Run these in order. Commit after each with a clear message.
+
+-----
+
+## PROMPT C1 — Build the Vibe Quiz
+
+### Context
+
+The master plan (Section 12, Screen 3) specifies a 3-question personality quiz during onboarding that maps the user’s answers to a vibe (Expert, Critic, or Fanboy). Currently the app skips the quiz and goes straight to a direct vibe selection screen (Choose Your Vibe). The quiz is the “Delight” moment in the onboarding emotional arc — it makes vibe selection feel like a personality test rather than a cold pick from a list.
+
+### Task
+
+1. **Create a new screen** `app/onboarding/VibeQuizScreen.tsx` with three questions, each with three tappable options:
+
+**Q1:** “Your captain blanks on 2 points. What do you want to hear?”
+
+- (a) “Here’s why the data still supported that pick” → Expert
+- (b) “I told you that was a terrible idea” → Critic
+- (c) “Forget that — look at this differential for next week!” → Fanboy
+
+**Q2:** “It’s 2 hours before the deadline. You have one free transfer. What’s your style?”
+
+- (a) “Show me the xG data and let me decide” → Expert
+- (b) “Tell me who NOT to pick — I’ll figure out the rest” → Critic
+- (c) “Who’s the exciting punt this week?” → Fanboy
+
+**Q3:** “You just had your best ever gameweek. What do you want?”
+
+- (a) “A breakdown of which decisions drove the score” → Expert
+- (b) “Yeah but here’s why you’ll probably mess it up next week” → Critic
+- (c) “LET’S GOOO! Now let’s push for top 10k!” → Fanboy
+
+1. **Quiz flow:**
+
+- Show one question at a time (tap an answer to advance to the next)
+- Progress indicator (1/3, 2/3, 3/3)
+- After Q3, calculate the result: majority vibe wins. If all three answers are different vibes, default to Expert.
+- Show a **vibe reveal screen** with the winning vibe name, a one-line personality preview, and the text “You can change this anytime in Settings.”
+- Below the reveal, show a “Try all three” button that takes the user to the existing Compare Vibes carousel (ChooseVibeScreen in preview mode)
+- A “Continue with [Vibe Name]” button to accept the quiz result and proceed
+
+1. **Update OnboardingFlow.tsx** to insert the quiz BEFORE the existing ChooseVibeScreen. The new flow should be:
+
+- Step 0: Welcome
+- Step 1: Connect FPL
+- Step 2: **Vibe Quiz (NEW)**
+- Step 3: Sign Up (email/password)
+- Step 4: Beginner Check
+- Step 5: What We Do
+- Step 6: You’re In
+
+The quiz replaces the direct vibe selection as the primary path. The “Try all three” option on the reveal screen is the escape hatch for users who want to override the quiz result.
+
+1. **Styling:** Match the app’s dark theme. Questions should feel playful — use slightly larger text, generous spacing. Each answer option should be a tappable card, not a radio button. The reveal screen should feel like a moment of celebration (brief animation or transition).
+
+### Git Safety
+
+Do NOT run any destructive git operations. Commit with message: “feature: add 3-question Vibe Quiz to onboarding”
+
+-----
+
+## PROMPT C2 — Fix Onboarding Screen 5 to Show a Real Recommendation
+
+### Context
+
+The master plan specifies that the final onboarding screen immediately shows one captain pick or transfer suggestion in the user’s chosen vibe voice, with 3 options, confidence levels, pros and cons. Currently, YoureInScreen.tsx just says “Your first recommendation is ready” with a button to enter the app — it doesn’t show an actual recommendation. The “Aha Moment” is supposed to happen BEFORE the user enters the main app.
+
+### Task
+
+1. **On the YoureInScreen**, after showing the “Your first recommendation is ready” message, automatically fetch a captain pick recommendation for the user’s connected FPL team using their chosen vibe.
+1. **Display a mini preview** of the top recommendation — just the SuperScout Pick with player name, confidence level, and a 1-2 sentence vibe-voiced reason. Don’t show the full 3-option choice architecture here — that’s what the Captain tab is for. This is a teaser that proves the app works with THEIR data.
+1. **If the fetch fails** (no manager ID connected, API error, etc.), just show the current “Your first recommendation is ready” message as a fallback. Don’t block onboarding completion.
+1. **The “Let’s go” button** should still proceed to the main app as it currently does.
+
+### Git Safety
+
+Do NOT run any destructive git operations. Commit with message: “feature: show real recommendation preview on final onboarding screen”
+
+-----
+
+## PROMPT C3 — Transfer Card Design Pass
+
+### Context
+
+The Transfer Advisor cards are visually crammed and hard to read. Fixture pills, player names, prices, OUT/IN layout, upside/risk text, and commentary are all competing for space. The cards need a full design pass using the brand guidelines spacing tokens. Captain cards look better because they have more room — transfer cards have two players per swap which makes layout harder.
+
+### Task
+
+1. **Redesign the TransferCard component** (`components/TransferCard.tsx`) with better spacing and visual hierarchy:
+- **Player swap section:** Give more vertical space between the OUT player and IN player. The arrow between them should be clearly visible. Player name should be the largest text. Team abbreviation and price below in smaller muted text.
+- **Fixture ticker:** Move fixture pills to their own row BELOW each player (not crammed next to the name). Give them a clear visual separation from the player info above.
+- **Metadata row:** Confidence label (Banker/Calculated Risk/Bold Punt), cost, and “Free transfer” / “Uses X FT” badges should be on their own row with clear spacing between them.
+- **Expected impact:** Give the “+X.X pts” expected impact its own prominent row — it’s one of the most important pieces of information.
+- **Upside/Risk/Commentary:** These text sections need more breathing room. Use the spacing tokens from the brand guidelines: space-sm (8px) between related elements, space-md (16px) between sections.
+- **Package transfers:** When showing a multi-transfer package (is_package = true), each swap should be visually separated with a subtle divider. The package name (e.g., “Double Gameweek Hedge”) should be prominent at the top of the card.
+1. **Use these spacing values consistently:**
+- 8px between related elements (player name and team)
+- 16px between sections (player info → fixtures → metadata → impact → text)
+- 24px card padding
+- 12px border radius on cards
+1. **Test on both small and large screens.** The card should look good on iPhone SE (small) and iPhone Pro Max (large). Use numberOfLines with the expandable “Read more” to keep initial card height reasonable.
+1. **Do NOT change the data structure or props** — only the visual layout and styling. The TransferCard should still accept the same TransferRecommendation interface.
+
+### Git Safety
+
+Do NOT run any destructive git operations. Commit with message: “design: transfer card layout redesign for readability”
+
+-----
+
+## PROMPT C4 — Add Streak Badge to Home/Dashboard Screen
+
+### Context
+
+The streak counter is currently only visible in Settings. The master plan says it should be prominent on the home/dashboard screen so users see it every time they open the app — the visibility is what makes the streak psychologically effective.
+
+### Task
+
+1. **Add the StreakBadge component** to the home tab screen (`app/(tabs)/index.tsx`). Position it near the top of the screen, visible without scrolling.
+1. **Make it tappable** — tapping the streak badge on the home screen should open the StreakDetailSheet (same as in Settings).
+1. **If the user has no streak data yet** (new user, streak = 0), show a subtle prompt: “Make your first decision to start your streak” with a greyed-out flame icon.
+
+### Git Safety
+
+Do NOT run any destructive git operations. Commit with message: “feature: add streak badge to home screen”
+
+-----
+
+## PROMPT C5 — Make System Prompt Sport-Agnostic
+
+### Context
+
+The shared system prompt (`services/sharedSystemPrompt.ts`) directly references “FPL”, “Fantasy Premier League”, specific FPL rules, and FPL-specific terminology. For the sport-agnostic architecture to work (required for F1 Fantasy expansion in March 2027), the system prompt should be generic with sport-specific context injected dynamically.
+
+### Task
+
+1. **Refactor sharedSystemPrompt.ts** to be sport-neutral. Replace all hardcoded FPL references with placeholders that are filled by the sport-specific layer:
+- “FPL” → use a `sportName` parameter
+- “Fantasy Premier League” → use a `sportFullName` parameter
+- “gameweek” → use a `roundName` parameter
+- Specific rule references → injected from the rules engine, not hardcoded in the system prompt
+1. **Create a function** that builds the complete system prompt by combining the generic base with sport-specific context:
+
+```typescript
+function buildSystemPrompt(sport: string = 'fpl'): string {
+  const basePrompt = getGenericSystemPrompt();
+  const sportContext = getSportContext(sport); // from rules engine
+  return `${basePrompt}\n\n${sportContext}`;
+}
+```
+
+1. **Update all routes** that use the system prompt to call `buildSystemPrompt('fpl')` instead of using the hardcoded string directly.
+1. **Test:** Generate a captain pick and transfer recommendation. Verify the output quality is identical to before — the user should notice no difference.
+
+### Git Safety
+
+Do NOT run any destructive git operations. Commit with message: “architecture: make system prompt sport-agnostic”
+
+-----
+
+## PROMPT C6 — Fix App Version Display in Settings
+
+### Context
+
+The Settings screen shows “Phase 1” as the app version. It should show the actual version number from the app configuration.
+
+### Task
+
+1. In `app/(tabs)/settings.tsx`, replace the hardcoded “Phase 1” text with the actual app version:
+
+```typescript
+import Constants from 'expo-constants';
+
+const appVersion = Constants.expoConfig?.version ?? '0.0.1';
+```
+
+1. Display it as: “SuperScout v0.1.0” (or whatever the version in app.json is).
+
+### Git Safety
+
+Do NOT run any destructive git operations. Commit with message: “fix: show actual app version in Settings instead of hardcoded Phase 1”
+
+-----
+
+## PROMPT C7 — Add ESLint + Prettier
+
+### Context
+
+No linting or formatting enforcement exists. Code style is inconsistent across the codebase.
+
+### Task
+
+1. **Install ESLint + Prettier** in both the superscout app and api-server:
+
+```
+npm install -D eslint prettier eslint-config-prettier @typescript-eslint/eslint-plugin @typescript-eslint/parser
+```
+
+1. **Create `.eslintrc.js`** in the project root with TypeScript + React Native rules.
+1. **Create `.prettierrc`** in the project root:
+
+```json
+{
+  "semi": true,
+  "singleQuote": false,
+  "tabWidth": 2,
+  "trailingComma": "all",
+  "printWidth": 100
+}
+```
+
+1. **Run auto-fix** on the codebase:
+
+```
+npx eslint . --fix
+npx prettier --write .
+```
+
+1. **Fix any errors** that auto-fix can’t handle.
+1. Do NOT change any logic or functionality — only formatting and style fixes.
+
+### Git Safety
+
+Do NOT run any destructive git operations. Commit with message: “quality: add ESLint + Prettier, auto-fix codebase”
+
+-----
+
+## PROMPT C8 — Add Accessibility Labels to Interactive Elements
+
+### Context
+
+Interactive elements (buttons, switches, cards) don’t have accessibility labels. Screen reader users (VoiceOver on iOS, TalkBack on Android) have no context for what each element does. Apple and Google both require basic accessibility for app store approval.
+
+### Task
+
+1. **Audit every Pressable, Switch, and tappable element** across all screens and components.
+1. **Add accessibilityLabel to each one.** Examples:
+- Captain tab Regenerate button: `accessibilityLabel="Regenerate captain recommendations"`
+- Vibe switch in Settings: `accessibilityLabel="Change your coaching vibe"`
+- Notification toggle: `accessibilityLabel="Toggle deadline reminders"`
+- Share button on Squad Card: `accessibilityLabel="Share your squad card"`
+- Streak badge: `accessibilityLabel="Your current gameweek streak"`
+- Back buttons: `accessibilityLabel="Go back"`
+- Expandable cards: `accessibilityLabel="Show more details"` / `accessibilityLabel="Show less details"`
+1. **Add accessibilityRole** where appropriate:
+- Buttons: `accessibilityRole="button"`
+- Switches: `accessibilityRole="switch"`
+- Links: `accessibilityRole="link"`
+- Headers: `accessibilityRole="header"`
+1. **Don’t over-label** — decorative elements and images that don’t convey information should have `accessibilityElementsHidden={true}` or `importantForAccessibility="no"`.
+
+### Git Safety
+
+Do NOT run any destructive git operations. Commit with message: “accessibility: add labels and roles to all interactive elements”
+
+-----
+
+## PROMPT C9 — Scope Supabase Service Role to Background Jobs Only
+
+### Context
+
+The API server creates its Supabase client with the service_role_key, which bypasses all Row Level Security. This means every API endpoint can read/write any user’s data regardless of who’s making the request. For user-facing endpoints, the server should use the requesting user’s auth token so RLS is enforced.
+
+### Task
+
+1. **Keep the service_role client** for background jobs only:
+- Pre-generation pipeline (preGenerate.ts)
+- Outcome collection (processDecisions.ts)
+- Admin panel (admin.ts)
+- Notification batch sending
+1. **For user-facing routes**, create a per-request Supabase client using the user’s JWT:
+- Extract the auth token from the request (Authorization header or from the user_id parameter + Supabase auth verification)
+- Create a Supabase client with the anon key + the user’s token
+- This client will have RLS enforced — users can only access their own data
+1. **Create a helper** at `artifacts/api-server/src/lib/supabaseUser.ts`:
+
+```typescript
+import { createClient } from '@supabase/supabase-js';
+
+export function getUserSupabase(accessToken: string) {
+  return createClient(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_ANON_KEY!, // Use anon key, not service role
+    {
+      global: {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      },
+    }
+  );
+}
+```
+
+1. **Update these routes** to use the user-scoped client for reads/writes that should be user-specific:
+- captain.ts (reading/writing recommendations, decision log)
+- transfer.ts (reading/writing recommendations, decision log)
+- banter.ts (reading user leagues, writing banter)
+- notifications.ts (reading/writing user preferences, notification log)
+- streaks.ts (reading/writing user streaks)
+- reportCard.ts (reading/writing user report cards)
+- squadCard.ts (reading/writing user squad cards)
+- decisionLog.ts (reading user’s decision history)
+1. **Add `SUPABASE_ANON_KEY`** to the api-server environment variables if not already present (it’s the same key the mobile app uses).
+
+### Important
+
+This is a significant change. Test thoroughly after implementing — every user-facing route should still work, but now with RLS enforced. If any RLS policy is missing or too restrictive, the route will return empty data or errors.
+
+### Git Safety
+
+Do NOT run any destructive git operations. Commit with message: “security: scope service_role to background jobs, enforce RLS on user routes”
+
+-----
+
+## PROMPT C10 — Add “You can change this anytime” Text After Vibe Selection
+
+### Context
+
+Small but important UX detail from the master plan. After a user selects their vibe (either via the quiz or direct selection), they should see reassurance that the choice isn’t permanent.
+
+### Task
+
+1. If the Vibe Quiz (C1) was built, add “You can change this anytime in Settings” as subtitle text on the vibe reveal screen, below the vibe name.
+1. Also add it to the existing ChooseVibeScreen — after tapping “This is my vibe” or “Choose this one”, briefly show the text before proceeding to the next screen.
+1. Style it as muted text, smaller than the vibe name. Don’t make it a separate screen — it should be part of the existing flow.
+
+### Git Safety
+
+Do NOT run any destructive git operations. Commit with message: “ux: add ‘change anytime in Settings’ reassurance after vibe selection”
+
+-----
+
+## AFTER ALL 10 PROMPTS ARE COMPLETE
+
+Verify:
+
+1. Go through full onboarding — quiz appears, 3 questions work, vibe is correctly assigned
+1. Final onboarding screen shows a real recommendation preview
+1. Transfer cards are visually clean with proper spacing
+1. Streak badge visible on home screen
+1. Generate a captain pick — quality identical to before (system prompt refactor didn’t break anything)
+1. Settings shows actual version number
+1. Run `npx eslint .` — zero errors
+1. Enable VoiceOver on iPhone, navigate the app — all buttons announced meaningfully
+1. Create a second account — confirm RLS prevents accessing the first account’s data
+1. Vibe reveal screen shows “You can change this anytime in Settings”
+
+Report back on all 10 verifications.

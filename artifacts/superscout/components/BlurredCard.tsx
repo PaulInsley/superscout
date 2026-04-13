@@ -25,13 +25,19 @@ export default function BlurredCard({ onPress }: BlurredCardProps) {
           <View style={styles.placeholderRow}>
             <View style={[styles.placeholderCircle, { backgroundColor: colors.border }]} />
             <View style={styles.placeholderLines}>
-              <View style={[styles.placeholderLine, { backgroundColor: colors.border, width: "60%" }]} />
-              <View style={[styles.placeholderLine, { backgroundColor: colors.border, width: "40%" }]} />
+              <View
+                style={[styles.placeholderLine, { backgroundColor: colors.border, width: "60%" }]}
+              />
+              <View
+                style={[styles.placeholderLine, { backgroundColor: colors.border, width: "40%" }]}
+              />
             </View>
           </View>
           <View style={styles.placeholderBars}>
             <View style={[styles.placeholderBar, { backgroundColor: colors.border }]} />
-            <View style={[styles.placeholderBar, { backgroundColor: colors.border, width: "70%" }]} />
+            <View
+              style={[styles.placeholderBar, { backgroundColor: colors.border, width: "70%" }]}
+            />
           </View>
         </View>
 

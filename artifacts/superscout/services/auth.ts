@@ -53,9 +53,7 @@ export async function signIn(
   }
 }
 
-export async function resetPassword(
-  email: string,
-): Promise<{ error: string | null }> {
+export async function resetPassword(email: string): Promise<{ error: string | null }> {
   try {
     const { error } = await supabase.auth.resetPasswordForEmail(email);
     if (error) return { error: error.message };

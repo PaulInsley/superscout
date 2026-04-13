@@ -68,9 +68,7 @@ export default function ConnectFPLScreen({ onNext }: Props) {
       ]}
     >
       <View style={styles.content}>
-        <Text style={[styles.title, { color: colors.foreground }]}>
-          Connect Your FPL Team
-        </Text>
+        <Text style={[styles.title, { color: colors.foreground }]}>Connect Your FPL Team</Text>
 
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
           Enter your FPL Manager ID to get started
@@ -104,30 +102,25 @@ export default function ConnectFPLScreen({ onNext }: Props) {
           <Pressable
             onPress={handleLookup}
             disabled={!input.trim() || loading}
+            accessibilityLabel="Find FPL team"
+            accessibilityRole="button"
             style={({ pressed }) => [
               styles.lookupButton,
               {
-                backgroundColor: input.trim()
-                  ? colors.primary
-                  : colors.muted,
+                backgroundColor: input.trim() ? colors.primary : colors.muted,
                 borderRadius: colors.radius,
                 opacity: pressed ? 0.8 : 1,
               },
             ]}
           >
             {loading ? (
-              <ActivityIndicator
-                size="small"
-                color={colors.primaryForeground}
-              />
+              <ActivityIndicator size="small" color={colors.primaryForeground} />
             ) : (
               <Text
                 style={[
                   styles.lookupText,
                   {
-                    color: input.trim()
-                      ? colors.primaryForeground
-                      : colors.mutedForeground,
+                    color: input.trim() ? colors.primaryForeground : colors.mutedForeground,
                   },
                 ]}
               >
@@ -137,11 +130,7 @@ export default function ConnectFPLScreen({ onNext }: Props) {
           </Pressable>
         </View>
 
-        {error && (
-          <Text style={[styles.errorText, { color: colors.destructive }]}>
-            {error}
-          </Text>
-        )}
+        {error && <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>}
 
         {teamName && validatedId && (
           <View
@@ -155,17 +144,10 @@ export default function ConnectFPLScreen({ onNext }: Props) {
           >
             <Feather name="check-circle" size={20} color="#22c55e" />
             <View style={{ flex: 1 }}>
-              <Text
-                style={[
-                  styles.confirmText,
-                  { color: colors.secondaryForeground },
-                ]}
-              >
+              <Text style={[styles.confirmText, { color: colors.secondaryForeground }]}>
                 {teamName}
               </Text>
-              <Text
-                style={[styles.confirmId, { color: colors.mutedForeground }]}
-              >
+              <Text style={[styles.confirmId, { color: colors.mutedForeground }]}>
                 Manager ID: {validatedId}
               </Text>
             </View>
@@ -187,72 +169,40 @@ export default function ConnectFPLScreen({ onNext }: Props) {
           </Text>
           <View style={styles.helpSteps}>
             <View style={styles.helpStep}>
-              <View
-                style={[
-                  styles.stepNumber,
-                  { backgroundColor: colors.accent + "20" },
-                ]}
-              >
-                <Text style={[styles.stepNumberText, { color: colors.accent }]}>
-                  1
-                </Text>
+              <View style={[styles.stepNumber, { backgroundColor: colors.accent + "20" }]}>
+                <Text style={[styles.stepNumberText, { color: colors.accent }]}>1</Text>
               </View>
-              <Text
-                style={[styles.helpStepText, { color: colors.mutedForeground }]}
-              >
+              <Text style={[styles.helpStepText, { color: colors.mutedForeground }]}>
                 Open the FPL website or app
               </Text>
             </View>
             <View style={styles.helpStep}>
-              <View
-                style={[
-                  styles.stepNumber,
-                  { backgroundColor: colors.accent + "20" },
-                ]}
-              >
-                <Text style={[styles.stepNumberText, { color: colors.accent }]}>
-                  2
-                </Text>
+              <View style={[styles.stepNumber, { backgroundColor: colors.accent + "20" }]}>
+                <Text style={[styles.stepNumberText, { color: colors.accent }]}>2</Text>
               </View>
-              <Text
-                style={[styles.helpStepText, { color: colors.mutedForeground }]}
-              >
+              <Text style={[styles.helpStepText, { color: colors.mutedForeground }]}>
                 Go to the Points tab and tap your team name
               </Text>
             </View>
             <View style={styles.helpStep}>
-              <View
-                style={[
-                  styles.stepNumber,
-                  { backgroundColor: colors.accent + "20" },
-                ]}
-              >
-                <Text style={[styles.stepNumberText, { color: colors.accent }]}>
-                  3
-                </Text>
+              <View style={[styles.stepNumber, { backgroundColor: colors.accent + "20" }]}>
+                <Text style={[styles.stepNumberText, { color: colors.accent }]}>3</Text>
               </View>
-              <Text
-                style={[styles.helpStepText, { color: colors.mutedForeground }]}
-              >
+              <Text style={[styles.helpStepText, { color: colors.mutedForeground }]}>
                 The number in the URL is your Manager ID
               </Text>
             </View>
           </View>
           <Text style={[styles.helpExample, { color: colors.mutedForeground }]}>
             fantasy.premierleague.com/entry/
-            <Text style={{ color: colors.accent, fontFamily: "Inter_700Bold" }}>
-              13042160
-            </Text>
+            <Text style={{ color: colors.accent, fontFamily: "Inter_700Bold" }}>13042160</Text>
             /event/1
           </Text>
         </View>
       </View>
 
       <View style={styles.bottomButtons}>
-        <Pressable
-          onPress={() => setPrivacyAccepted(!privacyAccepted)}
-          style={styles.checkboxRow}
-        >
+        <Pressable onPress={() => setPrivacyAccepted(!privacyAccepted)} accessibilityLabel={privacyAccepted ? "Uncheck privacy agreement" : "Accept privacy policy and terms"} accessibilityRole="button" style={styles.checkboxRow}>
           <View
             style={[
               styles.checkbox,
@@ -262,9 +212,7 @@ export default function ConnectFPLScreen({ onNext }: Props) {
               },
             ]}
           >
-            {privacyAccepted && (
-              <Feather name="check" size={14} color={colors.primary} />
-            )}
+            {privacyAccepted && <Feather name="check" size={14} color={colors.primary} />}
           </View>
           <Text style={[styles.checkboxText, { color: colors.mutedForeground }]}>
             I agree to the{" "}
@@ -273,8 +221,8 @@ export default function ConnectFPLScreen({ onNext }: Props) {
               onPress={() => Linking.openURL("https://superscout.pro/privacy")}
             >
               Privacy Policy
-            </Text>
-            {" "}and{" "}
+            </Text>{" "}
+            and{" "}
             <Text
               style={{ color: colors.accent, textDecorationLine: "underline" }}
               onPress={() => Linking.openURL("https://superscout.pro/terms")}
@@ -295,6 +243,8 @@ export default function ConnectFPLScreen({ onNext }: Props) {
               onNext(validatedId, teamName);
             }}
             disabled={!privacyAccepted}
+            accessibilityLabel="That's my team"
+            accessibilityRole="button"
             style={({ pressed }) => [
               styles.button,
               {
@@ -304,7 +254,10 @@ export default function ConnectFPLScreen({ onNext }: Props) {
             ]}
           >
             <Text
-              style={[styles.buttonText, { color: privacyAccepted ? colors.primaryForeground : colors.mutedForeground }]}
+              style={[
+                styles.buttonText,
+                { color: privacyAccepted ? colors.primaryForeground : colors.mutedForeground },
+              ]}
             >
               That's my team
             </Text>
@@ -322,8 +275,15 @@ export default function ConnectFPLScreen({ onNext }: Props) {
             onNext(null, null);
           }}
           disabled={!privacyAccepted}
+          accessibilityLabel="Skip for now"
+          accessibilityRole="button"
         >
-          <Text style={[styles.skipText, { color: privacyAccepted ? colors.mutedForeground : colors.muted }]}>
+          <Text
+            style={[
+              styles.skipText,
+              { color: privacyAccepted ? colors.mutedForeground : colors.muted },
+            ]}
+          >
             Skip for now
           </Text>
         </Pressable>

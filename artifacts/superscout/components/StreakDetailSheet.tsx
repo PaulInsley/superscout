@@ -1,11 +1,5 @@
 import React, { useEffect, useState } from "react";
-import {
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -58,18 +52,11 @@ export default function StreakDetailSheet({
         ? "Locked (reach 5 to unlock)"
         : "Not yet earned";
 
-  const shieldColor = shieldAvailable
-    ? "#f59e0b"
-    : "#666";
+  const shieldColor = shieldAvailable ? "#f59e0b" : "#666";
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <Pressable style={styles.overlay} onPress={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={styles.overlay} onPress={onClose} accessibilityLabel="Close streak details" accessibilityRole="button">
         <View
           style={[
             styles.sheet,
@@ -83,24 +70,16 @@ export default function StreakDetailSheet({
 
           <View style={styles.header}>
             <Text style={{ fontSize: 40 }}>🔥</Text>
-            <Text style={[styles.title, { color: colors.foreground }]}>
-              Your Streak
-            </Text>
+            <Text style={[styles.title, { color: colors.foreground }]}>Your Streak</Text>
           </View>
 
           <View style={styles.statsRow}>
             <View style={[styles.statCard, { backgroundColor: colors.background }]}>
-              <Text style={[styles.statValue, { color: "#f97316" }]}>
-                {currentStreak}
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>
-                Current
-              </Text>
+              <Text style={[styles.statValue, { color: "#f97316" }]}>{currentStreak}</Text>
+              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Current</Text>
             </View>
             <View style={[styles.statCard, { backgroundColor: colors.background }]}>
-              <Text style={[styles.statValue, { color: colors.primary }]}>
-                {longestStreak}
-              </Text>
+              <Text style={[styles.statValue, { color: colors.primary }]}>{longestStreak}</Text>
               <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>
                 Personal Best
               </Text>
@@ -119,24 +98,14 @@ export default function StreakDetailSheet({
               color={shieldColor}
             />
             <View style={styles.shieldInfo}>
-              <Text style={[styles.shieldTitle, { color: colors.foreground }]}>
-                Streak Shield
-              </Text>
-              <Text style={[styles.shieldStatus, { color: shieldColor }]}>
-                {shieldStatus}
-              </Text>
+              <Text style={[styles.shieldTitle, { color: colors.foreground }]}>Streak Shield</Text>
+              <Text style={[styles.shieldStatus, { color: shieldColor }]}>{shieldStatus}</Text>
             </View>
           </View>
 
-          <Text
-            style={[
-              styles.shieldExplainer,
-              { color: colors.mutedForeground },
-            ]}
-          >
-            The Streak Shield saves your streak if you miss exactly one{" "}
-            {sportConfig.roundName}. Earn it by reaching a 5-{sportConfig.roundName}{" "}
-            streak.
+          <Text style={[styles.shieldExplainer, { color: colors.mutedForeground }]}>
+            The Streak Shield saves your streak if you miss exactly one {sportConfig.roundName}.
+            Earn it by reaching a 5-{sportConfig.roundName} streak.
           </Text>
 
           {currentStreak > 0 && message ? (
@@ -162,6 +131,8 @@ export default function StreakDetailSheet({
 
           <Pressable
             onPress={onClose}
+            accessibilityLabel="Close"
+            accessibilityRole="button"
             style={({ pressed }) => [
               styles.closeButton,
               {
@@ -171,9 +142,7 @@ export default function StreakDetailSheet({
               },
             ]}
           >
-            <Text style={[styles.closeText, { color: colors.primaryForeground }]}>
-              Close
-            </Text>
+            <Text style={[styles.closeText, { color: colors.primaryForeground }]}>Close</Text>
           </Pressable>
         </View>
       </Pressable>

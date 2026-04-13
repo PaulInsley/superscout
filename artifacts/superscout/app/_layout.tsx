@@ -23,9 +23,7 @@ import {
   registerTokenWithServer,
 } from "@/services/notifications/pushNotificationService";
 import { supabase } from "@/services/supabase";
-import OnboardingFlow, {
-  ONBOARDING_COMPLETE_KEY,
-} from "./onboarding/OnboardingFlow";
+import OnboardingFlow, { ONBOARDING_COMPLETE_KEY } from "./onboarding/OnboardingFlow";
 import SignInScreen from "./onboarding/SignInScreen";
 import NotificationConsentScreen from "@/components/NotificationConsentScreen";
 
@@ -74,7 +72,9 @@ function RootLayout() {
         setScreen("onboarding");
         return;
       }
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       setScreen(session ? "main" : "signIn");
     } catch (err) {
       console.warn("[Layout] route refresh failed:", err);
@@ -83,17 +83,19 @@ function RootLayout() {
   }, []);
 
   useEffect(() => {
-    refreshRoute().then(() => { initialLoadDone.current = true; });
+    refreshRoute().then(() => {
+      initialLoadDone.current = true;
+    });
   }, [refreshRoute]);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      () => {
-        if (initialLoadDone.current) {
-          refreshRoute();
-        }
-      },
-    );
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      if (initialLoadDone.current) {
+        refreshRoute();
+      }
+    });
     return () => subscription.unsubscribe();
   }, [refreshRoute]);
 
@@ -128,11 +130,7 @@ function RootLayout() {
               const { getAuthenticatedUserId } = await import("@/services/auth");
               const authUserId = await getAuthenticatedUserId();
               if (authUserId) {
-                await registerTokenWithServer(
-                  `https://${domain}/api`,
-                  authUserId,
-                  token,
-                );
+                await registerTokenWithServer(`https://${domain}/api`, authUserId, token);
               }
             }
           }
@@ -158,9 +156,7 @@ function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <SubscriptionProvider>
             <GestureHandlerRootView style={{ flex: 1 }}>
-              {screen === "onboarding" && (
-                <OnboardingFlow onComplete={handleOnboardingComplete} />
-              )}
+              {screen === "onboarding" && <OnboardingFlow onComplete={handleOnboardingComplete} />}
               {screen === "signIn" && (
                 <SignInScreen
                   onSignInSuccess={handleSignInSuccess}

@@ -60,11 +60,7 @@ export default function BanterScreen() {
 
       AsyncStorage.getItem(PERSONA_KEY)
         .then((persona) => {
-          if (
-            persona === "expert" ||
-            persona === "critic" ||
-            persona === "fanboy"
-          ) {
+          if (persona === "expert" || persona === "critic" || persona === "fanboy") {
             const effectiveVibe = isPro ? persona : "expert";
             setVibe((prev) => {
               if (prev !== effectiveVibe) {
@@ -124,9 +120,7 @@ export default function BanterScreen() {
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(
-          errData.error ?? `Server error: ${res.status}`,
-        );
+        throw new Error(errData.error ?? `Server error: ${res.status}`);
       }
 
       const data = await res.json();
@@ -198,13 +192,7 @@ export default function BanterScreen() {
 
   if (managerLoading) {
     return (
-      <View
-        style={[
-          styles.container,
-          styles.center,
-          { backgroundColor: colors.background },
-        ]}
-      >
+      <View style={[styles.container, styles.center, { backgroundColor: colors.background }]}>
         <ActivityIndicator color={colors.accent} />
       </View>
     );
@@ -212,25 +200,12 @@ export default function BanterScreen() {
 
   if (!managerId) {
     return (
-      <View
-        style={[
-          styles.container,
-          styles.center,
-          { backgroundColor: colors.background },
-        ]}
-      >
+      <View style={[styles.container, styles.center, { backgroundColor: colors.background }]}>
         <Feather name="link" size={48} color={colors.mutedForeground} />
-        <Text
-          style={[
-            styles.emptyTitle,
-            { color: colors.foreground, marginTop: 16 },
-          ]}
-        >
+        <Text style={[styles.emptyTitle, { color: colors.foreground, marginTop: 16 }]}>
           Connect Your FPL Team
         </Text>
-        <Text
-          style={[styles.emptySubtitle, { color: colors.mutedForeground }]}
-        >
+        <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
           Head to Settings and link your FPL account to unlock banter.
         </Text>
       </View>
@@ -244,27 +219,18 @@ export default function BanterScreen() {
           styles.scrollContent,
           {
             paddingTop: Platform.OS === "web" ? 67 + 16 : insets.top + 8,
-            paddingBottom:
-              Platform.OS === "web" ? 34 + 84 : insets.bottom + 84,
+            paddingBottom: Platform.OS === "web" ? 34 + 84 : insets.bottom + 84,
           },
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.screenTitle, { color: colors.foreground }]}>
-          Banter
-        </Text>
-        <Text
-          style={[styles.screenSubtitle, { color: colors.mutedForeground }]}
-        >
+        <Text style={[styles.screenTitle, { color: colors.foreground }]} accessibilityRole="header">Banter</Text>
+        <Text style={[styles.screenSubtitle, { color: colors.mutedForeground }]}>
           Ammunition for your group chat
         </Text>
 
         {loading && (
-          <ProgressLoadingIndicator
-            vibe={vibe}
-            currentStage={loadingStage}
-            variant="banter"
-          />
+          <ProgressLoadingIndicator vibe={vibe} currentStage={loadingStage} variant="banter" />
         )}
 
         {noLeagues && !loading && (
@@ -278,27 +244,12 @@ export default function BanterScreen() {
               },
             ]}
           >
-            <Feather
-              name="users"
-              size={40}
-              color={colors.mutedForeground}
-            />
-            <Text
-              style={[
-                styles.emptyTitle,
-                { color: colors.foreground, marginTop: 12 },
-              ]}
-            >
+            <Feather name="users" size={40} color={colors.mutedForeground} />
+            <Text style={[styles.emptyTitle, { color: colors.foreground, marginTop: 12 }]}>
               No Leagues Connected
             </Text>
-            <Text
-              style={[
-                styles.emptySubtitle,
-                { color: colors.mutedForeground },
-              ]}
-            >
-              Connect your mini-leagues in Settings to start generating banter
-              against your rivals.
+            <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
+              Connect your mini-leagues in Settings to start generating banter against your rivals.
             </Text>
           </View>
         )}
@@ -315,27 +266,17 @@ export default function BanterScreen() {
             ]}
           >
             <Feather name="alert-circle" size={40} color="#E84C4C" />
-            <Text
-              style={[
-                styles.emptyTitle,
-                { color: colors.foreground, marginTop: 12 },
-              ]}
-            >
+            <Text style={[styles.emptyTitle, { color: colors.foreground, marginTop: 12 }]}>
               Something went wrong
             </Text>
-            <Text
-              style={[
-                styles.emptySubtitle,
-                { color: colors.mutedForeground },
-              ]}
-            >
-              {error}
-            </Text>
+            <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>{error}</Text>
             <Pressable
               onPress={() => {
                 autoLoadedVibeRef.current = null;
                 fetchBanter();
               }}
+              accessibilityLabel="Try again"
+              accessibilityRole="button"
               style={[styles.retryButton, { backgroundColor: colors.accent }]}
             >
               <Text style={styles.retryText}>Try Again</Text>
@@ -354,27 +295,12 @@ export default function BanterScreen() {
               },
             ]}
           >
-            <Feather
-              name="message-circle"
-              size={40}
-              color={colors.mutedForeground}
-            />
-            <Text
-              style={[
-                styles.emptyTitle,
-                { color: colors.foreground, marginTop: 12 },
-              ]}
-            >
+            <Feather name="message-circle" size={40} color={colors.mutedForeground} />
+            <Text style={[styles.emptyTitle, { color: colors.foreground, marginTop: 12 }]}>
               No Banter Yet
             </Text>
-            <Text
-              style={[
-                styles.emptySubtitle,
-                { color: colors.mutedForeground },
-              ]}
-            >
-              Make sure your leagues have active members and try again after the
-              gameweek starts.
+            <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
+              Make sure your leagues have active members and try again after the gameweek starts.
             </Text>
           </View>
         )}
@@ -384,21 +310,12 @@ export default function BanterScreen() {
           banterCards.map((card, i) => {
             if (!isPro && i >= 1) {
               if (i === 1) {
-                return (
-                  <BlurredCard
-                    key={`blurred-${i}`}
-                    onPress={() => setShowPaywall(true)}
-                  />
-                );
+                return <BlurredCard key={`blurred-${i}`} onPress={() => setShowPaywall(true)} />;
               }
               return null;
             }
             return (
-              <BanterCard
-                key={`${card.rival_team_name}-${i}`}
-                card={card}
-                onShare={handleShare}
-              />
+              <BanterCard key={`${card.rival_team_name}-${i}`} card={card} onShare={handleShare} />
             );
           })}
       </ScrollView>

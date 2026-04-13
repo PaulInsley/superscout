@@ -26,10 +26,7 @@ const streakMessages: Record<VibeType, StreakMessageSet> = {
   },
 };
 
-export function getStreakMessage(
-  vibe: VibeType,
-  streakCount: number,
-): string {
+export function getStreakMessage(vibe: VibeType, streakCount: number): string {
   const messages = streakMessages[vibe] ?? streakMessages.expert;
   let template: string;
 
@@ -53,46 +50,34 @@ const milestoneMessages: Record<number, MilestoneMessages> = {
       "Five consecutive gameweeks. You've earned your Streak Shield — one free save if you miss a deadline.",
     critic:
       "Five whole weeks without forgetting. Have a gold star. And a Streak Shield, I suppose.",
-    fanboy:
-      "FIVE IN A ROW! STREAK SHIELD UNLOCKED! You're officially a regular!",
+    fanboy: "FIVE IN A ROW! STREAK SHIELD UNLOCKED! You're officially a regular!",
   },
   10: {
-    expert:
-      "10-gameweek streak. You're now in the top quartile for engagement consistency.",
+    expert: "10-gameweek streak. You're now in the top quartile for engagement consistency.",
     critic: "10 weeks. I didn't think you had it in you. Genuinely.",
     fanboy: "DOUBLE DIGITS! TEN WEEKS OF PURE COMMITMENT! LEGEND!",
   },
   20: {
     expert:
       "20 consecutive gameweeks. This level of consistency directly correlates with stronger decision quality.",
-    critic:
-      "20 weeks. Even I can't find something sarcastic to say about that. Almost.",
-    fanboy:
-      "TWENTY! TWO-ZERO! HALF THE SEASON WITHOUT MISSING A BEAT! INCREDIBLE!",
+    critic: "20 weeks. Even I can't find something sarcastic to say about that. Almost.",
+    fanboy: "TWENTY! TWO-ZERO! HALF THE SEASON WITHOUT MISSING A BEAT! INCREDIBLE!",
   },
   38: {
     expert:
       "38 gameweeks. Every single one. A perfect season of engagement — the data speaks for itself.",
-    critic:
-      "38 out of 38. I genuinely respect that. Don't tell anyone I said this.",
-    fanboy:
-      "PERFECT SEASON! 38 OUT OF 38! YOU ARE THE ULTIMATE SUPERSCOUT MANAGER!",
+    critic: "38 out of 38. I genuinely respect that. Don't tell anyone I said this.",
+    fanboy: "PERFECT SEASON! 38 OUT OF 38! YOU ARE THE ULTIMATE SUPERSCOUT MANAGER!",
   },
 };
 
-export function getMilestoneMessage(
-  milestone: number,
-  vibe: VibeType,
-): string {
+export function getMilestoneMessage(milestone: number, vibe: VibeType): string {
   const messages = milestoneMessages[milestone];
   if (!messages) return "";
   return messages[vibe] ?? messages.expert;
 }
 
-export function getMilestoneTitle(
-  milestone: number,
-  config: SportStreakConfig,
-): string {
+export function getMilestoneTitle(milestone: number, config: SportStreakConfig): string {
   if (milestone === config.seasonLength) return `Perfect ${config.seasonLabel}!`;
   return `${milestone} ${config.roundNamePlural}!`;
 }

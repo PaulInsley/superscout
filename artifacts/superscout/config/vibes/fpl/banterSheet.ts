@@ -11,7 +11,7 @@ export const TEAM_BANTER: TeamBanter[] = [
     teamName: "Arsenal",
     fplApiId: 1,
     stereotype:
-      "Perennial bottlers. Always fold in the title race. Fourth place trophy. \"The thing about Arsenal is they always try to walk it in.\"",
+      'Perennial bottlers. Always fold in the title race. Fourth place trophy. "The thing about Arsenal is they always try to walk it in."',
     criticExample:
       "You're captaining Saka for the run-in? Bold. Arsenal and April collapses go together like cheese and crackers.",
     fanboyExample:
@@ -31,7 +31,7 @@ export const TEAM_BANTER: TeamBanter[] = [
     teamName: "Man City",
     fplApiId: 12,
     stereotype:
-      "Bought success. \"Any team could do it with that budget.\" The most expensive squad ever assembled, annually.",
+      'Bought success. "Any team could do it with that budget." The most expensive squad ever assembled, annually.',
     criticExample:
       "Captaining Haaland? Groundbreaking. You and every other manager who reads a teamsheet.",
     fanboyExample:
@@ -40,8 +40,7 @@ export const TEAM_BANTER: TeamBanter[] = [
   {
     teamName: "Liverpool",
     fplApiId: 11,
-    stereotype:
-      "\"This is our year.\" Heavy metal football. Slip references (dated but immortal).",
+    stereotype: '"This is our year." Heavy metal football. Slip references (dated but immortal).',
     criticExample:
       "Liverpool for the DGW? Makes sense. Just don't expect them to do it the easy way — they never do.",
     fanboyExample:
@@ -50,8 +49,7 @@ export const TEAM_BANTER: TeamBanter[] = [
   {
     teamName: "Tottenham",
     fplApiId: 17,
-    stereotype:
-      "Bottlers. \"Lads, it's Tottenham.\" Trophy drought. The hope is what kills you.",
+    stereotype: 'Bottlers. "Lads, it\'s Tottenham." Trophy drought. The hope is what kills you.',
     criticExample:
       "Tripling up on Spurs? I admire the optimism. Truly. History disagrees but who am I to argue.",
     fanboyExample:
@@ -61,7 +59,7 @@ export const TEAM_BANTER: TeamBanter[] = [
     teamName: "Chelsea",
     fplApiId: 4,
     stereotype:
-      "Manager carousel. Squad of expensive strangers. \"Spending FC.\" Nobody knows the best XI including the manager.",
+      'Manager carousel. Squad of expensive strangers. "Spending FC." Nobody knows the best XI including the manager.',
     criticExample:
       "Chelsea assets? Which rebuild are we on now — the sixth? Good luck working out who starts.",
     fanboyExample:
@@ -81,19 +79,16 @@ export const TEAM_BANTER: TeamBanter[] = [
     teamName: "Newcastle",
     fplApiId: 14,
     stereotype:
-      "New money. Decades of pain before the takeover. Toon Army passion unmatched. \"Saudi Aramco FC.\"",
-    criticExample:
-      "Newcastle assets? Finally a club whose spending makes City look thrifty.",
-    fanboyExample:
-      "The Toon are RISING bro. St James' Park under the lights?? NOTHING beats it 🔥",
+      'New money. Decades of pain before the takeover. Toon Army passion unmatched. "Saudi Aramco FC."',
+    criticExample: "Newcastle assets? Finally a club whose spending makes City look thrifty.",
+    fanboyExample: "The Toon are RISING bro. St James' Park under the lights?? NOTHING beats it 🔥",
   },
   {
     teamName: "West Ham",
     fplApiId: 19,
     stereotype:
-      "\"Forever blowing bubbles.\" Honest and slightly tragic. The odd brilliant cup run that makes everyone forget the rest.",
-    criticExample:
-      "West Ham differentials? That's a vibes-over-data bet. Respect the commitment.",
+      '"Forever blowing bubbles." Honest and slightly tragic. The odd brilliant cup run that makes everyone forget the rest.',
+    criticExample: "West Ham differentials? That's a vibes-over-data bet. Respect the commitment.",
     fanboyExample:
       "West Ham are the ULTIMATE differential pick. Nobody sees it coming and that's the POINT.",
   },
@@ -101,7 +96,7 @@ export const TEAM_BANTER: TeamBanter[] = [
     teamName: "Everton",
     fplApiId: 7,
     stereotype:
-      "Eternal struggle. \"It's never dull at Goodison.\" The hope that kills you slowly. Scrappy survivalism.",
+      'Eternal struggle. "It\'s never dull at Goodison." The hope that kills you slowly. Scrappy survivalism.',
     criticExample:
       "Everton fan? My condolences. Let's at least make your FPL team better than your actual team.",
     fanboyExample:
@@ -141,7 +136,7 @@ export const TEAM_BANTER: TeamBanter[] = [
     teamName: "Brentford",
     fplApiId: 5,
     stereotype:
-      "The analytics club. Giant-killing mentality. \"We're not supposed to be here.\" Everyone likes Brentford except when playing them.",
+      'The analytics club. Giant-killing mentality. "We\'re not supposed to be here." Everyone likes Brentford except when playing them.',
     criticExample:
       "Brentford picks? Solid. The least sexy picks in FPL that somehow always return. Very on-brand.",
     fanboyExample:
@@ -219,11 +214,7 @@ export const PROMOTED_CLUB_TEMPLATE: Omit<TeamBanter, "teamName" | "fplApiId"> =
 };
 
 export function getTeamBanter(teamName: string): TeamBanter | null {
-  return (
-    TEAM_BANTER.find(
-      (t) => t.teamName.toLowerCase() === teamName.toLowerCase()
-    ) ?? null
-  );
+  return TEAM_BANTER.find((t) => t.teamName.toLowerCase() === teamName.toLowerCase()) ?? null;
 }
 
 export function getTeamBanterByFplId(fplApiId: number): TeamBanter | null {

@@ -39,7 +39,9 @@ export default function Paywall({ visible, onClose }: PaywallProps) {
       await purchase(pkg);
 
       const productId = pkg?.product?.identifier || "";
-      const toTier = productId.includes("season_pass") ? "season_pass" as const : "pro_monthly" as const;
+      const toTier = productId.includes("season_pass")
+        ? ("season_pass" as const)
+        : ("pro_monthly" as const);
       logSubscriptionEvent({
         eventType: "signup",
         fromTier: "free",
@@ -62,7 +64,9 @@ export default function Paywall({ visible, onClose }: PaywallProps) {
       const proEntitlement = customerInfo?.entitlements?.active?.["pro"];
       if (proEntitlement) {
         const productId = proEntitlement.productIdentifier || "";
-        const toTier = productId.includes("season_pass") ? "season_pass" as const : "pro_monthly" as const;
+        const toTier = productId.includes("season_pass")
+          ? ("season_pass" as const)
+          : ("pro_monthly" as const);
         logSubscriptionEvent({
           eventType: "resubscribe",
           fromTier: "free",
@@ -87,11 +91,14 @@ export default function Paywall({ visible, onClose }: PaywallProps) {
       onRequestClose={onClose}
     >
       <View style={[styles.container, { paddingTop: Platform.OS === "web" ? 20 : insets.top }]}>
-        <Pressable onPress={onClose} style={styles.closeButton} hitSlop={12}>
+        <Pressable onPress={onClose} style={styles.closeButton} hitSlop={12} accessibilityLabel="Close paywall" accessibilityRole="button">
           <Feather name="x" size={24} color="#ffffff" />
         </Pressable>
 
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.heroSection}>
             <Text style={styles.headline}>Unlock SuperScout Pro</Text>
             <Text style={styles.subtitle}>Better decisions in 2 minutes, not 30.</Text>
@@ -104,11 +111,15 @@ export default function Paywall({ visible, onClose }: PaywallProps) {
             </View>
             <View style={styles.benefitRow}>
               <Feather name="layers" size={18} color="#00ff87" />
-              <Text style={styles.benefitText}>Full choice architecture — see every option, not just one</Text>
+              <Text style={styles.benefitText}>
+                Full choice architecture — see every option, not just one
+              </Text>
             </View>
             <View style={styles.benefitRow}>
               <Feather name="share-2" size={18} color="#00ff87" />
-              <Text style={styles.benefitText}>AI-powered Squad Cards your mates will actually screenshot</Text>
+              <Text style={styles.benefitText}>
+                AI-powered Squad Cards your mates will actually screenshot
+              </Text>
             </View>
           </View>
 
@@ -122,10 +133,9 @@ export default function Paywall({ visible, onClose }: PaywallProps) {
             <Pressable
               onPress={() => handlePurchase(annualPackage)}
               disabled={isWorking || !annualPackage}
-              style={({ pressed }) => [
-                styles.seasonPassButton,
-                { opacity: pressed ? 0.8 : 1 },
-              ]}
+              accessibilityLabel={`Season Pass ${seasonPassPrice}`}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.seasonPassButton, { opacity: pressed ? 0.8 : 1 }]}
             >
               <View style={styles.bestValueBadge}>
                 <Text style={styles.bestValueText}>Best value</Text>
@@ -143,17 +153,16 @@ export default function Paywall({ visible, onClose }: PaywallProps) {
             <Pressable
               onPress={() => handlePurchase(monthlyPackage)}
               disabled={isWorking || !monthlyPackage}
-              style={({ pressed }) => [
-                styles.monthlyButton,
-                { opacity: pressed ? 0.8 : 1 },
-              ]}
+              accessibilityLabel={`Pro Monthly ${monthlyPrice}`}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.monthlyButton, { opacity: pressed ? 0.8 : 1 }]}
             >
               <Text style={styles.monthlyTitle}>Pro Monthly</Text>
               <Text style={styles.monthlyPrice}>{monthlyPrice}</Text>
             </Pressable>
           </View>
 
-          <Pressable onPress={handleRestore} disabled={isWorking} style={styles.restoreButton}>
+          <Pressable onPress={handleRestore} disabled={isWorking} accessibilityLabel="Restore purchases" accessibilityRole="button" style={styles.restoreButton}>
             {isRestoring ? (
               <ActivityIndicator size="small" color="#8888aa" />
             ) : (
@@ -168,8 +177,8 @@ export default function Paywall({ visible, onClose }: PaywallProps) {
               onPress={() => Linking.openURL("https://superscout.pro/privacy")}
             >
               Privacy Policy
-            </Text>
-            {" "}and{" "}
+            </Text>{" "}
+            and{" "}
             <Text
               style={styles.legalLink}
               onPress={() => Linking.openURL("https://superscout.pro/terms")}

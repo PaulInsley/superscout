@@ -39,7 +39,7 @@ const POSITION_ORDER = ["GKP", "DEF", "MID", "FWD"];
 function groupByPosition(starters: CardPlayer[]): CardPlayer[][] {
   const rows: CardPlayer[][] = [];
   for (const pos of POSITION_ORDER) {
-    const group = starters.filter(p => p.position === pos);
+    const group = starters.filter((p) => p.position === pos);
     if (group.length > 0) rows.push(group);
   }
   return rows;
@@ -62,24 +62,17 @@ function PlayerBadge({ player, scale }: { player: CardPlayer; scale: number }) {
   const isVC = player.isViceCaptain;
 
   return (
-    <View style={[
-      styles.playerBadge,
-      isCaptain && styles.captainBadge,
-      { transform: [{ scale }] },
-    ]}>
+    <View
+      style={[styles.playerBadge, isCaptain && styles.captainBadge, { transform: [{ scale }] }]}
+    >
       <View style={styles.playerNameRow}>
-        <Text
-          style={[styles.playerName, isCaptain && styles.captainName]}
-          numberOfLines={1}
-        >
+        <Text style={[styles.playerName, isCaptain && styles.captainName]} numberOfLines={1}>
           {player.webName}
         </Text>
         {isCaptain && <Text style={styles.captainMarker}>(C)</Text>}
         {isVC && <Text style={styles.vcMarker}>(V)</Text>}
       </View>
-      <Text style={[styles.playerPoints, isCaptain && styles.captainPoints]}>
-        {player.points}
-      </Text>
+      <Text style={[styles.playerPoints, isCaptain && styles.captainPoints]}>{player.points}</Text>
     </View>
   );
 }
@@ -104,19 +97,28 @@ export default function SquadCard({
   const rows = groupByPosition(starters);
 
   const rankArrow = rankDirection === "up" ? "▲" : rankDirection === "down" ? "▼" : "";
-  const rankColor = rankDirection === "up" ? "#00ff87" : rankDirection === "down" ? "#ef4444" : "#94a3b8";
+  const rankColor =
+    rankDirection === "up" ? "#00ff87" : rankDirection === "down" ? "#ef4444" : "#94a3b8";
 
-  const vibeLabel = vibe === "critic" ? "Sarcastic Critic" : vibe === "fanboy" ? "OTT Fanboy" : "Expert";
+  const vibeLabel =
+    vibe === "critic" ? "Sarcastic Critic" : vibe === "fanboy" ? "OTT Fanboy" : "Expert";
 
   return (
-    <View style={[
-      styles.card,
-      {
-        width: CARD_WIDTH * s,
-        height: CARD_HEIGHT * s,
-      },
-    ]}>
-      <View style={[styles.innerCard, { transform: [{ scale: s }], width: CARD_WIDTH, height: CARD_HEIGHT }]}>
+    <View
+      style={[
+        styles.card,
+        {
+          width: CARD_WIDTH * s,
+          height: CARD_HEIGHT * s,
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.innerCard,
+          { transform: [{ scale: s }], width: CARD_WIDTH, height: CARD_HEIGHT },
+        ]}
+      >
         <View style={styles.headerSection}>
           <Text style={styles.brandName}>SUPERSCOUT</Text>
           <View style={styles.gwBadge}>
@@ -124,14 +126,17 @@ export default function SquadCard({
           </View>
         </View>
 
-        <Text style={styles.teamName} numberOfLines={1}>{teamName}</Text>
+        <Text style={styles.teamName} numberOfLines={1}>
+          {teamName}
+        </Text>
 
         <View style={styles.pointsSection}>
           <Text style={styles.totalPointsLabel}>POINTS</Text>
           <Text style={styles.totalPoints}>{totalPoints}</Text>
           {gwAverage !== null && (
             <Text style={styles.avgText}>
-              GW avg: {gwAverage} | {totalPoints >= gwAverage ? "+" : ""}{totalPoints - gwAverage}
+              GW avg: {gwAverage} | {totalPoints >= gwAverage ? "+" : ""}
+              {totalPoints - gwAverage}
             </Text>
           )}
         </View>
@@ -142,7 +147,8 @@ export default function SquadCard({
           ) : (
             <View style={styles.rankRow}>
               <Text style={[styles.rankArrow, { color: rankColor }]}>
-                {rankArrow} {rankChange !== null && rankChange > 0 ? formatRankChange(rankChange) : ""}
+                {rankArrow}{" "}
+                {rankChange !== null && rankChange > 0 ? formatRankChange(rankChange) : ""}
               </Text>
               <Text style={styles.rankLabel}>Rank #{formatRank(overallRank)}</Text>
             </View>
@@ -154,7 +160,7 @@ export default function SquadCard({
 
           {[...rows].reverse().map((row, rowIdx) => (
             <View key={rowIdx} style={styles.formationRow}>
-              {row.map(player => (
+              {row.map((player) => (
                 <PlayerBadge key={player.id} player={player} scale={1} />
               ))}
             </View>
@@ -164,12 +170,14 @@ export default function SquadCard({
         <View style={styles.benchSection}>
           <Text style={styles.benchLabel}>BENCH ({benchPoints} pts)</Text>
           <View style={styles.benchRow}>
-            {bench.map(player => (
-              <View key={player.id} style={[
-                styles.benchBadge,
-                player.isAutoSubIn && styles.autoSubBadge,
-              ]}>
-                <Text style={styles.benchPlayerName} numberOfLines={1}>{player.webName}</Text>
+            {bench.map((player) => (
+              <View
+                key={player.id}
+                style={[styles.benchBadge, player.isAutoSubIn && styles.autoSubBadge]}
+              >
+                <Text style={styles.benchPlayerName} numberOfLines={1}>
+                  {player.webName}
+                </Text>
                 <Text style={styles.benchPlayerPoints}>{player.points}</Text>
                 {player.isAutoSubIn && <Text style={styles.autoSubTag}>SUB IN</Text>}
               </View>

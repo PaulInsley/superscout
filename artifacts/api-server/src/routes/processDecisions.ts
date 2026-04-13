@@ -9,7 +9,11 @@ router.post("/process-decisions/:gameweek", async (req: Request, res: Response) 
   try {
     const adminSecret = process.env.PROCESS_DECISIONS_SECRET;
     if (!adminSecret) {
-      res.status(500).json({ error: "Server configuration error: admin secret not set. Contact the administrator." });
+      res
+        .status(500)
+        .json({
+          error: "Server configuration error: admin secret not set. Contact the administrator.",
+        });
       return;
     }
     const authHeader = req.headers.authorization;
@@ -33,7 +37,7 @@ router.post("/process-decisions/:gameweek", async (req: Request, res: Response) 
     try {
       const bootstrapResp = await fetch(`${FPL_BASE_URL}/bootstrap-static/`);
       if (bootstrapResp.ok) {
-        const bootstrap = await bootstrapResp.json() as {
+        const bootstrap = (await bootstrapResp.json()) as {
           events: Array<{ id: number; deadline_time: string; finished: boolean }>;
         };
         const event = bootstrap.events?.find((e) => e.id === gw);
@@ -88,7 +92,7 @@ router.post("/process-decisions/:gameweek", async (req: Request, res: Response) 
       .in("recommendation_id", allRecIds);
 
     const alreadyProcessed = new Set(
-      (existingDecisions ?? []).map((d: { recommendation_id: string }) => d.recommendation_id)
+      (existingDecisions ?? []).map((d: { recommendation_id: string }) => d.recommendation_id),
     );
 
     const managerIdOverride = req.body?.manager_id ? parseInt(req.body.manager_id, 10) : null;
@@ -101,9 +105,7 @@ router.post("/process-decisions/:gameweek", async (req: Request, res: Response) 
       }
     } else {
       try {
-        const { data: users } = await supabase
-          .from("users")
-          .select("id, fpl_team_id");
+        const { data: users } = await supabase.from("users").select("id, fpl_team_id");
         for (const u of users ?? []) {
           if (u.fpl_team_id) {
             userFplMap.set(u.id, u.fpl_team_id);
@@ -118,7 +120,7 @@ router.post("/process-decisions/:gameweek", async (req: Request, res: Response) 
     try {
       const bootstrapResp = await fetch(`${FPL_BASE_URL}/bootstrap-static/`);
       if (bootstrapResp.ok) {
-        const bootstrap = await bootstrapResp.json() as {
+        const bootstrap = (await bootstrapResp.json()) as {
           elements: Array<{ id: number; first_name: string; second_name: string }>;
         };
         bootstrapElements = bootstrap.elements ?? [];
@@ -148,19 +150,17 @@ router.post("/process-decisions/:gameweek", async (req: Request, res: Response) 
       }
 
       try {
-        const picksResponse = await fetch(
-          `${FPL_BASE_URL}/entry/${managerId}/event/${gw}/picks/`
-        );
+        const picksResponse = await fetch(`${FPL_BASE_URL}/entry/${managerId}/event/${gw}/picks/`);
 
         if (!picksResponse.ok) {
           req.log.warn(
             { managerId, status: picksResponse.status },
-            "FPL API error for manager, skipping"
+            "FPL API error for manager, skipping",
           );
           continue;
         }
 
-        const picksData = await picksResponse.json() as {
+        const picksData = (await picksResponse.json()) as {
           picks: Array<{ element: number; is_captain: boolean }>;
         };
 
@@ -170,7 +170,8 @@ router.post("/process-decisions/:gameweek", async (req: Request, res: Response) 
           continue;
         }
 
-        const captainName = playerNameMap.get(captainPick.element) ?? `Player #${captainPick.element}`;
+        const captainName =
+          playerNameMap.get(captainPick.element) ?? `Player #${captainPick.element}`;
 
         const recommendedPlayers: string[] = [];
         if (Array.isArray(rec.options_shown)) {
@@ -188,22 +189,22 @@ router.post("/process-decisions/:gameweek", async (req: Request, res: Response) 
         if (optData && optData.length > 0 && Array.isArray(rec.options_shown)) {
           const options = rec.options_shown as Array<{ player_name?: string }>;
           const matchIdx = options.findIndex(
-            (opt) => opt.player_name?.toLowerCase() === captainName.toLowerCase()
+            (opt) => opt.player_name?.toLowerCase() === captainName.toLowerCase(),
           );
           if (matchIdx >= 0 && optData[matchIdx]) {
-            optionId = optData.find((o: { option_rank: number }) => o.option_rank === matchIdx + 1)?.id ?? null;
+            optionId =
+              optData.find((o: { option_rank: number }) => o.option_rank === matchIdx + 1)?.id ??
+              null;
           }
         }
 
-        const { error: insertError } = await supabase
-          .from("user_decisions")
-          .insert({
-            recommendation_id: rec.id,
-            user_id: rec.user_id,
-            recommendation_option_id: optionId,
-            chosen_option: captainName,
-            hours_before_deadline: null,
-          });
+        const { error: insertError } = await supabase.from("user_decisions").insert({
+          recommendation_id: rec.id,
+          user_id: rec.user_id,
+          recommendation_option_id: optionId,
+          chosen_option: captainName,
+          hours_before_deadline: null,
+        });
 
         if (insertError) {
           req.log.error({ err: insertError, recId: rec.id }, "Failed to insert user_decision");
@@ -213,7 +214,7 @@ router.post("/process-decisions/:gameweek", async (req: Request, res: Response) 
         processed++;
 
         const didMatch = recommendedPlayers.some(
-          (name) => name.toLowerCase() === captainName.toLowerCase()
+          (name) => name.toLowerCase() === captainName.toLowerCase(),
         );
         if (didMatch) {
           matched++;
@@ -237,12 +238,10 @@ router.post("/process-decisions/:gameweek", async (req: Request, res: Response) 
         if (!managerId) continue;
 
         try {
-          const transfersResp = await fetch(
-            `${FPL_BASE_URL}/entry/${managerId}/transfers/`
-          );
+          const transfersResp = await fetch(`${FPL_BASE_URL}/entry/${managerId}/transfers/`);
           if (!transfersResp.ok) continue;
 
-          const transfers = await transfersResp.json() as Array<{
+          const transfers = (await transfersResp.json()) as Array<{
             element_in: number;
             element_out: number;
             event: number;
@@ -250,9 +249,17 @@ router.post("/process-decisions/:gameweek", async (req: Request, res: Response) 
 
           const gwTransfers = transfers.filter((t) => t.event === gw);
 
-          const recommendedTransfers: Array<{ player_out?: string; player_in?: string; is_hold_recommendation?: boolean }> = [];
+          const recommendedTransfers: Array<{
+            player_out?: string;
+            player_in?: string;
+            is_hold_recommendation?: boolean;
+          }> = [];
           if (Array.isArray(rec.options_shown)) {
-            for (const opt of rec.options_shown as Array<{ player_out?: string; player_in?: string; is_hold_recommendation?: boolean }>) {
+            for (const opt of rec.options_shown as Array<{
+              player_out?: string;
+              player_in?: string;
+              is_hold_recommendation?: boolean;
+            }>) {
               recommendedTransfers.push(opt);
             }
           }
@@ -269,9 +276,10 @@ router.post("/process-decisions/:gameweek", async (req: Request, res: Response) 
             const didFollow = gwTransfers.some((t) => {
               const inName = playerNameMap.get(t.element_in)?.toLowerCase() ?? "";
               const outName = playerNameMap.get(t.element_out)?.toLowerCase() ?? "";
-              return recommendedTransfers.some((r) =>
-                r.player_in?.toLowerCase().includes(inName) ||
-                r.player_out?.toLowerCase().includes(outName)
+              return recommendedTransfers.some(
+                (r) =>
+                  r.player_in?.toLowerCase().includes(inName) ||
+                  r.player_out?.toLowerCase().includes(outName),
               );
             });
             if (didFollow) transferMatched++;
@@ -297,7 +305,7 @@ router.post("/process-decisions/:gameweek", async (req: Request, res: Response) 
 
     req.log.info(
       { gameweek: gw, processed, matched, ignored, transferProcessed, transferMatched },
-      "Decision processing complete"
+      "Decision processing complete",
     );
 
     res.json({

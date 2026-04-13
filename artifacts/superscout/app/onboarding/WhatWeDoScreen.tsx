@@ -39,23 +39,14 @@ export default function WhatWeDoScreen({ onNext }: Props) {
       ]}
     >
       <View style={styles.content}>
-        <Text style={[styles.title, { color: colors.foreground }]}>
-          What SuperScout Does
-        </Text>
+        <Text style={[styles.title, { color: colors.foreground }]}>What SuperScout Does</Text>
 
         {BULLETS.map((b, i) => (
           <View key={i} style={styles.bulletRow}>
-            <View
-              style={[
-                styles.iconCircle,
-                { backgroundColor: colors.secondary },
-              ]}
-            >
+            <View style={[styles.iconCircle, { backgroundColor: colors.secondary }]}>
               <Feather name={b.icon} size={20} color={colors.primary} />
             </View>
-            <Text style={[styles.bulletText, { color: colors.foreground }]}>
-              {b.text}
-            </Text>
+            <Text style={[styles.bulletText, { color: colors.foreground }]}>{b.text}</Text>
           </View>
         ))}
       </View>
@@ -67,9 +58,7 @@ export default function WhatWeDoScreen({ onNext }: Props) {
           { backgroundColor: colors.primary, opacity: pressed ? 0.9 : 1 },
         ]}
       >
-        <Text
-          style={[styles.buttonText, { color: colors.primaryForeground }]}
-        >
+        <Text style={[styles.buttonText, { color: colors.primaryForeground }]}>
           Got it, let's play
         </Text>
       </Pressable>

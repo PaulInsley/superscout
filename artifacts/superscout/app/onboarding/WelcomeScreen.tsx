@@ -30,20 +30,19 @@ export default function WelcomeScreen({ onNext }: Props) {
           </Text>
         </View>
         <Text style={[styles.tagline, { color: colors.primaryForeground }]}>
-          Your AI fantasy football coach.{"\n"}Three vibes. Smarter
-          decisions.
+          Your AI fantasy football coach.{"\n"}Three vibes. Smarter decisions.
         </Text>
       </View>
       <Pressable
         onPress={onNext}
+        accessibilityLabel="Let's go"
+        accessibilityRole="button"
         style={({ pressed }) => [
           styles.button,
           { backgroundColor: colors.accent, opacity: pressed ? 0.9 : 1 },
         ]}
       >
-        <Text style={[styles.buttonText, { color: colors.primary }]}>
-          Let's go
-        </Text>
+        <Text style={[styles.buttonText, { color: colors.primary }]}>Let's go</Text>
       </Pressable>
     </View>
   );

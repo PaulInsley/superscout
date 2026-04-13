@@ -1,5 +1,13 @@
 import { Router, type Request, type Response } from "express";
-import { getCached, getStale, setCache, cacheKey, TTL, setLiveMatchActive, isLiveMatchActive } from "../lib/fplCache";
+import {
+  getCached,
+  getStale,
+  setCache,
+  cacheKey,
+  TTL,
+  setLiveMatchActive,
+  isLiveMatchActive,
+} from "../lib/fplCache";
 import { fetchFromFpl } from "../lib/fplRateLimiter";
 
 const router = Router();
@@ -81,80 +89,65 @@ router.get("/fpl/entry/:managerId", (req: Request, res: Response) => {
   cachedFplRequest(req, res, `/entry/${managerId}/`, key, TTL.USER);
 });
 
-router.get(
-  "/fpl/entry/:managerId/event/:event/picks",
-  (req: Request, res: Response) => {
-    const managerId = String(req.params.managerId);
-    const event = String(req.params.event);
-    if (!isValidManagerId(managerId)) {
-      res.status(400).json({ error: "Invalid manager ID" });
-      return;
-    }
-    if (!isValidEvent(event)) {
-      res.status(400).json({ error: "Invalid gameweek number" });
-      return;
-    }
-    const key = cacheKey("picks", managerId, event);
-    cachedFplRequest(req, res, `/entry/${managerId}/event/${event}/picks/`, key, TTL.USER);
+router.get("/fpl/entry/:managerId/event/:event/picks", (req: Request, res: Response) => {
+  const managerId = String(req.params.managerId);
+  const event = String(req.params.event);
+  if (!isValidManagerId(managerId)) {
+    res.status(400).json({ error: "Invalid manager ID" });
+    return;
   }
-);
+  if (!isValidEvent(event)) {
+    res.status(400).json({ error: "Invalid gameweek number" });
+    return;
+  }
+  const key = cacheKey("picks", managerId, event);
+  cachedFplRequest(req, res, `/entry/${managerId}/event/${event}/picks/`, key, TTL.USER);
+});
 
-router.get(
-  "/fpl/entry/:managerId/transfers",
-  (req: Request, res: Response) => {
-    const managerId = String(req.params.managerId);
-    if (!isValidManagerId(managerId)) {
-      res.status(400).json({ error: "Invalid manager ID" });
-      return;
-    }
-    const key = cacheKey("transfers", managerId);
-    cachedFplRequest(req, res, `/entry/${managerId}/transfers/`, key, TTL.USER);
+router.get("/fpl/entry/:managerId/transfers", (req: Request, res: Response) => {
+  const managerId = String(req.params.managerId);
+  if (!isValidManagerId(managerId)) {
+    res.status(400).json({ error: "Invalid manager ID" });
+    return;
   }
-);
+  const key = cacheKey("transfers", managerId);
+  cachedFplRequest(req, res, `/entry/${managerId}/transfers/`, key, TTL.USER);
+});
 
-router.get(
-  "/fpl/entry/:managerId/history",
-  (req: Request, res: Response) => {
-    const managerId = String(req.params.managerId);
-    if (!isValidManagerId(managerId)) {
-      res.status(400).json({ error: "Invalid manager ID" });
-      return;
-    }
-    const key = cacheKey("history", managerId);
-    cachedFplRequest(req, res, `/entry/${managerId}/history/`, key, TTL.USER);
+router.get("/fpl/entry/:managerId/history", (req: Request, res: Response) => {
+  const managerId = String(req.params.managerId);
+  if (!isValidManagerId(managerId)) {
+    res.status(400).json({ error: "Invalid manager ID" });
+    return;
   }
-);
+  const key = cacheKey("history", managerId);
+  cachedFplRequest(req, res, `/entry/${managerId}/history/`, key, TTL.USER);
+});
 
 router.get("/fpl/fixtures", (req: Request, res: Response) => {
   const key = cacheKey("fixtures");
   cachedFplRequest(req, res, "/fixtures/", key, TTL.STATIC);
 });
 
-router.get(
-  "/fpl/leagues-classic/:leagueId/standings",
-  (req: Request, res: Response) => {
-    const leagueId = String(req.params.leagueId);
-    if (!isValidManagerId(leagueId)) {
-      res.status(400).json({ error: "Invalid league ID" });
-      return;
-    }
-    const key = cacheKey("league-classic", leagueId);
-    cachedFplRequest(req, res, `/leagues-classic/${leagueId}/standings/`, key, TTL.USER);
+router.get("/fpl/leagues-classic/:leagueId/standings", (req: Request, res: Response) => {
+  const leagueId = String(req.params.leagueId);
+  if (!isValidManagerId(leagueId)) {
+    res.status(400).json({ error: "Invalid league ID" });
+    return;
   }
-);
+  const key = cacheKey("league-classic", leagueId);
+  cachedFplRequest(req, res, `/leagues-classic/${leagueId}/standings/`, key, TTL.USER);
+});
 
-router.get(
-  "/fpl/leagues-h2h/:leagueId/standings",
-  (req: Request, res: Response) => {
-    const leagueId = String(req.params.leagueId);
-    if (!isValidManagerId(leagueId)) {
-      res.status(400).json({ error: "Invalid league ID" });
-      return;
-    }
-    const key = cacheKey("league-h2h", leagueId);
-    cachedFplRequest(req, res, `/leagues-h2h/${leagueId}/standings/`, key, TTL.USER);
+router.get("/fpl/leagues-h2h/:leagueId/standings", (req: Request, res: Response) => {
+  const leagueId = String(req.params.leagueId);
+  if (!isValidManagerId(leagueId)) {
+    res.status(400).json({ error: "Invalid league ID" });
+    return;
   }
-);
+  const key = cacheKey("league-h2h", leagueId);
+  cachedFplRequest(req, res, `/leagues-h2h/${leagueId}/standings/`, key, TTL.USER);
+});
 
 router.get("/fpl/event/:event/live", (req: Request, res: Response) => {
   const event = String(req.params.event);

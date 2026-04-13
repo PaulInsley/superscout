@@ -58,12 +58,15 @@ function mapActivityTypeToPlatform(activityType?: string | null): string {
   if (!activityType) return "other";
   const at = activityType.toLowerCase();
   console.log("[SuperScout] Share activityType:", activityType);
-  if (at.includes("com.apple.uikit.activity.message") || at === "com.apple.uikit.activity.message") return "imessage";
+  if (at.includes("com.apple.uikit.activity.message") || at === "com.apple.uikit.activity.message")
+    return "imessage";
   if (at.includes("whatsapp")) return "whatsapp";
-  if (at.includes("twitter") || at.includes("com.atebits") || at.includes("x.com")) return "twitter";
+  if (at.includes("twitter") || at.includes("com.atebits") || at.includes("x.com"))
+    return "twitter";
   if (at.includes("instagram")) return "instagram";
   if (at.includes("facebook")) return "facebook";
-  if (at.includes("copytopasteboard") || at.includes("com.apple.uikit.activity.copytopasteboard")) return "clipboard";
+  if (at.includes("copytopasteboard") || at.includes("com.apple.uikit.activity.copytopasteboard"))
+    return "clipboard";
   return "other";
 }
 
@@ -97,9 +100,9 @@ export default function CardScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      AsyncStorage.getItem("superscout_persona").then(stored => {
+      AsyncStorage.getItem("superscout_persona").then((stored) => {
         const validVibes = ["expert", "critic", "fanboy"] as const;
-        if (stored && validVibes.includes(stored as typeof validVibes[number])) {
+        if (stored && validVibes.includes(stored as (typeof validVibes)[number])) {
           const effectiveVibe = isPro ? stored : "expert";
           if (effectiveVibe !== vibe) {
             setVibe(effectiveVibe as "expert" | "critic" | "fanboy");
@@ -107,7 +110,7 @@ export default function CardScreen() {
           }
         }
       });
-    }, [vibe, isPro])
+    }, [vibe, isPro]),
   );
 
   const startRegenCooldown = useCallback(() => {
@@ -159,7 +162,9 @@ export default function CardScreen() {
         if (data.error === "gameweek_not_finished") {
           const gwNum = data.gameweek ?? "";
           setErrorType("info");
-          setError(`GW${gwNum} is still in progress — your Squad Card will be ready once all matches are finished.`);
+          setError(
+            `GW${gwNum} is still in progress — your Squad Card will be ready once all matches are finished.`,
+          );
         } else if (data.error === "no_finished_gameweek") {
           setErrorType("info");
           setError("No completed gameweeks yet — your first Squad Card will be ready after GW1.");
@@ -283,7 +288,10 @@ export default function CardScreen() {
       } else {
         const { status } = await MediaLibrary.requestPermissionsAsync();
         if (status !== "granted") {
-          Alert.alert("Permission needed", "Please allow access to your photo library to save the card.");
+          Alert.alert(
+            "Permission needed",
+            "Please allow access to your photo library to save the card.",
+          );
           setSaving(false);
           return;
         }
@@ -306,16 +314,20 @@ export default function CardScreen() {
       contentContainerStyle={styles.content}
     >
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.foreground }]}>Squad Card</Text>
+        <Text style={[styles.title, { color: colors.foreground }]} accessibilityRole="header">Squad Card</Text>
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
           Your gameweek results, ready to share
         </Text>
       </View>
 
       {noManager && !cardData && (
-        <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View
+          style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+        >
           <Text style={[styles.emptyIcon, { color: colors.mutedForeground }]}>📋</Text>
-          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Connect your FPL account</Text>
+          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+            Connect your FPL account
+          </Text>
           <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
             Set up your Manager ID in Settings to generate your squad card.
           </Text>
@@ -326,6 +338,8 @@ export default function CardScreen() {
         <Pressable
           style={[styles.generateButton, { backgroundColor: colors.primary }]}
           onPress={generateCard}
+          accessibilityLabel="Generate my card"
+          accessibilityRole="button"
         >
           <Text style={[styles.generateButtonText, { color: colors.primaryForeground }]}>
             Generate My Card
@@ -334,25 +348,38 @@ export default function CardScreen() {
       )}
 
       {loading && (
-        <ProgressLoadingIndicator
-          vibe={vibe}
-          currentStage={loadingStage}
-          variant="captain"
-        />
+        <ProgressLoadingIndicator vibe={vibe} currentStage={loadingStage} variant="captain" />
       )}
 
       {error && (
-        <View style={[styles.errorCard, {
-          backgroundColor: errorType === "info" ? "#3b82f610" : colors.card,
-          borderColor: errorType === "info" ? "#3b82f640" : colors.border,
-        }]}>
+        <View
+          style={[
+            styles.errorCard,
+            {
+              backgroundColor: errorType === "info" ? "#3b82f610" : colors.card,
+              borderColor: errorType === "info" ? "#3b82f640" : colors.border,
+            },
+          ]}
+        >
           {errorType === "info" && (
             <Feather name="clock" size={32} color="#3b82f6" style={{ marginBottom: 8 }} />
           )}
-          <Text style={[styles.errorText, { color: errorType === "info" ? "#3b82f6" : colors.destructive }]}>{error}</Text>
+          <Text
+            style={[
+              styles.errorText,
+              { color: errorType === "info" ? "#3b82f6" : colors.destructive },
+            ]}
+          >
+            {error}
+          </Text>
           <Pressable
-            style={[styles.retryButton, { borderColor: errorType === "info" ? "#3b82f640" : colors.border }]}
+            style={[
+              styles.retryButton,
+              { borderColor: errorType === "info" ? "#3b82f640" : colors.border },
+            ]}
             onPress={generateCard}
+            accessibilityLabel="Try again"
+            accessibilityRole="button"
           >
             <Text style={[styles.retryText, { color: colors.foreground }]}>Try Again</Text>
           </Pressable>
@@ -381,6 +408,8 @@ export default function CardScreen() {
             <Pressable
               style={[styles.shareButton, { backgroundColor: "#00ff87" }]}
               onPress={handleShare}
+              accessibilityLabel="Share your squad card"
+              accessibilityRole="button"
             >
               <Text style={styles.shareButtonText}>Share</Text>
             </Pressable>
@@ -388,19 +417,28 @@ export default function CardScreen() {
               style={[styles.saveButton, { borderColor: colors.border }]}
               onPress={handleSave}
               disabled={saving}
+              accessibilityLabel="Save to photos"
+              accessibilityRole="button"
             >
               {saving ? (
                 <ActivityIndicator size="small" color={colors.foreground} />
               ) : (
-                <Text style={[styles.saveButtonText, { color: colors.foreground }]}>Save to Photos</Text>
+                <Text style={[styles.saveButtonText, { color: colors.foreground }]}>
+                  Save to Photos
+                </Text>
               )}
             </Pressable>
           </View>
 
           <Pressable
-            style={[styles.generateRealButton, { backgroundColor: colors.primary, opacity: regenCooldown > 0 ? 0.5 : 1 }]}
+            style={[
+              styles.generateRealButton,
+              { backgroundColor: colors.primary, opacity: regenCooldown > 0 ? 0.5 : 1 },
+            ]}
             onPress={generateCard}
             disabled={regenCooldown > 0}
+            accessibilityLabel="Regenerate card"
+            accessibilityRole="button"
           >
             <Text style={[styles.generateButtonText, { color: colors.primaryForeground }]}>
               {regenCooldown > 0 ? `Regenerate Card (${regenCooldown}s)` : "Regenerate Card"}

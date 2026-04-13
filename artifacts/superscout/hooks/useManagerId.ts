@@ -41,8 +41,12 @@ export function useManagerId(): ManagerIdState {
     setManagerId(id);
     setTeamName(name);
 
-    await AsyncStorage.setItem(MANAGER_ID_KEY, String(id)).catch((err: unknown) => console.warn("[useManagerId] save ID failed:", err));
-    await AsyncStorage.setItem(TEAM_NAME_KEY, name).catch((err: unknown) => console.warn("[useManagerId] save name failed:", err));
+    await AsyncStorage.setItem(MANAGER_ID_KEY, String(id)).catch((err: unknown) =>
+      console.warn("[useManagerId] save ID failed:", err),
+    );
+    await AsyncStorage.setItem(TEAM_NAME_KEY, name).catch((err: unknown) =>
+      console.warn("[useManagerId] save name failed:", err),
+    );
 
     try {
       const userId = await getAuthenticatedUserId();
@@ -63,8 +67,12 @@ export function useManagerId(): ManagerIdState {
     setManagerId(null);
     setTeamName(null);
 
-    await AsyncStorage.removeItem(MANAGER_ID_KEY).catch((err: unknown) => console.warn("[useManagerId] remove ID failed:", err));
-    await AsyncStorage.removeItem(TEAM_NAME_KEY).catch((err: unknown) => console.warn("[useManagerId] remove name failed:", err));
+    await AsyncStorage.removeItem(MANAGER_ID_KEY).catch((err: unknown) =>
+      console.warn("[useManagerId] remove ID failed:", err),
+    );
+    await AsyncStorage.removeItem(TEAM_NAME_KEY).catch((err: unknown) =>
+      console.warn("[useManagerId] remove name failed:", err),
+    );
 
     try {
       const userId = await getAuthenticatedUserId();

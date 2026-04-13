@@ -52,12 +52,7 @@ export default function SquadScreen() {
 
   if (managerLoading) {
     return (
-      <View
-        style={[
-          styles.center,
-          { backgroundColor: colors.background, paddingTop: insets.top },
-        ]}
-      >
+      <View style={[styles.center, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
@@ -65,19 +60,9 @@ export default function SquadScreen() {
 
   if (!managerId) {
     return (
-      <View
-        style={[
-          styles.center,
-          { backgroundColor: colors.background, paddingTop: insets.top },
-        ]}
-      >
+      <View style={[styles.center, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <Feather name="link" size={40} color={colors.mutedForeground} />
-        <Text
-          style={[
-            styles.connectPrompt,
-            { color: colors.foreground },
-          ]}
-        >
+        <Text style={[styles.connectPrompt, { color: colors.foreground }]}>
           Connect your FPL account in Settings to view your squad.
         </Text>
       </View>
@@ -96,30 +81,18 @@ export default function SquadScreen() {
           },
         ]}
       >
-        <Text
-          style={[styles.teamName, { color: colors.primaryForeground }]}
-        >
+        <Text style={[styles.teamName, { color: colors.primaryForeground }]}>
           {managerData.teamName}
         </Text>
-        <Text
-          style={[styles.managerName, { color: colors.primaryForeground }]}
-          numberOfLines={1}
-        >
+        <Text style={[styles.managerName, { color: colors.primaryForeground }]} numberOfLines={1}>
           {managerData.managerName}
         </Text>
         <View style={styles.statsGrid}>
           <View style={styles.statItem}>
-            <Text
-              style={[styles.statValue, { color: colors.primaryForeground }]}
-            >
+            <Text style={[styles.statValue, { color: colors.primaryForeground }]}>
               {managerData.overallPoints ?? "—"}
             </Text>
-            <Text
-              style={[
-                styles.statLabel,
-                { color: colors.primaryForeground, opacity: 0.75 },
-              ]}
-            >
+            <Text style={[styles.statLabel, { color: colors.primaryForeground, opacity: 0.75 }]}>
               Overall Pts
             </Text>
           </View>
@@ -130,19 +103,10 @@ export default function SquadScreen() {
             ]}
           />
           <View style={styles.statItem}>
-            <Text
-              style={[styles.statValue, { color: colors.primaryForeground }]}
-            >
-              {managerData.overallRank != null
-                ? formatRank(managerData.overallRank)
-                : "—"}
+            <Text style={[styles.statValue, { color: colors.primaryForeground }]}>
+              {managerData.overallRank != null ? formatRank(managerData.overallRank) : "—"}
             </Text>
-            <Text
-              style={[
-                styles.statLabel,
-                { color: colors.primaryForeground, opacity: 0.75 },
-              ]}
-            >
+            <Text style={[styles.statLabel, { color: colors.primaryForeground, opacity: 0.75 }]}>
               Overall Rank
             </Text>
           </View>
@@ -153,17 +117,10 @@ export default function SquadScreen() {
             ]}
           />
           <View style={styles.statItem}>
-            <Text
-              style={[styles.statValue, { color: colors.primaryForeground }]}
-            >
+            <Text style={[styles.statValue, { color: colors.primaryForeground }]}>
               {managerData.currentGwPoints ?? "—"}
             </Text>
-            <Text
-              style={[
-                styles.statLabel,
-                { color: colors.primaryForeground, opacity: 0.75 },
-              ]}
-            >
+            <Text style={[styles.statLabel, { color: colors.primaryForeground, opacity: 0.75 }]}>
               GW Pts
             </Text>
           </View>
@@ -180,16 +137,13 @@ export default function SquadScreen() {
       { key: "leagues", label: "Leagues" },
     ];
     return (
-      <View
-        style={[
-          styles.tabBar,
-          { borderBottomColor: colors.border },
-        ]}
-      >
+      <View style={[styles.tabBar, { borderBottomColor: colors.border }]}>
         {tabs.map((tab) => (
           <Pressable
             key={tab.key}
             onPress={() => setActiveTab(tab.key)}
+            accessibilityLabel={`${tab.label} tab`}
+            accessibilityRole="button"
             style={[
               styles.tab,
               activeTab === tab.key && {
@@ -202,10 +156,7 @@ export default function SquadScreen() {
               style={[
                 styles.tabText,
                 {
-                  color:
-                    activeTab === tab.key
-                      ? colors.primary
-                      : colors.mutedForeground,
+                  color: activeTab === tab.key ? colors.primary : colors.mutedForeground,
                 },
               ]}
             >
@@ -231,56 +182,29 @@ export default function SquadScreen() {
     >
       <View style={styles.squadCardLeft}>
         <View style={styles.playerNameRow}>
-          <Text style={[styles.squadPlayerName, { color: colors.foreground }]}>
-            {player.name}
-          </Text>
+          <Text style={[styles.squadPlayerName, { color: colors.foreground }]}>{player.name}</Text>
           {player.isCaptain && (
-            <View
-              style={[
-                styles.captainBadge,
-                { backgroundColor: colors.accent },
-              ]}
-            >
-              <Text style={[styles.captainText, { color: colors.accentForeground }]}>
-                C
-              </Text>
+            <View style={[styles.captainBadge, { backgroundColor: colors.accent }]}>
+              <Text style={[styles.captainText, { color: colors.accentForeground }]}>C</Text>
             </View>
           )}
           {player.isViceCaptain && (
-            <View
-              style={[
-                styles.captainBadge,
-                { backgroundColor: colors.secondary },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.captainText,
-                  { color: colors.secondaryForeground },
-                ]}
-              >
-                V
-              </Text>
+            <View style={[styles.captainBadge, { backgroundColor: colors.secondary }]}>
+              <Text style={[styles.captainText, { color: colors.secondaryForeground }]}>V</Text>
             </View>
           )}
         </View>
         <View style={styles.squadMeta}>
-          <Text
-            style={[styles.positionText, { color: colors.mutedForeground }]}
-          >
+          <Text style={[styles.positionText, { color: colors.mutedForeground }]}>
             {player.position}
           </Text>
-          <Text
-            style={[styles.squadPrice, { color: colors.mutedForeground }]}
-          >
+          <Text style={[styles.squadPrice, { color: colors.mutedForeground }]}>
             £{player.price.toFixed(1)}m
           </Text>
         </View>
       </View>
       <View style={styles.squadCardRight}>
-        <Text style={[styles.formBadge, { color: colors.primary }]}>
-          {player.form}
-        </Text>
+        <Text style={[styles.formBadge, { color: colors.primary }]}>{player.form}</Text>
       </View>
     </View>
   );
@@ -293,7 +217,8 @@ export default function SquadScreen() {
         <View style={styles.emptyState}>
           <Feather name="clock" size={40} color={colors.mutedForeground} />
           <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-            This manager hasn't played a gameweek yet. Squad data will appear once they've entered their first gameweek.
+            This manager hasn't played a gameweek yet. Squad data will appear once they've entered
+            their first gameweek.
           </Text>
         </View>
       );
@@ -320,17 +245,11 @@ export default function SquadScreen() {
             Gameweek {managerData.gameweekLoaded}
           </Text>
         )}
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-          Starting XI
-        </Text>
+        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Starting XI</Text>
         {starters.map(renderSquadPlayer)}
 
-        <View
-          style={[styles.benchDivider, { backgroundColor: colors.border }]}
-        />
-        <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
-          Bench
-        </Text>
+        <View style={[styles.benchDivider, { backgroundColor: colors.border }]} />
+        <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Bench</Text>
         {bench.map(renderSquadPlayer)}
       </View>
     );
@@ -348,22 +267,15 @@ export default function SquadScreen() {
         },
       ]}
     >
-      <Text style={[styles.gwLabel, { color: colors.mutedForeground }]}>
-        GW {transfer.event}
-      </Text>
+      <Text style={[styles.gwLabel, { color: colors.mutedForeground }]}>GW {transfer.event}</Text>
       <View style={styles.transferRow}>
         <View style={styles.transferPlayer}>
           <Feather name="arrow-up-circle" size={16} color="#22c55e" />
           <View style={styles.transferDetail}>
-            <Text
-              style={[styles.transferName, { color: colors.foreground }]}
-              numberOfLines={1}
-            >
+            <Text style={[styles.transferName, { color: colors.foreground }]} numberOfLines={1}>
               {transfer.playerIn}
             </Text>
-            <Text
-              style={[styles.transferCost, { color: colors.mutedForeground }]}
-            >
+            <Text style={[styles.transferCost, { color: colors.mutedForeground }]}>
               £{transfer.playerInCost.toFixed(1)}m
             </Text>
           </View>
@@ -371,15 +283,10 @@ export default function SquadScreen() {
         <View style={styles.transferPlayer}>
           <Feather name="arrow-down-circle" size={16} color="#ef4444" />
           <View style={styles.transferDetail}>
-            <Text
-              style={[styles.transferName, { color: colors.foreground }]}
-              numberOfLines={1}
-            >
+            <Text style={[styles.transferName, { color: colors.foreground }]} numberOfLines={1}>
               {transfer.playerOut}
             </Text>
-            <Text
-              style={[styles.transferCost, { color: colors.mutedForeground }]}
-            >
+            <Text style={[styles.transferCost, { color: colors.mutedForeground }]}>
               £{transfer.playerOutCost.toFixed(1)}m
             </Text>
           </View>
@@ -393,14 +300,8 @@ export default function SquadScreen() {
     if (managerData.transfers.length === 0) {
       return (
         <View style={styles.emptyState}>
-          <Feather
-            name="repeat"
-            size={40}
-            color={colors.mutedForeground}
-          />
-          <Text
-            style={[styles.emptyText, { color: colors.mutedForeground }]}
-          >
+          <Feather name="repeat" size={40} color={colors.mutedForeground} />
+          <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
             No transfers yet
           </Text>
         </View>
@@ -425,19 +326,10 @@ export default function SquadScreen() {
         },
       ]}
     >
-      <Text style={[styles.leagueName, { color: colors.foreground }]}>
-        {league.name}
-      </Text>
+      <Text style={[styles.leagueName, { color: colors.foreground }]}>{league.name}</Text>
       <View style={styles.leagueMeta}>
-        <View
-          style={[styles.rankBadge, { backgroundColor: colors.secondary }]}
-        >
-          <Text
-            style={[
-              styles.rankText,
-              { color: colors.secondaryForeground },
-            ]}
-          >
+        <View style={[styles.rankBadge, { backgroundColor: colors.secondary }]}>
+          <Text style={[styles.rankText, { color: colors.secondaryForeground }]}>
             Rank: {formatRank(league.entry_rank)}
           </Text>
         </View>
@@ -450,24 +342,14 @@ export default function SquadScreen() {
     if (managerData.leagues.length === 0) {
       return (
         <View style={styles.emptyState}>
-          <Feather
-            name="award"
-            size={40}
-            color={colors.mutedForeground}
-          />
-          <Text
-            style={[styles.emptyText, { color: colors.mutedForeground }]}
-          >
+          <Feather name="award" size={40} color={colors.mutedForeground} />
+          <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
             No leagues found
           </Text>
         </View>
       );
     }
-    return (
-      <View style={styles.tabContent}>
-        {managerData.leagues.map(renderLeagueItem)}
-      </View>
-    );
+    return <View style={styles.tabContent}>{managerData.leagues.map(renderLeagueItem)}</View>;
   };
 
   return (
@@ -477,22 +359,17 @@ export default function SquadScreen() {
           styles.scrollContent,
           {
             paddingTop: Platform.OS === "web" ? 67 + 16 : insets.top + 8,
-            paddingBottom:
-              Platform.OS === "web" ? 34 + 84 : insets.bottom + 84,
+            paddingBottom: Platform.OS === "web" ? 34 + 84 : insets.bottom + 84,
           },
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.screenTitle, { color: colors.foreground }]}>
-          My Squad
-        </Text>
+        <Text style={[styles.screenTitle, { color: colors.foreground }]} accessibilityRole="header">My Squad</Text>
 
         {isLoading && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text
-              style={[styles.loadingText, { color: colors.mutedForeground }]}
-            >
+            <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
               Loading squad...
             </Text>
           </View>
@@ -500,40 +377,25 @@ export default function SquadScreen() {
 
         {isNotFound && (
           <View style={styles.errorContainer}>
-            <Feather
-              name="alert-circle"
-              size={40}
-              color={colors.mutedForeground}
-            />
-            <Text style={[styles.errorTitle, { color: colors.foreground }]}>
-              Manager Not Found
-            </Text>
-            <Text
-              style={[styles.errorMessage, { color: colors.mutedForeground }]}
-            >
-              Couldn't find that manager ID — check your FPL connection in
-              Settings.
+            <Feather name="alert-circle" size={40} color={colors.mutedForeground} />
+            <Text style={[styles.errorTitle, { color: colors.foreground }]}>Manager Not Found</Text>
+            <Text style={[styles.errorMessage, { color: colors.mutedForeground }]}>
+              Couldn't find that manager ID — check your FPL connection in Settings.
             </Text>
           </View>
         )}
 
         {isError && !isNotFound && (
           <View style={styles.errorContainer}>
-            <Feather
-              name="wifi-off"
-              size={40}
-              color={colors.mutedForeground}
-            />
-            <Text style={[styles.errorTitle, { color: colors.foreground }]}>
-              Connection Error
-            </Text>
-            <Text
-              style={[styles.errorMessage, { color: colors.mutedForeground }]}
-            >
+            <Feather name="wifi-off" size={40} color={colors.mutedForeground} />
+            <Text style={[styles.errorTitle, { color: colors.foreground }]}>Connection Error</Text>
+            <Text style={[styles.errorMessage, { color: colors.mutedForeground }]}>
               Couldn't reach the FPL servers — try again in a moment.
             </Text>
             <Pressable
               onPress={() => refetch()}
+              accessibilityLabel="Try again"
+              accessibilityRole="button"
               style={({ pressed }) => [
                 styles.retryButton,
                 {
@@ -543,12 +405,7 @@ export default function SquadScreen() {
                 },
               ]}
             >
-              <Text
-                style={[
-                  styles.retryButtonText,
-                  { color: colors.primaryForeground },
-                ]}
-              >
+              <Text style={[styles.retryButtonText, { color: colors.primaryForeground }]}>
                 Try Again
               </Text>
             </Pressable>

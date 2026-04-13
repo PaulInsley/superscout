@@ -37,10 +37,7 @@ export async function getBootstrapData(): Promise<FPLBootstrapResponse> {
   if (cachedBootstrap) return cachedBootstrap;
 
   const base = getBaseUrl();
-  const url =
-    Platform.OS === "web"
-      ? `${base}/bootstrap-static`
-      : `${base}/bootstrap-static/`;
+  const url = Platform.OS === "web" ? `${base}/bootstrap-static` : `${base}/bootstrap-static/`;
 
   const response = await fetch(url);
   if (!response.ok) {
@@ -96,10 +93,7 @@ function buildPlayerMap(elements: FPLPlayer[]): Map<number, FPLPlayer> {
 
 async function fetchManagerInfo(managerId: number): Promise<FPLManagerInfo> {
   const base = getBaseUrl();
-  const url =
-    Platform.OS === "web"
-      ? `${base}/entry/${managerId}`
-      : `${base}/entry/${managerId}/`;
+  const url = Platform.OS === "web" ? `${base}/entry/${managerId}` : `${base}/entry/${managerId}/`;
 
   console.log("[SuperScout] Fetching manager info:", url);
   const response = await fetch(url);
@@ -122,10 +116,7 @@ async function fetchManagerInfo(managerId: number): Promise<FPLManagerInfo> {
   return data;
 }
 
-async function fetchPicks(
-  managerId: number,
-  gameweek: number
-): Promise<FPLPicksResponse> {
+async function fetchPicks(managerId: number, gameweek: number): Promise<FPLPicksResponse> {
   const base = getBaseUrl();
   const url =
     Platform.OS === "web"
@@ -161,7 +152,7 @@ async function fetchTransfers(managerId: number): Promise<FPLTransfer[]> {
 
 async function tryFetchPicks(
   managerId: number,
-  gameweeksToTry: number[]
+  gameweeksToTry: number[],
 ): Promise<{ picks: FPLPicksResponse; gameweek: number } | null> {
   for (const gw of gameweeksToTry) {
     try {
@@ -176,10 +167,7 @@ async function tryFetchPicks(
 
 export async function fetchFixtures(): Promise<FPLFixture[]> {
   const base = getBaseUrl();
-  const url =
-    Platform.OS === "web"
-      ? `${base}/fixtures`
-      : `${base}/fixtures/`;
+  const url = Platform.OS === "web" ? `${base}/fixtures` : `${base}/fixtures/`;
 
   const response = await fetch(url);
   if (!response.ok) {
@@ -191,9 +179,7 @@ export async function fetchFixtures(): Promise<FPLFixture[]> {
 export async function fetchLiveGameweek(event: number): Promise<FPLLiveResponse> {
   const base = getBaseUrl();
   const url =
-    Platform.OS === "web"
-      ? `${base}/event/${event}/live`
-      : `${base}/event/${event}/live/`;
+    Platform.OS === "web" ? `${base}/event/${event}/live` : `${base}/event/${event}/live/`;
 
   const response = await fetch(url);
   if (!response.ok) {
@@ -237,9 +223,7 @@ export interface CaptainCandidateResult {
   currentCaptain?: string | null;
 }
 
-export async function fetchCaptainCandidates(
-  managerId: number,
-): Promise<CaptainCandidateResult> {
+export async function fetchCaptainCandidates(managerId: number): Promise<CaptainCandidateResult> {
   const bootstrapData = await getBootstrapData();
   const currentEvent = bootstrapData.events.find((e) => e.is_current);
   const nextEvent = bootstrapData.events.find((e) => e.is_next);
@@ -261,7 +245,8 @@ export async function fetchCaptainCandidates(
     return { candidates: [], gameweek, deadlineTime, noSquadData: true };
   }
 
-  const isDeadlinePassed = currentEvent && !currentEvent.finished && new Date(currentEvent.deadline_time) < new Date();
+  const isDeadlinePassed =
+    currentEvent && !currentEvent.finished && new Date(currentEvent.deadline_time) < new Date();
   const targetGw = isDeadlinePassed && nextEvent ? nextEvent.id : gameweek;
   const targetDeadline = isDeadlinePassed && nextEvent ? nextEvent.deadline_time : deadlineTime;
 
@@ -292,8 +277,12 @@ export async function fetchCaptainCandidates(
     if (count >= 2) doubleTeamIds.add(team.id);
   }
 
-  const blankTeams = bootstrapData.teams.filter((t) => blankTeamIds.has(t.id)).map((t) => t.short_name);
-  const doubleTeams = bootstrapData.teams.filter((t) => doubleTeamIds.has(t.id)).map((t) => t.short_name);
+  const blankTeams = bootstrapData.teams
+    .filter((t) => blankTeamIds.has(t.id))
+    .map((t) => t.short_name);
+  const doubleTeams = bootstrapData.teams
+    .filter((t) => doubleTeamIds.has(t.id))
+    .map((t) => t.short_name);
   const hasBlanks = blankTeams.length > 0;
   const hasDoubles = doubleTeams.length > 0;
   let gwType: "normal" | "bgw" | "dgw" | "bgw_dgw" = "normal";
@@ -389,10 +378,7 @@ export async function fetchCaptainCandidates(
 
 export async function fetchManagerLeagues(managerId: number): Promise<FPLLeague[]> {
   const base = getBaseUrl();
-  const url =
-    Platform.OS === "web"
-      ? `${base}/entry/${managerId}`
-      : `${base}/entry/${managerId}/`;
+  const url = Platform.OS === "web" ? `${base}/entry/${managerId}` : `${base}/entry/${managerId}/`;
 
   const response = await fetch(url);
   if (!response.ok) {
@@ -406,31 +392,36 @@ export async function fetchManagerLeagues(managerId: number): Promise<FPLLeague[
     allLeagues.push(...(data.leagues as any).h2h);
   }
 
-  return allLeagues.filter(
-    (l) => l.entry_can_leave && l.league_type !== "s",
-  );
+  return allLeagues.filter((l) => l.entry_can_leave && l.league_type !== "s");
 }
 
-export async function fetchManagerData(
-  managerId: number
-): Promise<ManagerData> {
+export async function fetchManagerData(managerId: number): Promise<ManagerData> {
   const bootstrapData = await getBootstrapData();
   const currentGw = getCurrentGameweek(bootstrapData);
   const lastFinishedGw = getLastFinishedGameweek(bootstrapData);
   const playerMap = buildPlayerMap(bootstrapData.elements);
 
-  console.log("[SuperScout] Detected gameweeks - current:", currentGw, "lastFinished:", lastFinishedGw);
+  console.log(
+    "[SuperScout] Detected gameweeks - current:",
+    currentGw,
+    "lastFinished:",
+    lastFinishedGw,
+  );
 
   const managerInfo = await fetchManagerInfo(managerId);
   const transfersData = await fetchTransfers(managerId);
 
-  const hasEnteredEvents =
-    managerInfo.entered_events && managerInfo.entered_events.length > 0;
+  const hasEnteredEvents = managerInfo.entered_events && managerInfo.entered_events.length > 0;
   const isNewManager = !hasEnteredEvents;
 
-  console.log("[SuperScout] Manager started_event:", managerInfo.started_event,
-    "entered_events:", managerInfo.entered_events?.length ?? 0,
-    "isNewManager:", isNewManager);
+  console.log(
+    "[SuperScout] Manager started_event:",
+    managerInfo.started_event,
+    "entered_events:",
+    managerInfo.entered_events?.length ?? 0,
+    "isNewManager:",
+    isNewManager,
+  );
 
   let picksResult: { picks: FPLPicksResponse; gameweek: number } | null = null;
 
@@ -468,12 +459,8 @@ export async function fetchManagerData(
       const player = playerMap.get(pick.element);
       return {
         id: pick.element,
-        name: player
-          ? player.web_name
-          : `Player ${pick.element}`,
-        position: player
-          ? (POSITION_MAP[player.element_type] ?? "UNK")
-          : "UNK",
+        name: player ? player.web_name : `Player ${pick.element}`,
+        position: player ? (POSITION_MAP[player.element_type] ?? "UNK") : "UNK",
         price: player ? player.now_cost / 10 : 0,
         form: player ? player.form : "0.0",
         isCaptain: pick.is_captain,
@@ -494,13 +481,9 @@ export async function fetchManagerData(
     const playerOut = playerMap.get(t.element_out);
     return {
       event: t.event,
-      playerIn: playerIn
-        ? playerIn.web_name
-        : `Player ${t.element_in}`,
+      playerIn: playerIn ? playerIn.web_name : `Player ${t.element_in}`,
       playerInCost: t.element_in_cost / 10,
-      playerOut: playerOut
-        ? playerOut.web_name
-        : `Player ${t.element_out}`,
+      playerOut: playerOut ? playerOut.web_name : `Player ${t.element_out}`,
       playerOutCost: t.element_out_cost / 10,
       time: t.time,
     };

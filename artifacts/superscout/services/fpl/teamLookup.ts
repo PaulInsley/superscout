@@ -10,15 +10,11 @@ function getBaseUrl(): string {
   return FPL_DIRECT_URL;
 }
 
-export async function fetchTeamName(
-  managerId: number,
-): Promise<string | null> {
+export async function fetchTeamName(managerId: number): Promise<string | null> {
   try {
     const base = getBaseUrl();
     const url =
-      Platform.OS === "web"
-        ? `${base}/entry/${managerId}`
-        : `${base}/entry/${managerId}/`;
+      Platform.OS === "web" ? `${base}/entry/${managerId}` : `${base}/entry/${managerId}/`;
 
     const response = await fetch(url);
     if (!response.ok) return null;

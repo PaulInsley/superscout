@@ -37,7 +37,12 @@ function formatGeneratedAt(isoString: string): string {
   if (diffMins < 60) return `${diffMins}m ago`;
   const diffHours = Math.floor(diffMins / 60);
   if (diffHours < 24) return `${diffHours}h ago`;
-  return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function getApiBaseUrl(): string {
@@ -84,18 +89,20 @@ export default function TransferAdvisorScreen() {
   useFocusEffect(
     useCallback(() => {
       refreshManagerId();
-      AsyncStorage.getItem(PERSONA_KEY).then((persona) => {
-        if (persona === "expert" || persona === "critic" || persona === "fanboy") {
-          const effectiveVibe = isPro ? persona : "expert";
-          setVibe((prev) => {
-            if (prev !== effectiveVibe) {
-              setRecommendations(null);
-              setAiError(null);
-            }
-            return effectiveVibe as "expert" | "critic" | "fanboy";
-          });
-        }
-      }).catch((err: unknown) => console.warn("[Transfers] vibe load failed:", err));
+      AsyncStorage.getItem(PERSONA_KEY)
+        .then((persona) => {
+          if (persona === "expert" || persona === "critic" || persona === "fanboy") {
+            const effectiveVibe = isPro ? persona : "expert";
+            setVibe((prev) => {
+              if (prev !== effectiveVibe) {
+                setRecommendations(null);
+                setAiError(null);
+              }
+              return effectiveVibe as "expert" | "critic" | "fanboy";
+            });
+          }
+        })
+        .catch((err: unknown) => console.warn("[Transfers] vibe load failed:", err));
     }, [isPro]),
   );
 
@@ -139,122 +146,134 @@ export default function TransferAdvisorScreen() {
     };
   }, []);
 
-  const applyTransferResult = useCallback((data: TransferAdviceResponse & { generated_at?: string }) => {
-    setRecommendations(data.recommendations ?? []);
-    trackStreakActivity();
-    setGameweek(data.gameweek ?? 0);
-    setFreeTransfers(data.free_transfers ?? 0);
-    setBudget(data.budget_remaining ?? 0);
-    setGwType(data.gw_type ?? null);
-    setBlankTeams(data.blank_teams ?? []);
-    setDoubleTeams(data.double_teams ?? []);
-    setActiveChip(data.active_chip ?? null);
-    setGeneratedAt(data.generated_at ?? null);
-    logRecommendationSilently(data);
-  }, [vibe, isPro]);
+  const applyTransferResult = useCallback(
+    (data: TransferAdviceResponse & { generated_at?: string }) => {
+      setRecommendations(data.recommendations ?? []);
+      trackStreakActivity();
+      setGameweek(data.gameweek ?? 0);
+      setFreeTransfers(data.free_transfers ?? 0);
+      setBudget(data.budget_remaining ?? 0);
+      setGwType(data.gw_type ?? null);
+      setBlankTeams(data.blank_teams ?? []);
+      setDoubleTeams(data.double_teams ?? []);
+      setActiveChip(data.active_chip ?? null);
+      setGeneratedAt(data.generated_at ?? null);
+      logRecommendationSilently(data);
+    },
+    [vibe, isPro],
+  );
 
-  const requestAdvice = useCallback(async (skipCache = false) => {
-    if (!managerId) return;
+  const requestAdvice = useCallback(
+    async (skipCache = false) => {
+      if (!managerId) return;
 
-    setAiLoading(true);
-    setAiError(null);
-    setRecommendations(null);
-    setLoadingStage("squad");
+      setAiLoading(true);
+      setAiError(null);
+      setRecommendations(null);
+      setLoadingStage("squad");
 
-    const loadingStart = Date.now();
-    startStageTimers();
+      const loadingStart = Date.now();
+      startStageTimers();
 
-    const waitForMinLoading = () => {
-      const elapsed = Date.now() - loadingStart;
-      const remaining = MIN_LOADING_MS - elapsed;
-      return remaining > 0 ? new Promise<void>((r) => setTimeout(r, remaining)) : Promise.resolve();
-    };
+      const waitForMinLoading = () => {
+        const elapsed = Date.now() - loadingStart;
+        const remaining = MIN_LOADING_MS - elapsed;
+        return remaining > 0
+          ? new Promise<void>((r) => setTimeout(r, remaining))
+          : Promise.resolve();
+      };
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
 
-    try {
-      const apiBase = getApiBaseUrl();
+      try {
+        const apiBase = getApiBaseUrl();
 
-      const userId = await getAuthenticatedUserId();
-      if (!userId) {
-        setAiError("Please sign in to get transfer advice.");
-        return;
-      }
-
-      if (!skipCache) {
-        const preGenUrl = `${apiBase}/pre-generated/current?user_id=${userId}&decision_type=transfer&vibe=${vibe}`;
-        try {
-          const preGenRes = await fetch(preGenUrl, { signal: controller.signal });
-          if (preGenRes.ok) {
-            const preGenData = await preGenRes.json();
-            if (preGenData.found && preGenData.response) {
-              const resultData = preGenData.response as TransferAdviceResponse;
-              await waitForMinLoading();
-              clearStageTimers();
-              setLoadingStage("done");
-              applyTransferResult(resultData);
-              return;
-            }
-          }
-        } catch (e: any) {
-          if (e?.name === "AbortError") throw e;
+        const userId = await getAuthenticatedUserId();
+        if (!userId) {
+          setAiError("Please sign in to get transfer advice.");
+          return;
         }
-      }
 
-      const response = await fetch(`${apiBase}/transfer-advice`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          manager_id: managerId,
-          vibe,
-          skip_cache: skipCache,
-        }),
-        signal: controller.signal,
-      });
+        if (!skipCache) {
+          const preGenUrl = `${apiBase}/pre-generated/current?user_id=${userId}&decision_type=transfer&vibe=${vibe}`;
+          try {
+            const preGenRes = await fetch(preGenUrl, { signal: controller.signal });
+            if (preGenRes.ok) {
+              const preGenData = await preGenRes.json();
+              if (preGenData.found && preGenData.response) {
+                const resultData = preGenData.response as TransferAdviceResponse;
+                await waitForMinLoading();
+                clearStageTimers();
+                setLoadingStage("done");
+                applyTransferResult(resultData);
+                return;
+              }
+            }
+          } catch (e: any) {
+            if (e?.name === "AbortError") throw e;
+          }
+        }
 
-      if (!response.ok) {
-        clearStageTimers();
-        const errorBody = await response.json().catch(() => null);
-        if (errorBody?.error === "new_manager") {
-          setAiError("Your FPL team hasn't played any gameweeks yet. Transfer advice will be available once you've entered a gameweek.");
-        } else if (errorBody?.error === "no_picks") {
-          setAiError("Could not find your squad picks. Make sure you have an active FPL team.");
-        } else if (errorBody?.error === "season_not_started") {
-          setAiError("The FPL season hasn't started yet. Transfer advice will be available once the season begins.");
+        const response = await fetch(`${apiBase}/transfer-advice`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            manager_id: managerId,
+            vibe,
+            skip_cache: skipCache,
+          }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          clearStageTimers();
+          const errorBody = await response.json().catch(() => null);
+          if (errorBody?.error === "new_manager") {
+            setAiError(
+              "Your FPL team hasn't played any gameweeks yet. Transfer advice will be available once you've entered a gameweek.",
+            );
+          } else if (errorBody?.error === "no_picks") {
+            setAiError("Could not find your squad picks. Make sure you have an active FPL team.");
+          } else if (errorBody?.error === "season_not_started") {
+            setAiError(
+              "The FPL season hasn't started yet. Transfer advice will be available once the season begins.",
+            );
+          } else {
+            setAiError("Couldn't load transfer advice. Tap to try again.");
+          }
+          setAiLoading(false);
+          return;
+        }
+
+        const json = (await response.json()) as TransferAdviceResponse;
+        if (json.recommendations) {
+          await waitForMinLoading();
+          clearStageTimers();
+          setLoadingStage("done");
+          applyTransferResult(json);
+          if (skipCache) startRegenCooldown();
         } else {
           setAiError("Couldn't load transfer advice. Tap to try again.");
         }
-        setAiLoading(false);
-        return;
-      }
-
-      const json = await response.json() as TransferAdviceResponse;
-      if (json.recommendations) {
-        await waitForMinLoading();
+      } catch (err: any) {
         clearStageTimers();
-        setLoadingStage("done");
-        applyTransferResult(json);
-        if (skipCache) startRegenCooldown();
-      } else {
-        setAiError("Couldn't load transfer advice. Tap to try again.");
+        if (err?.name === "AbortError") {
+          setAiError("Request timed out. Tap to try again.");
+        } else {
+          console.error("[SuperScout] Transfer advice error:", err);
+          setAiError("Couldn't load transfer advice. Tap to try again.");
+        }
+      } finally {
+        clearTimeout(timeoutId);
+        clearStageTimers();
+        setAiLoading(false);
       }
-    } catch (err: any) {
-      clearStageTimers();
-      if (err?.name === "AbortError") {
-        setAiError("Request timed out. Tap to try again.");
-      } else {
-        console.error("[SuperScout] Transfer advice error:", err);
-        setAiError("Couldn't load transfer advice. Tap to try again.");
-      }
-    } finally {
-      clearTimeout(timeoutId);
-      clearStageTimers();
-      setAiLoading(false);
-    }
-  }, [managerId, vibe, startStageTimers, clearStageTimers, applyTransferResult, startRegenCooldown]);
+    },
+    [managerId, vibe, startStageTimers, clearStageTimers, applyTransferResult, startRegenCooldown],
+  );
 
   const autoLoadedVibeRef = useRef<string | null>(null);
 
@@ -291,12 +310,10 @@ export default function TransferAdvisorScreen() {
             player_id: null,
             option_type: r.is_hold_recommendation ? "hold" : r.is_package ? "package" : "transfer",
             expected_points: r.is_package
-              ? r.total_expected_points_gain_3gw ?? 0
-              : r.expected_points_gain_3gw ?? 0,
+              ? (r.total_expected_points_gain_3gw ?? 0)
+              : (r.expected_points_gain_3gw ?? 0),
             confidence_score:
-              r.confidence === "BANKER" ? 0.9
-                : r.confidence === "CALCULATED_RISK" ? 0.6
-                  : 0.3,
+              r.confidence === "BANKER" ? 0.9 : r.confidence === "CALCULATED_RISK" ? 0.6 : 0.3,
             confidence_label: r.confidence,
             upside_text: r.upside,
             risk_text: r.risk,
@@ -337,16 +354,17 @@ export default function TransferAdvisorScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.title, { color: colors.foreground }]}>
-          Transfer Advisor
-        </Text>
+        <Text style={[styles.title, { color: colors.foreground }]} accessibilityRole="header">Transfer Advisor</Text>
 
         {recommendations || aiLoading ? (
           gameweek > 0 ? (
-            <View style={[styles.summaryBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Text style={[styles.summaryText, { color: colors.foreground }]}>
-                GW{gameweek}
-              </Text>
+            <View
+              style={[
+                styles.summaryBar,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <Text style={[styles.summaryText, { color: colors.foreground }]}>GW{gameweek}</Text>
               <View style={[styles.summaryDot, { backgroundColor: colors.mutedForeground }]} />
               <Text style={[styles.summaryText, { color: colors.foreground }]}>
                 {freeTransfers} free transfer{freeTransfers !== 1 ? "s" : ""}
@@ -371,11 +389,15 @@ export default function TransferAdvisorScreen() {
           <View style={[styles.banner, { backgroundColor: "#8b5cf620", borderColor: "#8b5cf6" }]}>
             <Feather name="zap" size={16} color="#8b5cf6" />
             <Text style={[styles.bannerText, { color: "#8b5cf6" }]}>
-              {activeChip === "3xc" ? "Triple Captain active" :
-               activeChip === "bboost" ? "Bench Boost active — all 15 players matter" :
-               activeChip === "wildcard" ? "Wildcard active — unlimited transfers" :
-               activeChip === "freehit" ? "Free Hit active — build your ideal XI" :
-               `${activeChip} chip active`}
+              {activeChip === "3xc"
+                ? "Triple Captain active"
+                : activeChip === "bboost"
+                  ? "Bench Boost active — all 15 players matter"
+                  : activeChip === "wildcard"
+                    ? "Wildcard active — unlimited transfers"
+                    : activeChip === "freehit"
+                      ? "Free Hit active — build your ideal XI"
+                      : `${activeChip} chip active`}
             </Text>
           </View>
         )}
@@ -401,6 +423,8 @@ export default function TransferAdvisorScreen() {
         {!recommendations && !aiLoading && (
           <Pressable
             onPress={requestAdvice}
+            accessibilityLabel="Get transfer recommendations"
+            accessibilityRole="button"
             style={[styles.generateButton, { backgroundColor: colors.accent }]}
           >
             <Text style={[styles.generateButtonText, { color: colors.primary }]}>
@@ -410,46 +434,42 @@ export default function TransferAdvisorScreen() {
         )}
 
         {aiLoading && (
-          <ProgressLoadingIndicator
-            vibe={vibe}
-            currentStage={loadingStage}
-            variant="transfer"
-          />
+          <ProgressLoadingIndicator vibe={vibe} currentStage={loadingStage} variant="transfer" />
         )}
 
         {aiError && (
           <View style={styles.errorContainer}>
-            <Text style={[styles.errorText, { color: colors.destructive }]}>
-              {aiError}
-            </Text>
+            <Text style={[styles.errorText, { color: colors.destructive }]}>{aiError}</Text>
             <Pressable
               onPress={requestAdvice}
+              accessibilityLabel="Try again"
+              accessibilityRole="button"
               style={[styles.retryButton, { borderColor: colors.accent }]}
             >
-              <Text style={[styles.retryText, { color: colors.accent }]}>
-                Try Again
-              </Text>
+              <Text style={[styles.retryText, { color: colors.accent }]}>Try Again</Text>
             </Pressable>
           </View>
         )}
 
         {recommendations && (
           <>
-            {!coachingDismissed && !showGraduation && (() => {
-              const lesson = beginner.getNextLesson("transfers");
-              if (!lesson) return null;
-              return (
-                <CoachingCard
-                  headline={lesson.headline}
-                  body={lesson.content[vibe]}
-                  onDismiss={async () => {
-                    const isGraduating = await beginner.dismissLesson(lesson.key);
-                    setCoachingDismissed(true);
-                    if (isGraduating) setShowGraduation(true);
-                  }}
-                />
-              );
-            })()}
+            {!coachingDismissed &&
+              !showGraduation &&
+              (() => {
+                const lesson = beginner.getNextLesson("transfers");
+                if (!lesson) return null;
+                return (
+                  <CoachingCard
+                    headline={lesson.headline}
+                    body={lesson.content[vibe]}
+                    onDismiss={async () => {
+                      const isGraduating = await beginner.dismissLesson(lesson.key);
+                      setCoachingDismissed(true);
+                      if (isGraduating) setShowGraduation(true);
+                    }}
+                  />
+                );
+              })()}
 
             {showGraduation && (
               <CoachingCard
@@ -467,7 +487,11 @@ export default function TransferAdvisorScreen() {
               {isPro ? (
                 recommendations.map((rec, index) => (
                   <TransferCard
-                    key={rec.is_hold_recommendation ? "hold" : `${rec.player_out}-${rec.player_in}-${index}`}
+                    key={
+                      rec.is_hold_recommendation
+                        ? "hold"
+                        : `${rec.player_out}-${rec.player_in}-${index}`
+                    }
                     recommendation={rec}
                     isBeginner={beginner.isBeginner}
                     vibe={vibe}
@@ -477,14 +501,21 @@ export default function TransferAdvisorScreen() {
                 <>
                   {recommendations.length > 0 && (
                     <TransferCard
-                      key={recommendations[0].is_hold_recommendation ? "hold" : `${recommendations[0].player_out}-${recommendations[0].player_in}-0`}
+                      key={
+                        recommendations[0].is_hold_recommendation
+                          ? "hold"
+                          : `${recommendations[0].player_out}-${recommendations[0].player_in}-0`
+                      }
                       recommendation={recommendations[0]}
                       isBeginner={beginner.isBeginner}
                       vibe={vibe}
                     />
                   )}
                   {recommendations.slice(1).map((_, i) => (
-                    <BlurredCard key={`blurred-transfer-${i}`} onPress={() => setShowPaywall(true)} />
+                    <BlurredCard
+                      key={`blurred-transfer-${i}`}
+                      onPress={() => setShowPaywall(true)}
+                    />
                   ))}
                 </>
               )}
@@ -497,7 +528,12 @@ export default function TransferAdvisorScreen() {
             <Pressable
               onPress={() => requestAdvice(true)}
               disabled={regenCooldown > 0}
-              style={[styles.regenerateButton, { borderColor: colors.border, opacity: regenCooldown > 0 ? 0.5 : 1 }]}
+              accessibilityLabel="Regenerate recommendations"
+              accessibilityRole="button"
+              style={[
+                styles.regenerateButton,
+                { borderColor: colors.border, opacity: regenCooldown > 0 ? 0.5 : 1 },
+              ]}
             >
               <Text style={[styles.regenerateText, { color: colors.mutedForeground }]}>
                 {regenCooldown > 0 ? `Regenerate (${regenCooldown}s)` : "Regenerate"}

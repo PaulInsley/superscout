@@ -16,12 +16,35 @@ const SPORT_CONFIGS: Record<string, RulesConfig> = {
 };
 
 const SEASON_PHASES: Array<{ range: [number, number]; label: string }> = [
-  { range: [1, 4], label: "GW1-GW4 (Early season): Limited data. Template teams dominate. Patience is key. Avoid hits." },
-  { range: [5, 10], label: "GW5-GW10 (Form emerges): Enough data to identify genuine performers vs flukes. First Wildcard window." },
-  { range: [11, 18], label: "GW11-GW18 (First-half chips): Use remaining first-half chips. Plan around blanks/doubles. AFCON planning." },
-  { range: [19, 19], label: "GW19 (First-half chip deadline): Any unused first-half chips expire. Use or lose." },
-  { range: [20, 30], label: "GW20-GW30 (Second half): Second chip set available. New Wildcard. Transfer accumulation matters." },
-  { range: [31, 38], label: "GW31-GW38 (Run-in): Mini-league decisive. Differentials matter more. Second-half chips deployed." },
+  {
+    range: [1, 4],
+    label:
+      "GW1-GW4 (Early season): Limited data. Template teams dominate. Patience is key. Avoid hits.",
+  },
+  {
+    range: [5, 10],
+    label:
+      "GW5-GW10 (Form emerges): Enough data to identify genuine performers vs flukes. First Wildcard window.",
+  },
+  {
+    range: [11, 18],
+    label:
+      "GW11-GW18 (First-half chips): Use remaining first-half chips. Plan around blanks/doubles. AFCON planning.",
+  },
+  {
+    range: [19, 19],
+    label: "GW19 (First-half chip deadline): Any unused first-half chips expire. Use or lose.",
+  },
+  {
+    range: [20, 30],
+    label:
+      "GW20-GW30 (Second half): Second chip set available. New Wildcard. Transfer accumulation matters.",
+  },
+  {
+    range: [31, 38],
+    label:
+      "GW31-GW38 (Run-in): Mini-league decisive. Differentials matter more. Second-half chips deployed.",
+  },
 ];
 
 let cachedRules: string | null = null;
@@ -57,9 +80,7 @@ export function getRulesContext(gameweek?: number): string {
   const parts: string[] = [];
 
   if (gameweek) {
-    const phase = SEASON_PHASES.find(
-      (p) => gameweek >= p.range[0] && gameweek <= p.range[1]
-    );
+    const phase = SEASON_PHASES.find((p) => gameweek >= p.range[0] && gameweek <= p.range[1]);
     if (phase) {
       parts.push(`CURRENT SEASON PHASE: ${phase.label}`);
     }

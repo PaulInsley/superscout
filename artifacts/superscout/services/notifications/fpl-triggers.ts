@@ -100,10 +100,7 @@ export interface SkipCheckContext {
   alreadyTransferredPlayer?: boolean;
 }
 
-export function shouldSkipNotification(
-  type: NotificationType,
-  ctx: SkipCheckContext,
-): boolean {
+export function shouldSkipNotification(type: NotificationType, ctx: SkipCheckContext): boolean {
   switch (type) {
     case "deadline_reminder":
       return ctx.userHasActedThisGw;

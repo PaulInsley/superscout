@@ -15,9 +15,7 @@ export async function generateRecommendation(
 ): Promise<string> {
   const vibe = VIBE_PROMPTS[persona];
   if (!vibe) {
-    throw new Error(
-      `Unknown persona: ${persona}. Must be one of: expert, critic, fanboy`,
-    );
+    throw new Error(`Unknown persona: ${persona}. Must be one of: expert, critic, fanboy`);
   }
 
   const systemPrompt = `${SHARED_SYSTEM_PROMPT}\n\n---\n\n${vibe.systemPrompt}`;

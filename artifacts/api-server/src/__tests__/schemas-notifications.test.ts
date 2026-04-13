@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { registerTokenSchema, sendNotificationSchema, updatePreferencesSchema } from "../schemas/notifications.js";
+import {
+  registerTokenSchema,
+  sendNotificationSchema,
+  updatePreferencesSchema,
+} from "../schemas/notifications.js";
 
 describe("registerTokenSchema", () => {
   it("accepts valid token registration", () => {

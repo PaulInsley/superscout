@@ -25,7 +25,10 @@ export function useStreak(sport: string = "fpl") {
   const refresh = useCallback(async () => {
     try {
       const userId = await getUserId();
-      if (!userId) { setLoading(false); return; }
+      if (!userId) {
+        setLoading(false);
+        return;
+      }
       const data = await fetchStreak(userId, sport);
       setStreak(data);
       await AsyncStorage.setItem(STREAK_CACHE_KEY, JSON.stringify(data));

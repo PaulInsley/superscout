@@ -121,7 +121,7 @@ export default function ReportCardSheet({
           <Text style={[styles.topBarTitle, { color: colors.foreground }]}>
             GW{gameweek} Report
           </Text>
-          <Pressable onPress={handleClose} hitSlop={12}>
+          <Pressable onPress={handleClose} hitSlop={12} accessibilityLabel="Close report" accessibilityRole="button">
             <Feather name="x" size={24} color={colors.foreground} />
           </Pressable>
         </View>
@@ -142,16 +142,14 @@ export default function ReportCardSheet({
           {error && (
             <View style={styles.errorContainer}>
               <Feather name="alert-circle" size={40} color={colors.destructive} />
-              <Text style={[styles.errorText, { color: colors.destructive }]}>
-                {error}
-              </Text>
+              <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>
               <Pressable
                 style={[styles.retryButton, { borderColor: colors.border }]}
                 onPress={loadReport}
+                accessibilityLabel="Try again"
+                accessibilityRole="button"
               >
-                <Text style={[styles.retryText, { color: colors.foreground }]}>
-                  Try Again
-                </Text>
+                <Text style={[styles.retryText, { color: colors.foreground }]}>Try Again</Text>
               </Pressable>
             </View>
           )}
@@ -159,24 +157,13 @@ export default function ReportCardSheet({
           {report && (
             <>
               <View style={styles.offscreen}>
-                <ViewShot
-                  ref={viewShotRef}
-                  options={{ format: "png", quality: 1 }}
-                >
-                  <ReportCard
-                    data={report}
-                    captureMode={true}
-                    streakCount={streakCount}
-                  />
+                <ViewShot ref={viewShotRef} options={{ format: "png", quality: 1 }}>
+                  <ReportCard data={report} captureMode={true} streakCount={streakCount} />
                 </ViewShot>
               </View>
 
               <View style={styles.cardPreview}>
-                <ReportCard
-                  data={report}
-                  captureMode={false}
-                  streakCount={streakCount}
-                />
+                <ReportCard data={report} captureMode={false} streakCount={streakCount} />
               </View>
 
               <View style={styles.actions}>
@@ -184,6 +171,8 @@ export default function ReportCardSheet({
                   style={[styles.shareButton, { backgroundColor: "#00ff87" }]}
                   onPress={handleShare}
                   disabled={sharing}
+                  accessibilityLabel="Share report"
+                  accessibilityRole="button"
                 >
                   {sharing ? (
                     <ActivityIndicator size="small" color="#0D0D1A" />
@@ -199,11 +188,7 @@ export default function ReportCardSheet({
           )}
         </ScrollView>
 
-        <PulseCheck
-          gameweek={gameweek}
-          visible={showPulse}
-          onDismiss={() => setShowPulse(false)}
-        />
+        <PulseCheck gameweek={gameweek} visible={showPulse} onDismiss={() => setShowPulse(false)} />
       </View>
     </Modal>
   );

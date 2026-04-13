@@ -1,17 +1,19 @@
 import { Router, type Request, type Response } from "express";
 import { getSupabase } from "../lib/supabase";
+import { getSupabaseForRequest } from "../lib/supabaseUser";
 import { getCached, cacheKey, TTL } from "../lib/fplCache";
 import { fetchFromFpl } from "../lib/fplRateLimiter";
 import { validateBody } from "../lib/validateRequest";
-import { registerTokenSchema, sendNotificationSchema, sendBatchSchema, updatePreferencesSchema } from "../schemas/notifications";
+import {
+  registerTokenSchema,
+  sendNotificationSchema,
+  sendBatchSchema,
+  updatePreferencesSchema,
+} from "../schemas/notifications";
 
 const router = Router();
 
-type NotificationType =
-  | "deadline_reminder"
-  | "post_gw_results"
-  | "price_change"
-  | "streak_at_risk";
+type NotificationType = "deadline_reminder" | "post_gw_results" | "price_change" | "streak_at_risk";
 type Vibe = "expert" | "critic" | "fanboy";
 
 const MAX_PER_GW = 3;
@@ -106,10 +108,7 @@ async function fetchCachedData<T>(key: string, path: string, ttl: number): Promi
   return (await fetchFromFpl(path, key, ttl)) as T;
 }
 
-async function getNotificationCount(
-  userId: string,
-  gameweek: number,
-): Promise<number> {
+async function getNotificationCount(userId: string, gameweek: number): Promise<number> {
   const supabase = getSupabase();
   if (!supabase) return 0;
 
@@ -122,10 +121,7 @@ async function getNotificationCount(
   return count ?? 0;
 }
 
-async function hasUserActedThisGw(
-  userId: string,
-  gameweek: number,
-): Promise<boolean> {
+async function hasUserActedThisGw(userId: string, gameweek: number): Promise<boolean> {
   const supabase = getSupabase();
   if (!supabase) return false;
 
@@ -167,197 +163,202 @@ async function sendExpoPush(
   }
 }
 
-router.post("/notifications/register-token", validateBody(registerTokenSchema), async (req: Request, res: Response) => {
-  try {
-    const supabase = getSupabase();
-    if (!supabase) {
-      res.status(503).json({ error: "Database not configured" });
-      return;
-    }
-
-    const { user_id, token } = req.body;
-
-    const { error } = await supabase
-      .from("users")
-      .update({ push_notification_token: token })
-      .eq("id", user_id);
-
-    if (error) {
-      req.log.error({ err: error }, "Failed to save push token");
-      res.status(500).json({ error: "Failed to save token" });
-      return;
-    }
-
-    res.json({ success: true });
-  } catch (err) {
-    req.log.error({ err }, "Register token failed");
-    res.status(500).json({ error: "Internal error" });
-  }
-});
-
-router.post("/notifications/send", validateBody(sendNotificationSchema), async (req: Request, res: Response) => {
-  try {
-    const supabase = getSupabase();
-    if (!supabase) {
-      res.status(503).json({ error: "Database not configured" });
-      return;
-    }
-
-    const {
-      user_id,
-      notification_type,
-      gameweek,
-      vars,
-    } = req.body;
-
-    const sentCount = await getNotificationCount(user_id, gameweek);
-    if (sentCount >= MAX_PER_GW) {
-      res.json({
-        sent: false,
-        reason: "max_per_gw_reached",
-        count: sentCount,
-      });
-      return;
-    }
-
-    const { data: user } = await supabase
-      .from("users")
-      .select("push_notification_token, default_persona, notification_preferences")
-      .eq("id", user_id)
-      .single();
-
-    if (!user?.push_notification_token) {
-      res.json({ sent: false, reason: "no_push_token" });
-      return;
-    }
-
-    const prefs = (user.notification_preferences ?? {}) as Record<string, boolean>;
-    if (prefs[notification_type] === false) {
-      res.json({ sent: false, reason: "disabled_by_user" });
-      return;
-    }
-
-    if (notification_type === "deadline_reminder" || notification_type === "streak_at_risk") {
-      const acted = await hasUserActedThisGw(user_id, gameweek);
-      if (acted) {
-        res.json({ sent: false, reason: "user_already_acted" });
+router.post(
+  "/notifications/register-token",
+  validateBody(registerTokenSchema),
+  async (req: Request, res: Response) => {
+    try {
+      const supabase = getSupabaseForRequest(req);
+      if (!supabase) {
+        res.status(503).json({ error: "Database not configured" });
         return;
       }
-    }
 
-    const vibe: Vibe = (user.default_persona as Vibe) ?? "expert";
-    const template = TEMPLATES[notification_type][vibe](vars);
+      const { user_id, token } = req.body;
 
-    const pushSent = await sendExpoPush(
-      user.push_notification_token,
-      template.title,
-      template.body,
-      { type: notification_type, gameweek },
-    );
+      const { error } = await supabase
+        .from("users")
+        .update({ push_notification_token: token })
+        .eq("id", user_id);
 
-    const { error: logErr } = await supabase.from("notification_log").insert({
-      user_id,
-      notification_type,
-      gameweek,
-      title: template.title,
-      body: template.body,
-    });
-
-    if (logErr) {
-      req.log.error({ err: logErr }, "Failed to log notification");
-    }
-
-    res.json({
-      sent: pushSent,
-      title: template.title,
-      body: template.body,
-      vibe,
-      notifications_this_gw: sentCount + 1,
-    });
-  } catch (err) {
-    req.log.error({ err }, "Send notification failed");
-    res.status(500).json({ error: "Failed to send notification" });
-  }
-});
-
-router.post("/notifications/send-batch", validateBody(sendBatchSchema), async (req: Request, res: Response) => {
-  try {
-    const supabase = getSupabase();
-    if (!supabase) {
-      res.status(503).json({ error: "Database not configured" });
-      return;
-    }
-
-    const { notification_type, gameweek, vars } = req.body;
-
-    const { data: users } = await supabase
-      .from("users")
-      .select("id, push_notification_token, default_persona, notification_preferences")
-      .not("push_notification_token", "is", null);
-
-    if (!users || users.length === 0) {
-      res.json({ sent: 0, skipped: 0 });
-      return;
-    }
-
-    let sent = 0;
-    let skipped = 0;
-
-    for (const user of users) {
-      const prefs = (user.notification_preferences ?? {}) as Record<string, boolean>;
-      if (prefs[notification_type] === false) {
-        skipped++;
-        continue;
+      if (error) {
+        req.log.error({ err: error }, "Failed to save push token");
+        res.status(500).json({ error: "Failed to save token" });
+        return;
       }
 
-      const count = await getNotificationCount(user.id, gameweek);
-      if (count >= MAX_PER_GW) {
-        skipped++;
-        continue;
+      res.json({ success: true });
+    } catch (err) {
+      req.log.error({ err }, "Register token failed");
+      res.status(500).json({ error: "Internal error" });
+    }
+  },
+);
+
+router.post(
+  "/notifications/send",
+  validateBody(sendNotificationSchema),
+  async (req: Request, res: Response) => {
+    try {
+      const supabase = getSupabaseForRequest(req);
+      if (!supabase) {
+        res.status(503).json({ error: "Database not configured" });
+        return;
+      }
+
+      const { user_id, notification_type, gameweek, vars } = req.body;
+
+      const sentCount = await getNotificationCount(user_id, gameweek);
+      if (sentCount >= MAX_PER_GW) {
+        res.json({
+          sent: false,
+          reason: "max_per_gw_reached",
+          count: sentCount,
+        });
+        return;
+      }
+
+      const { data: user } = await supabase
+        .from("users")
+        .select("push_notification_token, default_persona, notification_preferences")
+        .eq("id", user_id)
+        .single();
+
+      if (!user?.push_notification_token) {
+        res.json({ sent: false, reason: "no_push_token" });
+        return;
+      }
+
+      const prefs = (user.notification_preferences ?? {}) as Record<string, boolean>;
+      if (prefs[notification_type] === false) {
+        res.json({ sent: false, reason: "disabled_by_user" });
+        return;
       }
 
       if (notification_type === "deadline_reminder" || notification_type === "streak_at_risk") {
-        const acted = await hasUserActedThisGw(user.id, gameweek);
+        const acted = await hasUserActedThisGw(user_id, gameweek);
         if (acted) {
-          skipped++;
-          continue;
+          res.json({ sent: false, reason: "user_already_acted" });
+          return;
         }
       }
 
       const vibe: Vibe = (user.default_persona as Vibe) ?? "expert";
       const template = TEMPLATES[notification_type][vibe](vars);
 
-      const ok = await sendExpoPush(
+      const pushSent = await sendExpoPush(
         user.push_notification_token,
         template.title,
         template.body,
         { type: notification_type, gameweek },
       );
 
-      if (ok) {
-        sent++;
-        await supabase.from("notification_log").insert({
-          user_id: user.id,
-          notification_type,
-          gameweek,
-          title: template.title,
-          body: template.body,
-        });
-      } else {
-        skipped++;
-      }
-    }
+      const { error: logErr } = await supabase.from("notification_log").insert({
+        user_id,
+        notification_type,
+        gameweek,
+        title: template.title,
+        body: template.body,
+      });
 
-    res.json({ sent, skipped, total: users.length });
-  } catch (err) {
-    req.log.error({ err }, "Batch send failed");
-    res.status(500).json({ error: "Batch send failed" });
-  }
-});
+      if (logErr) {
+        req.log.error({ err: logErr }, "Failed to log notification");
+      }
+
+      res.json({
+        sent: pushSent,
+        title: template.title,
+        body: template.body,
+        vibe,
+        notifications_this_gw: sentCount + 1,
+      });
+    } catch (err) {
+      req.log.error({ err }, "Send notification failed");
+      res.status(500).json({ error: "Failed to send notification" });
+    }
+  },
+);
+
+router.post(
+  "/notifications/send-batch",
+  validateBody(sendBatchSchema),
+  async (req: Request, res: Response) => {
+    try {
+      const supabase = getSupabase();
+      if (!supabase) {
+        res.status(503).json({ error: "Database not configured" });
+        return;
+      }
+
+      const { notification_type, gameweek, vars } = req.body;
+
+      const { data: users } = await supabase
+        .from("users")
+        .select("id, push_notification_token, default_persona, notification_preferences")
+        .not("push_notification_token", "is", null);
+
+      if (!users || users.length === 0) {
+        res.json({ sent: 0, skipped: 0 });
+        return;
+      }
+
+      let sent = 0;
+      let skipped = 0;
+
+      for (const user of users) {
+        const prefs = (user.notification_preferences ?? {}) as Record<string, boolean>;
+        if (prefs[notification_type] === false) {
+          skipped++;
+          continue;
+        }
+
+        const count = await getNotificationCount(user.id, gameweek);
+        if (count >= MAX_PER_GW) {
+          skipped++;
+          continue;
+        }
+
+        if (notification_type === "deadline_reminder" || notification_type === "streak_at_risk") {
+          const acted = await hasUserActedThisGw(user.id, gameweek);
+          if (acted) {
+            skipped++;
+            continue;
+          }
+        }
+
+        const vibe: Vibe = (user.default_persona as Vibe) ?? "expert";
+        const template = TEMPLATES[notification_type][vibe](vars);
+
+        const ok = await sendExpoPush(user.push_notification_token, template.title, template.body, {
+          type: notification_type,
+          gameweek,
+        });
+
+        if (ok) {
+          sent++;
+          await supabase.from("notification_log").insert({
+            user_id: user.id,
+            notification_type,
+            gameweek,
+            title: template.title,
+            body: template.body,
+          });
+        } else {
+          skipped++;
+        }
+      }
+
+      res.json({ sent, skipped, total: users.length });
+    } catch (err) {
+      req.log.error({ err }, "Batch send failed");
+      res.status(500).json({ error: "Batch send failed" });
+    }
+  },
+);
 
 router.get("/notifications/preferences/:user_id", async (req: Request, res: Response) => {
   try {
-    const supabase = getSupabase();
+    const supabase = getSupabaseForRequest(req);
     if (!supabase) {
       res.status(503).json({ error: "Database not configured" });
       return;
@@ -383,45 +384,51 @@ router.get("/notifications/preferences/:user_id", async (req: Request, res: Resp
       return;
     }
 
-    res.json({ preferences: data.notification_preferences ?? {
-      deadline_reminder: true,
-      post_gw_results: true,
-      price_change: true,
-      streak_at_risk: true,
-    }});
+    res.json({
+      preferences: data.notification_preferences ?? {
+        deadline_reminder: true,
+        post_gw_results: true,
+        price_change: true,
+        streak_at_risk: true,
+      },
+    });
   } catch (err) {
     req.log.error({ err }, "Get preferences failed");
     res.status(500).json({ error: "Failed to get preferences" });
   }
 });
 
-router.put("/notifications/preferences", validateBody(updatePreferencesSchema), async (req: Request, res: Response) => {
-  try {
-    const supabase = getSupabase();
-    if (!supabase) {
-      res.status(503).json({ error: "Database not configured" });
-      return;
-    }
+router.put(
+  "/notifications/preferences",
+  validateBody(updatePreferencesSchema),
+  async (req: Request, res: Response) => {
+    try {
+      const supabase = getSupabaseForRequest(req);
+      if (!supabase) {
+        res.status(503).json({ error: "Database not configured" });
+        return;
+      }
 
-    const { user_id, preferences } = req.body;
+      const { user_id, preferences } = req.body;
 
-    const { error } = await supabase
-      .from("users")
-      .update({ notification_preferences: preferences })
-      .eq("id", user_id);
+      const { error } = await supabase
+        .from("users")
+        .update({ notification_preferences: preferences })
+        .eq("id", user_id);
 
-    if (error) {
-      req.log.error({ err: error }, "Failed to update preferences");
+      if (error) {
+        req.log.error({ err: error }, "Failed to update preferences");
+        res.status(500).json({ error: "Failed to update preferences" });
+        return;
+      }
+
+      res.json({ success: true, preferences });
+    } catch (err) {
+      req.log.error({ err }, "Update preferences failed");
       res.status(500).json({ error: "Failed to update preferences" });
-      return;
     }
-
-    res.json({ success: true, preferences });
-  } catch (err) {
-    req.log.error({ err }, "Update preferences failed");
-    res.status(500).json({ error: "Failed to update preferences" });
-  }
-});
+  },
+);
 
 router.get("/notifications/schedule-info", async (req: Request, res: Response) => {
   try {
@@ -459,7 +466,7 @@ router.get("/notifications/schedule-info", async (req: Request, res: Response) =
 
 router.get("/notifications/log/:user_id", async (req: Request, res: Response) => {
   try {
-    const supabase = getSupabase();
+    const supabase = getSupabaseForRequest(req);
     if (!supabase) {
       res.status(503).json({ error: "Database not configured" });
       return;

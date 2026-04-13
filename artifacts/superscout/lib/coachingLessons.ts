@@ -67,7 +67,10 @@ export const COACHING_LESSONS: CoachingLesson[] = [
   },
 ];
 
-export const GRADUATION_CONTENT: Record<"expert" | "critic" | "fanboy", { headline: string; body: string }> = {
+export const GRADUATION_CONTENT: Record<
+  "expert" | "critic" | "fanboy",
+  { headline: string; body: string }
+> = {
   expert: {
     headline: "You\u2019ve got the basics down",
     body: "Four gameweeks in and you now understand captaincy, transfers, fixtures, and ownership. Everything from here is about sharpening your edge. Your coach will still be here \u2014 I\u2019ll just talk to you like someone who knows the game.",

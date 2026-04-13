@@ -61,14 +61,10 @@ export function scoreCaptainDecision(input: CaptainScoreInput): {
     };
   }
 
-  const sorted = [...recommendedOptions].sort(
-    (a, b) => b.actualPoints - a.actualPoints,
-  );
+  const sorted = [...recommendedOptions].sort((a, b) => b.actualPoints - a.actualPoints);
   const bestOption = sorted[0];
 
-  const userPicked = recommendedOptions.find(
-    (o) => o.playerId === userCaptainId,
-  );
+  const userPicked = recommendedOptions.find((o) => o.playerId === userCaptainId);
 
   let score: number;
 
@@ -81,8 +77,7 @@ export function scoreCaptainDecision(input: CaptainScoreInput): {
       score = 40;
     }
   } else {
-    const rank =
-      sorted.findIndex((o) => o.playerId === userCaptainId) + 1;
+    const rank = sorted.findIndex((o) => o.playerId === userCaptainId) + 1;
     const total = sorted.length;
 
     if (rank === 1) {
@@ -98,8 +93,7 @@ export function scoreCaptainDecision(input: CaptainScoreInput): {
 
   const userPickName =
     userPicked?.playerName ??
-    recommendedOptions.find((o) => o.playerId === userCaptainId)
-      ?.playerName ??
+    recommendedOptions.find((o) => o.playerId === userCaptainId)?.playerName ??
     "Unknown";
 
   return {
@@ -214,14 +208,10 @@ export function computeFullScore(
 
   if (transferResult.hasData) {
     decisionQualityScore = Math.round(
-      captainResult.score * 0.4 +
-        transferResult.score * 0.4 +
-        performanceResult * 0.2,
+      captainResult.score * 0.4 + transferResult.score * 0.4 + performanceResult * 0.2,
     );
   } else {
-    decisionQualityScore = Math.round(
-      captainResult.score * 0.8 + performanceResult * 0.2,
-    );
+    decisionQualityScore = Math.round(captainResult.score * 0.8 + performanceResult * 0.2);
   }
 
   return {

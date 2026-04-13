@@ -49,9 +49,7 @@ export function validateCaptainRecommendation(
   rec: CaptainRecommendation,
   candidates: CaptainCandidate[],
 ): ValidationResult {
-  const candidate = candidates.find(
-    (c) => c.name.toLowerCase() === rec.player_name.toLowerCase()
-  );
+  const candidate = candidates.find((c) => c.name.toLowerCase() === rec.player_name.toLowerCase());
 
   if (!candidate) {
     return {
@@ -115,10 +113,7 @@ export function validateCaptainRecommendation(
   };
 }
 
-export function calculateSellingPrice(
-  purchasePrice: number,
-  currentPrice: number,
-): number {
+export function calculateSellingPrice(purchasePrice: number, currentPrice: number): number {
   if (currentPrice <= purchasePrice) {
     return currentPrice;
   }
@@ -127,9 +122,7 @@ export function calculateSellingPrice(
   return purchasePrice + profit;
 }
 
-export function validateTransfer(
-  input: TransferValidationInput,
-): TransferValidationResult {
+export function validateTransfer(input: TransferValidationInput): TransferValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 

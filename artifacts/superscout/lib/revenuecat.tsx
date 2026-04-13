@@ -95,9 +95,10 @@ function useSubscriptionContext(devSimulatePro: boolean) {
 
   const isPro = devSimulatePro || realIsPro;
 
-  const subscriptionType = devSimulatePro && !realIsPro
-    ? "pro_monthly" as const
-    : getSubscriptionType(customerInfoQuery.data);
+  const subscriptionType =
+    devSimulatePro && !realIsPro
+      ? ("pro_monthly" as const)
+      : getSubscriptionType(customerInfoQuery.data);
 
   return {
     customerInfo: customerInfoQuery.data,

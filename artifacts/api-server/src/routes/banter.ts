@@ -4,6 +4,7 @@ import { getCached, cacheKey, TTL, setCache } from "../lib/fplCache";
 import { fetchFromFpl } from "../lib/fplRateLimiter";
 import { VIBE_PROMPTS } from "../lib/vibes";
 import { getSupabase } from "../lib/supabase";
+import { getSupabaseForRequest } from "../lib/supabaseUser";
 import { validateBody } from "../lib/validateRequest";
 import { banterLeaguesSchema } from "../schemas/banter";
 
@@ -20,7 +21,13 @@ interface BootstrapData {
     form: string;
   }>;
   teams: Array<{ id: number; name: string; short_name: string }>;
-  events: Array<{ id: number; is_current: boolean; is_next: boolean; finished: boolean; deadline_time: string }>;
+  events: Array<{
+    id: number;
+    is_current: boolean;
+    is_next: boolean;
+    finished: boolean;
+    deadline_time: string;
+  }>;
 }
 
 const POSITION_MAP: Record<number, string> = { 1: "GKP", 2: "DEF", 3: "MID", 4: "FWD" };
@@ -40,7 +47,9 @@ function extractJSON(text: string): unknown | null {
   }
   try {
     return JSON.parse(cleaned);
-  } catch (_) { /* JSON parse fallback — try nested extraction */ }
+  } catch (_) {
+    /* JSON parse fallback — try nested extraction */
+  }
   let depth = 0;
   let start = -1;
   for (let i = 0; i < cleaned.length; i++) {
@@ -50,7 +59,11 @@ function extractJSON(text: string): unknown | null {
     } else if (cleaned[i] === "}" || cleaned[i] === "]") {
       depth--;
       if (depth === 0 && start >= 0) {
-        try { return JSON.parse(cleaned.slice(start, i + 1)); } catch (_) { /* keep scanning */ }
+        try {
+          return JSON.parse(cleaned.slice(start, i + 1));
+        } catch (_) {
+          /* keep scanning */
+        }
       }
     }
   }
@@ -92,7 +105,7 @@ interface BanterCard {
 
 router.get("/banter/:gameweek", async (req: Request, res: Response) => {
   try {
-    const supabase = getSupabase();
+    const supabase = getSupabaseForRequest(req);
     if (!supabase) {
       res.status(503).json({ error: "Database not configured" });
       return;
@@ -183,7 +196,10 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
         TTL.USER,
       );
     } catch (err) {
-      req.log.warn({ err, managerId, gw }, "[Banter] current GW picks fetch failed, trying previous");
+      req.log.warn(
+        { err, managerId, gw },
+        "[Banter] current GW picks fetch failed, trying previous",
+      );
       try {
         userPicks = await fetchCachedData<any>(
           cacheKey("picks", String(managerId), String(gw - 1)),
@@ -211,7 +227,13 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
     const isDev = process.env.NODE_ENV === "development";
 
     interface RivalTask {
-      rival: { entry: number; rank: number; total: number; entry_name: string; relationship: string };
+      rival: {
+        entry: number;
+        rank: number;
+        total: number;
+        entry_name: string;
+        relationship: string;
+      };
       userRank: number;
       userPoints: number;
       leagueName: string;
@@ -220,7 +242,7 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
 
     const rivalTasks: RivalTask[] = [];
 
-    for (const league of (leagues ?? [])) {
+    for (const league of leagues ?? []) {
       if (rivalTasks.length >= MAX_RIVALS) break;
 
       const leagueType = league.league_type ?? "classic";
@@ -260,16 +282,52 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
 
       if (userIndex > 0) {
         const above = sorted[userIndex - 1];
-        rivalTasks.push({ rival: { entry: above.entry, rank: above.rank, total: above.total ?? above.points_for ?? 0, entry_name: above.entry_name, relationship: "directly above you" }, userRank, userPoints, leagueName: league.mini_league_name ?? "Mini-League", leagueType });
+        rivalTasks.push({
+          rival: {
+            entry: above.entry,
+            rank: above.rank,
+            total: above.total ?? above.points_for ?? 0,
+            entry_name: above.entry_name,
+            relationship: "directly above you",
+          },
+          userRank,
+          userPoints,
+          leagueName: league.mini_league_name ?? "Mini-League",
+          leagueType,
+        });
       }
       if (userIndex < sorted.length - 1) {
         const below = sorted[userIndex + 1];
-        rivalTasks.push({ rival: { entry: below.entry, rank: below.rank, total: below.total ?? below.points_for ?? 0, entry_name: below.entry_name, relationship: "directly below you" }, userRank, userPoints, leagueName: league.mini_league_name ?? "Mini-League", leagueType });
+        rivalTasks.push({
+          rival: {
+            entry: below.entry,
+            rank: below.rank,
+            total: below.total ?? below.points_for ?? 0,
+            entry_name: below.entry_name,
+            relationship: "directly below you",
+          },
+          userRank,
+          userPoints,
+          leagueName: league.mini_league_name ?? "Mini-League",
+          leagueType,
+        });
       }
       if (userRank > 3 && sorted.length > 0) {
         const leader = sorted[0];
         if (leader.entry !== managerId && !rivalTasks.some((t) => t.rival.entry === leader.entry)) {
-          rivalTasks.push({ rival: { entry: leader.entry, rank: leader.rank, total: leader.total ?? leader.points_for ?? 0, entry_name: leader.entry_name, relationship: "league leader" }, userRank, userPoints, leagueName: league.mini_league_name ?? "Mini-League", leagueType });
+          rivalTasks.push({
+            rival: {
+              entry: leader.entry,
+              rank: leader.rank,
+              total: leader.total ?? leader.points_for ?? 0,
+              entry_name: leader.entry_name,
+              relationship: "league leader",
+            },
+            userRank,
+            userPoints,
+            leagueName: league.mini_league_name ?? "Mini-League",
+            leagueType,
+          });
         }
       }
     }
@@ -277,12 +335,36 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
     if (isDev && rivalTasks.length === 0) {
       req.log.info("DEV MODE fallback: Real leagues produced 0 rivals, using dummy rivals");
       const dummyRivals = [
-        { entry: 4, rank: 1, total: 2100, entry_name: "Who Got Erling?", relationship: "league leader" as const },
-        { entry: 167, rank: 2, total: 2050, entry_name: "The Salah Soldiers", relationship: "directly above you" as const },
-        { entry: 372, rank: 4, total: 1950, entry_name: "Pep's Fraudulence", relationship: "directly below you" as const },
+        {
+          entry: 4,
+          rank: 1,
+          total: 2100,
+          entry_name: "Who Got Erling?",
+          relationship: "league leader" as const,
+        },
+        {
+          entry: 167,
+          rank: 2,
+          total: 2050,
+          entry_name: "The Salah Soldiers",
+          relationship: "directly above you" as const,
+        },
+        {
+          entry: 372,
+          rank: 4,
+          total: 1950,
+          entry_name: "Pep's Fraudulence",
+          relationship: "directly below you" as const,
+        },
       ];
       for (const r of dummyRivals) {
-        rivalTasks.push({ rival: r, userRank: 3, userPoints: 2000, leagueName: "Dev Banter League", leagueType: "classic" });
+        rivalTasks.push({
+          rival: r,
+          userRank: 3,
+          userPoints: 2000,
+          leagueName: "Dev Banter League",
+          leagueType: "classic",
+        });
       }
     }
 
@@ -290,7 +372,7 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
 
     async function generateBanterCard(task: RivalTask): Promise<BanterCard | null> {
       const { rival, userRank, userPoints, leagueName, leagueType } = task;
-      let rivalSquadNames: string[] = [];
+      const rivalSquadNames: string[] = [];
       let rivalCaptainName: string | null = null;
       let rivalNotSet = false;
 
@@ -310,7 +392,10 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
           }
         }
       } catch (err) {
-        req.log.warn({ err, rivalEntry: rival.entry, gw }, "[Banter] rival current picks failed, trying previous");
+        req.log.warn(
+          { err, rivalEntry: rival.entry, gw },
+          "[Banter] rival current picks failed, trying previous",
+        );
         try {
           const rivalPicks = await fetchCachedData<any>(
             cacheKey("picks", String(rival.entry), String(gw - 1)),
@@ -326,30 +411,46 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
               }
             }
           }
-        } catch (err2) { req.log.warn({ err: err2 }, "[Banter] rival previous picks also failed"); rivalNotSet = true; }
+        } catch (err2) {
+          req.log.warn({ err: err2 }, "[Banter] rival previous picks also failed");
+          rivalNotSet = true;
+        }
       }
 
       const sharedPlayers = userSquadNames.filter((p) => rivalSquadNames.includes(p));
       const userDifferentials = userSquadNames.filter((p) => !rivalSquadNames.includes(p));
       const rivalDifferentials = rivalSquadNames.filter((p) => !userSquadNames.includes(p));
       const pointsGap = userPoints - rival.total;
-      const pointsGapText = pointsGap > 0
-        ? `${pointsGap} points ahead of ${rival.entry_name}`
-        : pointsGap < 0
-          ? `${Math.abs(pointsGap)} points behind ${rival.entry_name}`
-          : `Level on points with ${rival.entry_name}`;
+      const pointsGapText =
+        pointsGap > 0
+          ? `${pointsGap} points ahead of ${rival.entry_name}`
+          : pointsGap < 0
+            ? `${Math.abs(pointsGap)} points behind ${rival.entry_name}`
+            : `Level on points with ${rival.entry_name}`;
 
       const banterPrompt = buildBanterPrompt({
-        vibe: String(vibe), userCaptain: userCaptainName, rivalCaptain: rivalCaptainName,
-        rivalTeamName: rival.entry_name, rivalRank: rival.rank, userRank, pointsGap,
-        sharedPlayers, userDifferentials, rivalDifferentials, relationship: rival.relationship,
-        leagueType, leagueName, rivalNotSet,
+        vibe: String(vibe),
+        userCaptain: userCaptainName,
+        rivalCaptain: rivalCaptainName,
+        rivalTeamName: rival.entry_name,
+        rivalRank: rival.rank,
+        userRank,
+        pointsGap,
+        sharedPlayers,
+        userDifferentials,
+        rivalDifferentials,
+        relationship: rival.relationship,
+        leagueType,
+        leagueName,
+        rivalNotSet,
       });
 
       const client = getClient();
-      const vibeSystemPrompt = VIBE_PROMPTS[String(vibe) as keyof typeof VIBE_PROMPTS] ?? VIBE_PROMPTS.expert;
+      const vibeSystemPrompt =
+        VIBE_PROMPTS[String(vibe) as keyof typeof VIBE_PROMPTS] ?? VIBE_PROMPTS.expert;
       const response = await client.messages.create({
-        model: "claude-haiku-4-5-20251001", max_tokens: 800,
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 800,
         temperature: 0.7,
         system: `${vibeSystemPrompt}\n\nYou generate mini-league banter between FPL managers. Respond ONLY with valid JSON.`,
         messages: [{ role: "user", content: banterPrompt }],
@@ -403,19 +504,20 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
               .update({ response_json: result, generated_at: now, expires_at: expiresAt })
               .eq("id", existing[0].id);
           } else {
-            await supabase
-              .from("pre_generated_recommendations")
-              .insert({
-                user_id: String(user_id),
-                gameweek: gw,
-                decision_type: "banter",
-                vibe: String(vibe),
-                response_json: result,
-                generated_at: now,
-                expires_at: expiresAt,
-              });
+            await supabase.from("pre_generated_recommendations").insert({
+              user_id: String(user_id),
+              gameweek: gw,
+              decision_type: "banter",
+              vibe: String(vibe),
+              response_json: result,
+              generated_at: now,
+              expires_at: expiresAt,
+            });
           }
-          req.log.info({ gameweek: gw, cards: allBanterCards.length }, "Cached banter for future requests");
+          req.log.info(
+            { gameweek: gw, cards: allBanterCards.length },
+            "Cached banter for future requests",
+          );
         } catch (cacheErr) {
           req.log.warn({ err: cacheErr }, "Failed to cache banter");
         }
@@ -427,54 +529,60 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/banter/leagues", validateBody(banterLeaguesSchema), async (req: Request, res: Response) => {
-  try {
-    const supabase = getSupabase();
-    if (!supabase) {
-      res.status(503).json({ error: "Database not configured" });
-      return;
-    }
-
-    const { user_id, leagues } = req.body;
-
-    const { error: deleteErr } = await supabase
-      .from("mini_league_context")
-      .delete()
-      .eq("user_id", user_id)
-      .eq("season", "2026-27");
-
-    if (deleteErr) {
-      req.log.error({ err: deleteErr }, "Failed to clear existing leagues");
-      res.status(500).json({ error: "Failed to update leagues" });
-      return;
-    }
-
-    for (const league of leagues) {
-      const { error: insertErr } = await supabase.from("mini_league_context").insert({
-        user_id,
-        mini_league_id: String(league.id),
-        mini_league_name: league.name,
-        current_rank: league.rank ?? null,
-        rival_manager_ids: league.rival_ids ?? [],
-        season: "2026-27",
-      });
-      if (insertErr) {
-        req.log.error({ err: insertErr, leagueId: league.id }, "Failed to insert league");
-        res.status(500).json({ error: `Failed to save league ${league.name}: ${insertErr.message}` });
+router.post(
+  "/banter/leagues",
+  validateBody(banterLeaguesSchema),
+  async (req: Request, res: Response) => {
+    try {
+      const supabase = getSupabaseForRequest(req);
+      if (!supabase) {
+        res.status(503).json({ error: "Database not configured" });
         return;
       }
-    }
 
-    res.json({ success: true, leagues_saved: leagues.length });
-  } catch (error) {
-    req.log.error({ err: error }, "Save leagues failed");
-    res.status(500).json({ error: "Failed to save leagues" });
-  }
-});
+      const { user_id, leagues } = req.body;
+
+      const { error: deleteErr } = await supabase
+        .from("mini_league_context")
+        .delete()
+        .eq("user_id", user_id)
+        .eq("season", "2026-27");
+
+      if (deleteErr) {
+        req.log.error({ err: deleteErr }, "Failed to clear existing leagues");
+        res.status(500).json({ error: "Failed to update leagues" });
+        return;
+      }
+
+      for (const league of leagues) {
+        const { error: insertErr } = await supabase.from("mini_league_context").insert({
+          user_id,
+          mini_league_id: String(league.id),
+          mini_league_name: league.name,
+          current_rank: league.rank ?? null,
+          rival_manager_ids: league.rival_ids ?? [],
+          season: "2026-27",
+        });
+        if (insertErr) {
+          req.log.error({ err: insertErr, leagueId: league.id }, "Failed to insert league");
+          res
+            .status(500)
+            .json({ error: `Failed to save league ${league.name}: ${insertErr.message}` });
+          return;
+        }
+      }
+
+      res.json({ success: true, leagues_saved: leagues.length });
+    } catch (error) {
+      req.log.error({ err: error }, "Save leagues failed");
+      res.status(500).json({ error: "Failed to save leagues" });
+    }
+  },
+);
 
 router.get("/banter/leagues/:userId", async (req: Request, res: Response) => {
   try {
-    const supabase = getSupabase();
+    const supabase = getSupabaseForRequest(req);
     if (!supabase) {
       res.status(503).json({ error: "Database not configured" });
       return;

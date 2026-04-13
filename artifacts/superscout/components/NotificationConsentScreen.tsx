@@ -1,10 +1,5 @@
 import React from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-} from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -40,7 +35,9 @@ export default function NotificationConsentScreen({ onEnable, onSkip }: Props) {
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 20 }]}>
+    <View
+      style={[styles.container, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 20 }]}
+    >
       <View style={styles.iconContainer}>
         <Ionicons name="notifications" size={48} color="#00ff87" />
       </View>
@@ -66,12 +63,17 @@ export default function NotificationConsentScreen({ onEnable, onSkip }: Props) {
       </Text>
 
       <View style={styles.actions}>
-        <Pressable style={styles.enableButton} onPress={onEnable}>
-          <Ionicons name="notifications-outline" size={20} color="#1a472a" style={{ marginRight: 8 }} />
+        <Pressable style={styles.enableButton} onPress={onEnable} accessibilityLabel="Enable notifications" accessibilityRole="button">
+          <Ionicons
+            name="notifications-outline"
+            size={20}
+            color="#1a472a"
+            style={{ marginRight: 8 }}
+          />
           <Text style={styles.enableText}>Enable notifications</Text>
         </Pressable>
 
-        <Pressable style={styles.skipButton} onPress={onSkip}>
+        <Pressable style={styles.skipButton} onPress={onSkip} accessibilityLabel="Skip notifications" accessibilityRole="button">
           <Text style={styles.skipText}>Not now</Text>
         </Pressable>
       </View>

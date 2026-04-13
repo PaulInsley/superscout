@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { getSupabase } from "../lib/supabase";
+import { getSupabaseForRequest } from "../lib/supabaseUser";
 import { getCached, getStale, setCache, cacheKey, TTL } from "../lib/fplCache";
 
 const router = Router();
@@ -23,7 +24,10 @@ interface BootstrapData {
   teams: FPLTeam[];
 }
 
-async function getBootstrapData(): Promise<{ elements: FPLElement[]; teamMap: Map<string, number> }> {
+async function getBootstrapData(): Promise<{
+  elements: FPLElement[];
+  teamMap: Map<string, number>;
+}> {
   const key = cacheKey("bootstrap-static");
   let data: BootstrapData | null = null;
 
@@ -41,7 +45,7 @@ async function getBootstrapData(): Promise<{ elements: FPLElement[]; teamMap: Ma
     try {
       const resp = await fetch("https://fantasy.premierleague.com/api/bootstrap-static/");
       if (resp.ok) {
-        data = await resp.json() as BootstrapData;
+        data = (await resp.json()) as BootstrapData;
         setCache(key, data, TTL.STATIC);
       }
     } catch (err) {
@@ -61,15 +65,19 @@ async function getBootstrapData(): Promise<{ elements: FPLElement[]; teamMap: Ma
   return { elements: data.elements, teamMap };
 }
 
-function findPlayerId(name: string, elements: FPLElement[], teamShortName?: string, teamMap?: Map<string, number>): number | null {
+function findPlayerId(
+  name: string,
+  elements: FPLElement[],
+  teamShortName?: string,
+  teamMap?: Map<string, number>,
+): number | null {
   if (!name) return null;
   const lower = name.toLowerCase().trim();
 
-  const teamId = teamShortName && teamMap ? teamMap.get(teamShortName.toUpperCase()) ?? null : null;
+  const teamId =
+    teamShortName && teamMap ? (teamMap.get(teamShortName.toUpperCase()) ?? null) : null;
 
-  const bySecondName = elements.filter(
-    (e) => e.second_name.toLowerCase() === lower
-  );
+  const bySecondName = elements.filter((e) => e.second_name.toLowerCase() === lower);
   if (bySecondName.length === 1) return bySecondName[0].id;
   if (bySecondName.length > 1 && teamId) {
     const teamMatch = bySecondName.find((e) => e.team === teamId);
@@ -77,9 +85,7 @@ function findPlayerId(name: string, elements: FPLElement[], teamShortName?: stri
   }
   if (bySecondName.length > 1) return bySecondName[0].id;
 
-  const byWebName = elements.filter(
-    (e) => e.web_name.toLowerCase() === lower
-  );
+  const byWebName = elements.filter((e) => e.web_name.toLowerCase() === lower);
   if (byWebName.length === 1) return byWebName[0].id;
   if (byWebName.length > 1 && teamId) {
     const teamMatch = byWebName.find((e) => e.team === teamId);
@@ -88,13 +94,13 @@ function findPlayerId(name: string, elements: FPLElement[], teamShortName?: stri
   if (byWebName.length > 1) return byWebName[0].id;
 
   const byFullName = elements.find(
-    (e) =>
-      `${e.first_name} ${e.second_name}`.toLowerCase() === lower
+    (e) => `${e.first_name} ${e.second_name}`.toLowerCase() === lower,
   );
   if (byFullName) return byFullName.id;
 
-  let partialMatches = elements.filter(
-    (e) => e.second_name.toLowerCase().includes(lower) || e.second_name.toLowerCase().endsWith(lower)
+  const partialMatches = elements.filter(
+    (e) =>
+      e.second_name.toLowerCase().includes(lower) || e.second_name.toLowerCase().endsWith(lower),
   );
   if (partialMatches.length > 1 && teamId) {
     const teamMatch = partialMatches.find((e) => e.team === teamId);
@@ -109,7 +115,7 @@ function resolvePlayerIdForOption(
   optionShown: Record<string, unknown> | undefined,
   optionType: string | null,
   elements: FPLElement[],
-  teamMap: Map<string, number>
+  teamMap: Map<string, number>,
 ): number | null {
   if (!optionShown) return null;
 
@@ -123,7 +129,9 @@ function resolvePlayerIdForOption(
   if (optionType === "hold") return null;
 
   if (optionType === "package") {
-    const transfers = optionShown.transfers as Array<{ player_in?: string; team_in?: string }> | undefined;
+    const transfers = optionShown.transfers as
+      | Array<{ player_in?: string; team_in?: string }>
+      | undefined;
     if (transfers && transfers.length > 0 && transfers[0].player_in) {
       return findPlayerId(transfers[0].player_in, elements, transfers[0].team_in, teamMap);
     }
@@ -165,13 +173,14 @@ function getPlayerDisplayName(
 
 router.post("/decision-log/recommendation", async (req: Request, res: Response) => {
   try {
-    const supabase = getSupabase();
+    const supabase = getSupabaseForRequest(req);
     if (!supabase) {
       res.status(503).json({ error: "Database not configured" });
       return;
     }
 
-    const { user_id, gameweek, decision_type, options_shown, persona_used, tier_at_time, options } = req.body;
+    const { user_id, gameweek, decision_type, options_shown, persona_used, tier_at_time, options } =
+      req.body;
 
     if (!user_id || !gameweek || !decision_type || !persona_used) {
       res.status(400).json({ error: "Missing required fields" });
@@ -224,7 +233,10 @@ router.post("/decision-log/recommendation", async (req: Request, res: Response) 
         const playerId = resolvePlayerIdForOption(shown, optionType, elements, teamMap);
 
         if (playerId) {
-          req.log.info({ optionRank: opt.option_rank, playerId, optionType }, "Matched player_id for option");
+          req.log.info(
+            { optionRank: opt.option_rank, playerId, optionType },
+            "Matched player_id for option",
+          );
         }
 
         return {
@@ -253,15 +265,13 @@ router.post("/decision-log/recommendation", async (req: Request, res: Response) 
       }
     }
 
-    const { error: ctxError } = await supabase
-      .from("inference_context")
-      .insert({
-        recommendation_id: recommendationId,
-        engine_level: 1,
-        persona_prompt_version: "v1.0",
-        model_name: "claude-haiku-4-5-20251001",
-        model_provider: "anthropic",
-      });
+    const { error: ctxError } = await supabase.from("inference_context").insert({
+      recommendation_id: recommendationId,
+      engine_level: 1,
+      persona_prompt_version: "v1.0",
+      model_name: "claude-haiku-4-5-20251001",
+      model_provider: "anthropic",
+    });
 
     if (ctxError) {
       req.log.error({ err: ctxError }, "Failed to insert inference_context");
@@ -276,13 +286,19 @@ router.post("/decision-log/recommendation", async (req: Request, res: Response) 
 
 router.post("/decision-log/decision", async (req: Request, res: Response) => {
   try {
-    const supabase = getSupabase();
+    const supabase = getSupabaseForRequest(req);
     if (!supabase) {
       res.status(503).json({ error: "Database not configured" });
       return;
     }
 
-    const { recommendation_id, recommendation_option_id, user_id, chosen_option, hours_before_deadline } = req.body;
+    const {
+      recommendation_id,
+      recommendation_option_id,
+      user_id,
+      chosen_option,
+      hours_before_deadline,
+    } = req.body;
 
     if (!recommendation_id || !user_id || !chosen_option) {
       res.status(400).json({ error: "Missing required fields" });

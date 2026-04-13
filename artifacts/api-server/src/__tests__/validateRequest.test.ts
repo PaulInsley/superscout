@@ -29,9 +29,7 @@ describe("validateBody middleware", () => {
     const { req, res, next } = mockReqResNext({ name: "", age: -1 });
     validateBody(schema)(req, res, next);
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({ error: "Invalid request" }),
-    );
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "Invalid request" }));
     expect(next).not.toHaveBeenCalled();
   });
 

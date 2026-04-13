@@ -32,7 +32,9 @@ function extractJSON(text: string): unknown | null {
   }
   try {
     return JSON.parse(cleaned);
-  } catch (_) { /* JSON parse fallback — try nested extraction */ }
+  } catch (_) {
+    /* JSON parse fallback — try nested extraction */
+  }
   let depth = 0;
   let start = -1;
   for (let i = 0; i < cleaned.length; i++) {
@@ -44,7 +46,9 @@ function extractJSON(text: string): unknown | null {
       if (depth === 0 && start >= 0) {
         try {
           return JSON.parse(cleaned.substring(start, i + 1));
-        } catch (_) { /* keep scanning */ }
+        } catch (_) {
+          /* keep scanning */
+        }
       }
     }
   }
@@ -117,14 +121,20 @@ function calculateSellingPrice(purchasePrice: number, currentPrice: number): num
   return purchasePrice + profit;
 }
 
-function calculateFreeTransfers(history: { current: Array<{ event: number; event_transfers: number }>; chips: Array<{ name: string; event: number }> }, currentGw: number): number {
+function calculateFreeTransfers(
+  history: {
+    current: Array<{ event: number; event_transfers: number }>;
+    chips: Array<{ name: string; event: number }>;
+  },
+  currentGw: number,
+): number {
   if (!history.current || history.current.length === 0) return 1;
   let freeTransfers = 1;
   const sorted = [...history.current].sort((a, b) => a.event - b.event);
   for (const gw of sorted) {
     const used = gw.event_transfers;
     const wasWildcard = history.chips.some(
-      (c) => c.event === gw.event && (c.name === "wildcard" || c.name === "freehit")
+      (c) => c.event === gw.event && (c.name === "wildcard" || c.name === "freehit"),
     );
     if (wasWildcard) {
       freeTransfers = 1;
@@ -139,14 +149,19 @@ function calculateFreeTransfers(history: { current: Array<{ event: number; event
   return freeTransfers;
 }
 
-function getChipsRemaining(history: { current: Array<{ event: number }>; chips: Array<{ name: string; event: number }> }, currentGw: number): string[] {
+function getChipsRemaining(
+  history: { current: Array<{ event: number }>; chips: Array<{ name: string; event: number }> },
+  currentGw: number,
+): string[] {
   const allChips = ["wildcard", "freehit", "3xc", "bboost"];
   const firstHalfChips = allChips.map((c) => `${c}_1`);
   const secondHalfChips = allChips.map((c) => `${c}_2`);
-  const usedChips = new Set(history.chips.map((c) => {
-    const isFirstHalf = c.event <= 19;
-    return `${c.name}_${isFirstHalf ? 1 : 2}`;
-  }));
+  const usedChips = new Set(
+    history.chips.map((c) => {
+      const isFirstHalf = c.event <= 19;
+      return `${c.name}_${isFirstHalf ? 1 : 2}`;
+    }),
+  );
   const remaining: string[] = [];
   const chipSet = currentGw <= 19 ? firstHalfChips : secondHalfChips;
   for (const chip of chipSet) {
@@ -170,7 +185,9 @@ async function generateCaptainPicks(
   const teamMap = new Map(bootstrap.teams.map((t) => [t.id, t]));
   const gwFixtures = fixtures.filter((f) => f.event === gameweek);
 
-  let picksData: { picks: Array<{ element: number; position: number; multiplier: number }> } | null = null;
+  let picksData: {
+    picks: Array<{ element: number; position: number; multiplier: number }>;
+  } | null = null;
   const gwsToTry = [gameweek, gameweek - 1];
   for (const gw of gwsToTry) {
     try {
@@ -186,38 +203,43 @@ async function generateCaptainPicks(
   }
   if (!picksData) return null;
 
-  const candidates = picksData.picks.map((pick) => {
-    const player = playerMap.get(pick.element);
-    if (!player) return null;
-    const team = teamMap.get(player.team);
-    const fixture = gwFixtures.find((f) => f.team_h === player.team || f.team_a === player.team);
-    if (!fixture) return null;
-    const isHome = fixture.team_h === player.team;
-    const opponentId = isHome ? fixture.team_a : fixture.team_h;
-    const opponentTeam = teamMap.get(opponentId);
-    const fdr = isHome ? fixture.team_h_difficulty : fixture.team_a_difficulty;
-    return {
-      name: player.web_name,
-      position: POSITION_MAP[player.element_type] ?? "UNK",
-      team: team?.short_name ?? "UNK",
-      form: player.form,
-      totalPoints: player.total_points,
-      ownershipPct: parseFloat(player.selected_by_percent) || 0,
-      price: player.now_cost / 10,
-      opponent: `${opponentTeam?.short_name ?? "UNK"} (${isHome ? "H" : "A"})`,
-      fixtureDifficulty: fdr,
-      status: player.status,
-      chanceOfPlaying: player.chance_of_playing_next_round,
-      pickPosition: pick.position,
-      isBench: pick.position >= 12,
-    };
-  }).filter(Boolean);
+  const candidates = picksData.picks
+    .map((pick) => {
+      const player = playerMap.get(pick.element);
+      if (!player) return null;
+      const team = teamMap.get(player.team);
+      const fixture = gwFixtures.find((f) => f.team_h === player.team || f.team_a === player.team);
+      if (!fixture) return null;
+      const isHome = fixture.team_h === player.team;
+      const opponentId = isHome ? fixture.team_a : fixture.team_h;
+      const opponentTeam = teamMap.get(opponentId);
+      const fdr = isHome ? fixture.team_h_difficulty : fixture.team_a_difficulty;
+      return {
+        name: player.web_name,
+        position: POSITION_MAP[player.element_type] ?? "UNK",
+        team: team?.short_name ?? "UNK",
+        form: player.form,
+        totalPoints: player.total_points,
+        ownershipPct: parseFloat(player.selected_by_percent) || 0,
+        price: player.now_cost / 10,
+        opponent: `${opponentTeam?.short_name ?? "UNK"} (${isHome ? "H" : "A"})`,
+        fixtureDifficulty: fdr,
+        status: player.status,
+        chanceOfPlaying: player.chance_of_playing_next_round,
+        pickPosition: pick.position,
+        isBench: pick.position >= 12,
+      };
+    })
+    .filter(Boolean);
 
   if (candidates.length === 0) return null;
 
-  const squadSummary = candidates.map((c: any) =>
-    `- ${c.name} (${c.position}, ${c.team}) | Pos: ${c.pickPosition}${c.isBench ? " [BENCH]" : ""} | Form: ${c.form} | Total Pts: ${c.totalPoints} | Ownership: ${c.ownershipPct}% | Price: £${c.price}m | vs ${c.opponent} | FDR: ${c.fixtureDifficulty} | Status: ${c.status}${c.chanceOfPlaying !== null && c.chanceOfPlaying < 100 ? ` (${c.chanceOfPlaying}% chance)` : ""}`
-  ).join("\n");
+  const squadSummary = candidates
+    .map(
+      (c: any) =>
+        `- ${c.name} (${c.position}, ${c.team}) | Pos: ${c.pickPosition}${c.isBench ? " [BENCH]" : ""} | Form: ${c.form} | Total Pts: ${c.totalPoints} | Ownership: ${c.ownershipPct}% | Price: £${c.price}m | vs ${c.opponent} | FDR: ${c.fixtureDifficulty} | Status: ${c.status}${c.chanceOfPlaying !== null && c.chanceOfPlaying < 100 ? ` (${c.chanceOfPlaying}% chance)` : ""}`,
+    )
+    .join("\n");
 
   const context = `GAMEWEEK: ${gameweek}
 DEADLINE: ${deadline}
@@ -298,7 +320,8 @@ NEVER imply low ownership is automatically better. If a differential pick has 3+
 
   const gwAnalysis = analyseGameweek(gameweek, fixtures, bootstrap.teams);
 
-  const transferContext = transferOutPlayers.length > 0 ? buildTransferContextPrompt(transferOutPlayers) : "";
+  const transferContext =
+    transferOutPlayers.length > 0 ? buildTransferContextPrompt(transferOutPlayers) : "";
 
   const systemPrompt = [
     vibePrompt,
@@ -307,7 +330,9 @@ NEVER imply low ownership is automatically better. If a differential pick has 3+
     transferContext,
     `IMPORTANT: You MUST respond with valid JSON only. No markdown, no backticks, no preamble. Follow the EXACT JSON structure specified in the user message — use the exact field names provided including ownership_context.`,
     `CRITICAL PERSONA REQUIREMENT: You MUST write the "case" field in your assigned persona voice. The Expert is calm and analytical — no emojis, no exclamation marks, references data. The Critic is sharp and sarcastic — dry wit, rhetorical questions, no emojis. The Fanboy uses CAPITALS for emphasis, slang like BRO and DUDE, 1-2 emojis (🔥🚀🚨), and extreme hype.`,
-  ].filter(Boolean).join("\n\n");
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 
   const client = getClient();
   const message = await client.messages.create({
@@ -326,8 +351,23 @@ NEVER imply low ownership is automatically better. If a differential pick has 3+
 
   const recs = parsed.recommendations as Array<Record<string, unknown>> | undefined;
   if (recs) {
-    const squadNames = new Set(candidates.filter(Boolean).map((c: any) => (c.name as string).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s]/g, "").trim()));
-    const halCtx = { players: bootstrap.elements, teams: bootstrap.teams, fixtures, gameweek, squadPlayerNames: squadNames.size > 0 ? squadNames : undefined };
+    const squadNames = new Set(
+      candidates.filter(Boolean).map((c: any) =>
+        (c.name as string)
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9\s]/g, "")
+          .trim(),
+      ),
+    );
+    const halCtx = {
+      players: bootstrap.elements,
+      teams: bootstrap.teams,
+      fixtures,
+      gameweek,
+      squadPlayerNames: squadNames.size > 0 ? squadNames : undefined,
+    };
     const { filtered } = checkCaptainHallucinations(recs, halCtx);
     parsed.recommendations = filtered;
   }
@@ -396,10 +436,15 @@ function sanitiseTransferCommentary(
       if (typeof text !== "string" || !foreignPattern.test(text)) continue;
 
       const segments = splitIntoSegments(text);
-      const crossRefPhrases = /\b(both of these|all of these|these two|these three|this pairs with|this combines with|together these|the other move|the other transfer)\b/i;
+      const crossRefPhrases =
+        /\b(both of these|all of these|these two|these three|this pairs with|this combines with|together these|the other move|the other transfer)\b/i;
       const isForeign = segments.map((s) => foreignPattern.test(s) || crossRefPhrases.test(s));
       for (let si = 1; si < segments.length; si++) {
-        if (isForeign[si - 1] && !isForeign[si] && /^(he|she|they|his|her|their|that|it)\b/i.test(segments[si])) {
+        if (
+          isForeign[si - 1] &&
+          !isForeign[si] &&
+          /^(he|she|they|his|her|their|that|it)\b/i.test(segments[si])
+        ) {
           isForeign[si] = true;
         }
       }
@@ -411,12 +456,19 @@ function sanitiseTransferCommentary(
           if (seg && !seg.match(/[.!?'"]$/)) seg += ".";
           return seg;
         });
-        let result = joined.join(" ").replace(/\.{2,}/g, ".").replace(/\s{2,}/g, " ").trim();
+        let result = joined
+          .join(" ")
+          .replace(/\.{2,}/g, ".")
+          .replace(/\s{2,}/g, " ")
+          .trim();
 
         result = result.replace(/^(?:And |But |Also |Plus |Meanwhile )/i, "");
 
         if (field === "case" && result) {
-          result = result.replace(/^["'"]+/, "").replace(/["'"]+$/, "").trim();
+          result = result
+            .replace(/^["'"]+/, "")
+            .replace(/["'"]+$/, "")
+            .trim();
           result = `"${result}"`;
         }
 
@@ -439,9 +491,19 @@ async function generateTransferAdvice(
   const playerMap = new Map(bootstrap.elements.map((p) => [p.id, p]));
   const teamMap = new Map(bootstrap.teams.map((t) => [t.id, t]));
 
-  let picksData: { entry_history: { bank: number }; picks: Array<{ element: number; position: number; multiplier: number; is_captain: boolean; is_vice_captain: boolean }> } | null = null;
+  let picksData: {
+    entry_history: { bank: number };
+    picks: Array<{
+      element: number;
+      position: number;
+      multiplier: number;
+      is_captain: boolean;
+      is_vice_captain: boolean;
+    }>;
+  } | null = null;
   const currentEvent = bootstrap.events.find((e) => e.is_current);
-  const picksGw = currentEvent && !currentEvent.finished ? currentEvent.id : (gameweek > 1 ? gameweek - 1 : 1);
+  const picksGw =
+    currentEvent && !currentEvent.finished ? currentEvent.id : gameweek > 1 ? gameweek - 1 : 1;
   const gwsToTry = [picksGw];
   if (picksGw > 1) gwsToTry.push(picksGw - 1);
 
@@ -460,16 +522,13 @@ async function generateTransferAdvice(
   if (!picksData) return null;
 
   const [transferHistory, historyData] = await Promise.all([
-    fetchCachedData<Array<{ element_in: number; element_in_cost: number; element_out: number; event: number }>>(
-      cacheKey("transfers", managerId),
-      `/entry/${managerId}/transfers/`,
-      TTL.USER,
-    ),
-    fetchCachedData<{ current: Array<{ event: number; event_transfers: number }>; chips: Array<{ name: string; event: number }> }>(
-      cacheKey("history", managerId),
-      `/entry/${managerId}/history/`,
-      TTL.USER,
-    ),
+    fetchCachedData<
+      Array<{ element_in: number; element_in_cost: number; element_out: number; event: number }>
+    >(cacheKey("transfers", managerId), `/entry/${managerId}/transfers/`, TTL.USER),
+    fetchCachedData<{
+      current: Array<{ event: number; event_transfers: number }>;
+      chips: Array<{ name: string; event: number }>;
+    }>(cacheKey("history", managerId), `/entry/${managerId}/history/`, TTL.USER),
   ]);
 
   const squadIds = new Set(picksData.picks.map((p) => p.element));
@@ -480,12 +539,16 @@ async function generateTransferAdvice(
   const squadWithDetails = picksData.picks.map((pick) => {
     const player = playerMap.get(pick.element);
     const team = player ? teamMap.get(player.team) : undefined;
-    const purchaseCost = transferHistory.find((t) => t.element_in === pick.element)?.element_in_cost;
-    const purchasePrice = purchaseCost ? purchaseCost / 10 : (player ? player.now_cost / 10 : 0);
+    const purchaseCost = transferHistory.find(
+      (t) => t.element_in === pick.element,
+    )?.element_in_cost;
+    const purchasePrice = purchaseCost ? purchaseCost / 10 : player ? player.now_cost / 10 : 0;
     const currentPrice = player ? player.now_cost / 10 : 0;
     const sellingPrice = calculateSellingPrice(purchasePrice, currentPrice);
     const gwFixtures = fixtures.filter((f) => f.event === gameweek);
-    const fixture = player ? gwFixtures.find((f) => f.team_h === player.team || f.team_a === player.team) : undefined;
+    const fixture = player
+      ? gwFixtures.find((f) => f.team_h === player.team || f.team_a === player.team)
+      : undefined;
     const isHome = fixture ? fixture.team_h === player?.team : false;
     const opponentId = fixture ? (isHome ? fixture.team_a : fixture.team_h) : undefined;
     const opponent = opponentId ? teamMap.get(opponentId) : undefined;
@@ -493,7 +556,7 @@ async function generateTransferAdvice(
     return {
       id: pick.element,
       name: player?.web_name ?? `Player ${pick.element}`,
-      position: player ? POSITION_MAP[player.element_type] ?? "UNK" : "UNK",
+      position: player ? (POSITION_MAP[player.element_type] ?? "UNK") : "UNK",
       team: team?.short_name ?? "UNK",
       teamId: player?.team ?? 0,
       price: currentPrice,
@@ -568,9 +631,9 @@ async function generateTransferAdvice(
       const needed = 5 - (positionCounts[pos] ?? 0);
       const posType = Object.entries(POSITION_MAP).find(([, v]) => v === pos)?.[0];
       if (!posType) continue;
-      const extras = scored.filter(
-        (s) => s.player.element_type === parseInt(posType) && !result.includes(s)
-      ).slice(0, needed);
+      const extras = scored
+        .filter((s) => s.player.element_type === parseInt(posType) && !result.includes(s))
+        .slice(0, needed);
       result.push(...extras);
     }
   }
@@ -587,14 +650,20 @@ async function generateTransferAdvice(
     if (!diverseCandidates.includes(c)) diverseCandidates.push(c);
   }
 
-  const candidatesSummary = diverseCandidates.slice(0, 30).map((c) => {
-    const pos = POSITION_MAP[c.player.element_type] ?? "UNK";
-    return `- ${c.player.web_name} (${pos}, ${c.team.short_name}) £${(c.player.now_cost / 10).toFixed(1)}m | Form: ${c.player.form} | Pts: ${c.player.total_points} | Own: ${c.player.selected_by_percent}% | FDR: ${c.upcomingFdr.join(",")}`;
-  }).join("\n");
+  const candidatesSummary = diverseCandidates
+    .slice(0, 30)
+    .map((c) => {
+      const pos = POSITION_MAP[c.player.element_type] ?? "UNK";
+      return `- ${c.player.web_name} (${pos}, ${c.team.short_name}) £${(c.player.now_cost / 10).toFixed(1)}m | Form: ${c.player.form} | Pts: ${c.player.total_points} | Own: ${c.player.selected_by_percent}% | FDR: ${c.upcomingFdr.join(",")}`;
+    })
+    .join("\n");
 
-  const squadSummary = squadWithDetails.map((p) =>
-    `- ${p.name} (${p.position}, ${p.team}) | Price: £${p.price.toFixed(1)}m | Sell: £${p.sellingPrice.toFixed(1)}m | Form: ${p.form} | Pts: ${p.totalPoints} | Own: ${p.ownershipPct}% | vs ${p.opponent} | FDR: ${p.fdr} | Status: ${p.status}${p.isBench ? " [BENCH]" : ""}`
-  ).join("\n");
+  const squadSummary = squadWithDetails
+    .map(
+      (p) =>
+        `- ${p.name} (${p.position}, ${p.team}) | Price: £${p.price.toFixed(1)}m | Sell: £${p.sellingPrice.toFixed(1)}m | Form: ${p.form} | Pts: ${p.totalPoints} | Own: ${p.ownershipPct}% | vs ${p.opponent} | FDR: ${p.fdr} | Status: ${p.status}${p.isBench ? " [BENCH]" : ""}`,
+    )
+    .join("\n");
 
   const rulesContext = getRulesContext(gameweek);
   const activeChip = historyData.chips.find((c) => c.event === gameweek);
@@ -612,7 +681,8 @@ Each recommendation should be a PACKAGE of 3-6 coordinated transfers that work t
 Every package needs a creative package_name.
 Show how the transfers combine for maximum impact. Budget constraint applies across ALL transfers in the package.
 Each package MUST have a DIFFERENT strategic focus.`;
-    recommendationCount = "Return exactly 3 to 4 restructure packages, each with a distinctly different strategy";
+    recommendationCount =
+      "Return exactly 3 to 4 restructure packages, each with a distinctly different strategy";
   } else if (freeTransfers >= 4) {
     modeInstructions = `MODE: RESTRUCTURE (${freeTransfers} free transfers banked)
 The manager has ${freeTransfers} free transfers — this is a major restructure opportunity.
@@ -623,14 +693,16 @@ You MUST return ALL of the following:
 4. ONE best individual swap.
 5. ONE hold option.
 Each package needs a creative package_name.`;
-    recommendationCount = "Return exactly 4 to 5 recommendations: 2-3 packages + 1 individual swap + 1 hold option";
+    recommendationCount =
+      "Return exactly 4 to 5 recommendations: 2-3 packages + 1 individual swap + 1 hold option";
   } else if (freeTransfers >= 2) {
     modeInstructions = `MODE: MIXED (${freeTransfers} free transfers available)
 The manager has ${freeTransfers} free transfers. You MUST return ALL of the following:
 1. ONE OR TWO multi-transfer packages.
 2. ONE OR TWO individual swap options.
 3. ONE hold option if holding transfers makes strategic sense.`;
-    recommendationCount = "Return exactly 4 to 5 recommendations: 1-2 packages + 1-2 individual swaps + 1 hold option";
+    recommendationCount =
+      "Return exactly 4 to 5 recommendations: 1-2 packages + 1-2 individual swaps + 1 hold option";
   } else {
     modeInstructions = `MODE: INDIVIDUAL SWAPS (${freeTransfers} free transfer${freeTransfers === 1 ? "" : "s"})
 The manager has ${freeTransfers} free transfer${freeTransfers === 1 ? "" : "s"}. Recommend individual player swaps only.
@@ -718,7 +790,9 @@ ${transferInstructions}`;
     gwAnalysis.promptContext,
     `IMPORTANT: You MUST respond with valid JSON only. No markdown, no backticks, no preamble.`,
     `CRITICAL PERSONA REQUIREMENT: Write the "case" field in your assigned persona voice.`,
-  ].filter(Boolean).join("\n\n");
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 
   const client = getClient();
   const message = await client.messages.create({
@@ -755,7 +829,11 @@ router.post("/pre-generate/:gameweek", async (req: Request, res: Response) => {
   try {
     const adminSecret = process.env.PROCESS_DECISIONS_SECRET;
     if (!adminSecret) {
-      res.status(500).json({ error: "Server configuration error: admin secret not set. Contact the administrator." });
+      res
+        .status(500)
+        .json({
+          error: "Server configuration error: admin secret not set. Contact the administrator.",
+        });
       return;
     }
     const authHeader = req.headers.authorization;
@@ -826,20 +904,34 @@ router.post("/pre-generate/:gameweek", async (req: Request, res: Response) => {
         let transferOutPlayers: string[] = [];
 
         try {
-          const transferResult = await generateTransferAdvice(managerId, gw, deadline, vibe, bootstrap, fixtures);
+          const transferResult = await generateTransferAdvice(
+            managerId,
+            gw,
+            deadline,
+            vibe,
+            bootstrap,
+            fixtures,
+          );
           if (transferResult) {
-            transferOutPlayers = extractTransferOutPlayers(transferResult as Record<string, unknown>);
-            const { error: insertErr } = await supabase.from("pre_generated_recommendations").insert({
-              user_id: user.id,
-              gameweek: gw,
-              season: "2026-27",
-              decision_type: "transfer",
-              vibe,
-              response_json: transferResult,
-              expires_at: deadline,
-            });
+            transferOutPlayers = extractTransferOutPlayers(
+              transferResult as Record<string, unknown>,
+            );
+            const { error: insertErr } = await supabase
+              .from("pre_generated_recommendations")
+              .insert({
+                user_id: user.id,
+                gameweek: gw,
+                season: "2026-27",
+                decision_type: "transfer",
+                vibe,
+                response_json: transferResult,
+                expires_at: deadline,
+              });
             if (insertErr) {
-              req.log.error({ err: insertErr, userId: user.id, vibe }, "Pre-gen transfer insert failed");
+              req.log.error(
+                { err: insertErr, userId: user.id, vibe },
+                "Pre-gen transfer insert failed",
+              );
               results.transfer_failed++;
             } else {
               results.transfer_generated++;
@@ -848,28 +940,51 @@ router.post("/pre-generate/:gameweek", async (req: Request, res: Response) => {
             results.transfer_failed++;
           }
         } catch (err: any) {
-          const isTimeout = err?.status === 408 || err?.code === "ETIMEDOUT" || err?.message?.includes("timed out") || err?.message?.includes("timeout");
-          req.log.error({ err, userId: user.id, vibe, type: "transfer", isTimeout }, "Pre-gen transfer failed");
+          const isTimeout =
+            err?.status === 408 ||
+            err?.code === "ETIMEDOUT" ||
+            err?.message?.includes("timed out") ||
+            err?.message?.includes("timeout");
+          req.log.error(
+            { err, userId: user.id, vibe, type: "transfer", isTimeout },
+            "Pre-gen transfer failed",
+          );
           results.transfer_failed++;
         }
 
         await delay(2000);
 
         try {
-          req.log.info({ vibe, transferOutPlayers }, "Generating captain picks with transfer context");
-          const captainResult = await generateCaptainPicks(managerId, gw, deadline, vibe, bootstrap, fixtures, transferOutPlayers);
+          req.log.info(
+            { vibe, transferOutPlayers },
+            "Generating captain picks with transfer context",
+          );
+          const captainResult = await generateCaptainPicks(
+            managerId,
+            gw,
+            deadline,
+            vibe,
+            bootstrap,
+            fixtures,
+            transferOutPlayers,
+          );
           if (captainResult) {
-            const { error: insertErr } = await supabase.from("pre_generated_recommendations").insert({
-              user_id: user.id,
-              gameweek: gw,
-              season: "2026-27",
-              decision_type: "captain",
-              vibe,
-              response_json: captainResult,
-              expires_at: deadline,
-            });
+            const { error: insertErr } = await supabase
+              .from("pre_generated_recommendations")
+              .insert({
+                user_id: user.id,
+                gameweek: gw,
+                season: "2026-27",
+                decision_type: "captain",
+                vibe,
+                response_json: captainResult,
+                expires_at: deadline,
+              });
             if (insertErr) {
-              req.log.error({ err: insertErr, userId: user.id, vibe }, "Pre-gen captain insert failed");
+              req.log.error(
+                { err: insertErr, userId: user.id, vibe },
+                "Pre-gen captain insert failed",
+              );
               results.captain_failed++;
             } else {
               results.captain_generated++;
@@ -878,8 +993,15 @@ router.post("/pre-generate/:gameweek", async (req: Request, res: Response) => {
             results.captain_failed++;
           }
         } catch (err: any) {
-          const isTimeout = err?.status === 408 || err?.code === "ETIMEDOUT" || err?.message?.includes("timed out") || err?.message?.includes("timeout");
-          req.log.error({ err, userId: user.id, vibe, type: "captain", isTimeout }, "Pre-gen captain failed");
+          const isTimeout =
+            err?.status === 408 ||
+            err?.code === "ETIMEDOUT" ||
+            err?.message?.includes("timed out") ||
+            err?.message?.includes("timeout");
+          req.log.error(
+            { err, userId: user.id, vibe, type: "captain", isTimeout },
+            "Pre-gen captain failed",
+          );
           results.captain_failed++;
         }
 
@@ -920,7 +1042,10 @@ router.post("/pre-generate/:gameweek", async (req: Request, res: Response) => {
                     expires_at: deadline,
                   });
                 if (insertErr) {
-                  req.log.error({ err: insertErr, userId: user.id }, "Pre-gen banter insert failed");
+                  req.log.error(
+                    { err: insertErr, userId: user.id },
+                    "Pre-gen banter insert failed",
+                  );
                   results.banter_failed++;
                 } else {
                   results.banter_generated++;
@@ -1042,7 +1167,10 @@ router.get("/pre-generated/:gameweek", async (req: Request, res: Response) => {
               staleReason = `${name}: status '${player.status}'`;
               break;
             }
-            if (player.chance_of_playing_next_round !== null && player.chance_of_playing_next_round <= 25) {
+            if (
+              player.chance_of_playing_next_round !== null &&
+              player.chance_of_playing_next_round <= 25
+            ) {
               stale = true;
               staleReason = `${name}: chance_of_playing ${player.chance_of_playing_next_round}%`;
               break;
@@ -1061,14 +1189,23 @@ router.get("/pre-generated/:gameweek", async (req: Request, res: Response) => {
 
         if (stale) {
           req.log.info({ reason: staleReason }, "Pre-gen cache discarded — stale data detected");
-          supabase.from("pre_generated_recommendations").update({ used: true }).eq("id", data.id).then(() => {});
+          supabase
+            .from("pre_generated_recommendations")
+            .update({ used: true })
+            .eq("id", data.id)
+            .then(() => {});
           res.json({ found: false });
           return;
         }
       }
     }
 
-    res.json({ found: true, response: data.response_json, source: "cached", generated_at: data.generated_at });
+    res.json({
+      found: true,
+      response: data.response_json,
+      source: "cached",
+      generated_at: data.generated_at,
+    });
   } catch (error) {
     req.log.error({ err: error }, "Pre-gen check failed");
     res.json({ found: false });

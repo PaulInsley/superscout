@@ -10,9 +10,7 @@ export async function fetchReportCard(
   managerId: number,
 ): Promise<ReportCardData | null> {
   try {
-    const resp = await fetch(
-      `${getApiBaseUrl()}/report-card/${gameweek}?manager_id=${managerId}`,
-    );
+    const resp = await fetch(`${getApiBaseUrl()}/report-card/${gameweek}?manager_id=${managerId}`);
     if (!resp.ok) return null;
     const data = await resp.json();
     return data.report ?? null;

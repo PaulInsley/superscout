@@ -8,7 +8,7 @@ interface ProBadgeProps {
 export default function ProBadge({ size = "small" }: ProBadgeProps) {
   const isSmall = size === "small";
   return (
-    <View style={[styles.badge, isSmall ? styles.badgeSmall : styles.badgeMedium]}>
+    <View style={[styles.badge, isSmall ? styles.badgeSmall : styles.badgeMedium]} accessibilityElementsHidden={true}>
       <Text style={[styles.text, isSmall ? styles.textSmall : styles.textMedium]}>PRO</Text>
     </View>
   );

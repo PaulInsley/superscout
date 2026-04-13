@@ -60,7 +60,7 @@ export function buildBanterContext(
   vibeKey: string,
   userTeamName: string | null,
   opponentTeamName: string | null,
-  consecutiveRedArrows: number
+  consecutiveRedArrows: number,
 ): {
   useBanter: boolean;
   isRivalryMatch: boolean;
@@ -98,8 +98,7 @@ export function buildBanterContext(
     };
   }
 
-  const isRivalryMatch =
-    opponentTeamName != null && areRivals(userTeamName, opponentTeamName);
+  const isRivalryMatch = opponentTeamName != null && areRivals(userTeamName, opponentTeamName);
 
   return {
     useBanter: true,

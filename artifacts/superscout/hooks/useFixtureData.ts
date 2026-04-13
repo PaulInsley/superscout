@@ -21,15 +21,10 @@ let sharedState: FixtureDataState | null = null;
 let loadingPromise: Promise<FixtureDataState> | null = null;
 
 async function loadFixtureData(): Promise<FixtureDataState> {
-  const [bootstrap, fixtures] = await Promise.all([
-    getBootstrapData(),
-    fetchFixtures(),
-  ]);
+  const [bootstrap, fixtures] = await Promise.all([getBootstrapData(), fetchFixtures()]);
 
   const teams = new Map(bootstrap.teams.map((t) => [t.id, t]));
-  const teamsByShortName = new Map(
-    bootstrap.teams.map((t) => [t.short_name.toUpperCase(), t]),
-  );
+  const teamsByShortName = new Map(bootstrap.teams.map((t) => [t.short_name.toUpperCase(), t]));
 
   const currentEventObj = bootstrap.events.find((e) => e.is_current);
   const nextEventObj = bootstrap.events.find((e) => e.is_next);
@@ -90,7 +85,9 @@ export function useFixtureData(): FixtureDataState | null {
       });
     }
 
-    loadingPromise.then((s) => setState(s)).catch((err) => console.warn("[useFixtureData] load failed:", err));
+    loadingPromise
+      .then((s) => setState(s))
+      .catch((err) => console.warn("[useFixtureData] load failed:", err));
   }, []);
 
   return state;

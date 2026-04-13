@@ -36,9 +36,7 @@ export function useBeginnerMode() {
 
       const isBeginner = beginner[1] === "true";
       const roundsCompleted = parseInt(rounds[1] ?? "0", 10) || 0;
-      const lessonsSeen = lessons[1]
-        ? (lessons[1].split(",").filter(Boolean) as LessonKey[])
-        : [];
+      const lessonsSeen = lessons[1] ? (lessons[1].split(",").filter(Boolean) as LessonKey[]) : [];
 
       setState({ isBeginner, roundsCompleted, lessonsSeen, loading: false });
     } catch (err) {
@@ -125,12 +123,11 @@ export function useBeginnerMode() {
     setState((prev) => ({ ...prev, isBeginner: false }));
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (user) {
-        await supabase
-          .from("users")
-          .update({ is_beginner: false })
-          .eq("id", user.id);
+        await supabase.from("users").update({ is_beginner: false }).eq("id", user.id);
       }
     } catch (err) {
       console.warn("[useBeginnerMode] graduate sync failed:", err);
@@ -149,7 +146,9 @@ export function useBeginnerMode() {
     });
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (user) {
         await supabase
           .from("users")

@@ -21,7 +21,9 @@ export function extractTransferOutPlayers(responseJson: Record<string, unknown>)
   return [...new Set(outPlayers)];
 }
 
-export function extractCaptainPicks(responseJson: Record<string, unknown>): Array<{ name: string; confidence: string }> {
+export function extractCaptainPicks(
+  responseJson: Record<string, unknown>,
+): Array<{ name: string; confidence: string }> {
   const recs = responseJson.recommendations as Array<Record<string, unknown>> | undefined;
   if (!Array.isArray(recs)) return [];
 
@@ -58,12 +60,12 @@ const CONFIDENCE_LABELS: Record<string, string> = {
   BOLD_PUNT: "speculative",
 };
 
-export function buildCaptainContextPrompt(captainPicks: Array<{ name: string; confidence: string }>): string {
+export function buildCaptainContextPrompt(
+  captainPicks: Array<{ name: string; confidence: string }>,
+): string {
   if (captainPicks.length === 0) return "";
 
-  const picksList = captainPicks
-    .map((p) => p.name)
-    .join(", ");
+  const picksList = captainPicks.map((p) => p.name).join(", ");
 
   const strongPicks = captainPicks
     .filter((p) => p.confidence === "BANKER" || p.confidence === "CALCULATED_RISK")

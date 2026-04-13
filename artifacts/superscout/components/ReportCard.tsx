@@ -50,13 +50,7 @@ const ReportCard = forwardRef<View, ReportCardProps>(
     const isRedArrow = data.rank_movement < 0;
 
     return (
-      <View
-        ref={ref}
-        style={[
-          styles.container,
-          captureMode && { width, padding: 60 },
-        ]}
-      >
+      <View ref={ref} style={[styles.container, captureMode && { width, padding: 60 }]}>
         <View style={styles.header}>
           <Text style={[styles.headerTitle, { fontSize: fs(22) }]}>
             Gameweek {data.gameweek} Report Card
@@ -94,20 +88,12 @@ const ReportCard = forwardRef<View, ReportCardProps>(
         <View style={styles.pointsSection}>
           <View style={styles.pointsRow}>
             <View style={styles.pointsItem}>
-              <Text style={[styles.pointsValue, { fontSize: fs(28) }]}>
-                {data.total_points}
-              </Text>
-              <Text style={[styles.pointsLabel, { fontSize: fs(12) }]}>
-                Your points
-              </Text>
+              <Text style={[styles.pointsValue, { fontSize: fs(28) }]}>{data.total_points}</Text>
+              <Text style={[styles.pointsLabel, { fontSize: fs(12) }]}>Your points</Text>
             </View>
             <View style={styles.pointsItem}>
-              <Text style={[styles.pointsValue, { fontSize: fs(28) }]}>
-                {data.average_points}
-              </Text>
-              <Text style={[styles.pointsLabel, { fontSize: fs(12) }]}>
-                Average
-              </Text>
+              <Text style={[styles.pointsValue, { fontSize: fs(28) }]}>{data.average_points}</Text>
+              <Text style={[styles.pointsLabel, { fontSize: fs(12) }]}>Average</Text>
             </View>
             <View style={styles.pointsItem}>
               <Text
@@ -122,9 +108,7 @@ const ReportCard = forwardRef<View, ReportCardProps>(
                 {pointsDiff >= 0 ? "+" : ""}
                 {pointsDiff}
               </Text>
-              <Text style={[styles.pointsLabel, { fontSize: fs(12) }]}>
-                Difference
-              </Text>
+              <Text style={[styles.pointsLabel, { fontSize: fs(12) }]}>Difference</Text>
             </View>
           </View>
 
@@ -154,17 +138,11 @@ const ReportCard = forwardRef<View, ReportCardProps>(
         </View>
 
         <View style={styles.captainSection}>
-          <Text style={[styles.sectionTitle, { fontSize: fs(14) }]}>
-            Captain Review
-          </Text>
+          <Text style={[styles.sectionTitle, { fontSize: fs(14) }]}>Captain Review</Text>
           <View style={styles.captainRow}>
-            <Text style={[styles.captainIcon, { fontSize: fs(20) }]}>
-              ©
-            </Text>
+            <Text style={[styles.captainIcon, { fontSize: fs(20) }]}>©</Text>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.captainName, { fontSize: fs(16) }]}>
-                {data.captain_name}
-              </Text>
+              <Text style={[styles.captainName, { fontSize: fs(16) }]}>{data.captain_name}</Text>
               <Text style={[styles.captainPoints, { fontSize: fs(13) }]}>
                 {data.captain_points} pts (captain)
               </Text>
@@ -207,28 +185,20 @@ const ReportCard = forwardRef<View, ReportCardProps>(
         </View>
 
         <View style={styles.commentarySection}>
-          <Text style={[styles.commentary, { fontSize: fs(14) }]}>
-            "{data.commentary}"
-          </Text>
+          <Text style={[styles.commentary, { fontSize: fs(14) }]}>"{data.commentary}"</Text>
         </View>
 
         {(streakCount ?? 0) > 0 && (
           <View style={styles.streakSection}>
-            <Text style={[styles.streakIcon, { fontSize: fs(18) }]}>
-              🔥
-            </Text>
-            <Text style={[styles.streakText, { fontSize: fs(13) }]}>
-              {streakCount} GW streak
-            </Text>
+            <Text style={[styles.streakIcon, { fontSize: fs(18) }]}>🔥</Text>
+            <Text style={[styles.streakText, { fontSize: fs(13) }]}>{streakCount} GW streak</Text>
           </View>
         )}
 
         {captureMode && (
           <View style={styles.branding}>
             <Text style={styles.brandingText}>SuperScout</Text>
-            <Text style={styles.brandingSub}>
-              AI-Powered FPL Coach
-            </Text>
+            <Text style={styles.brandingSub}>AI-Powered FPL Coach</Text>
           </View>
         )}
       </View>

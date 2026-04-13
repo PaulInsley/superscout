@@ -1,12 +1,5 @@
 import React from "react";
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  Share,
-  Platform,
-} from "react-native";
+import { View, Text, Pressable, StyleSheet, Share, Platform } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
@@ -34,11 +27,7 @@ export default function BanterCard({ card, onShare }: Props) {
   const colors = useColors();
 
   const pointsColor =
-    card.points_gap > 0
-      ? "#4CAF7D"
-      : card.points_gap < 0
-        ? "#E84C4C"
-        : colors.mutedForeground;
+    card.points_gap > 0 ? "#4CAF7D" : card.points_gap < 0 ? "#E84C4C" : colors.mutedForeground;
 
   const handleShare = async () => {
     const shareText = `${card.share_line}\n\n— SuperScout Banter Engine 🏆`;
@@ -70,15 +59,10 @@ export default function BanterCard({ card, onShare }: Props) {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <View style={[styles.rankBadge, { backgroundColor: colors.accent + "20" }]}>
-            <Text style={[styles.rankText, { color: colors.accent }]}>
-              #{card.rival_rank}
-            </Text>
+            <Text style={[styles.rankText, { color: colors.accent }]}>#{card.rival_rank}</Text>
           </View>
           <View style={styles.headerInfo}>
-            <Text
-              style={[styles.rivalName, { color: colors.foreground }]}
-              numberOfLines={1}
-            >
+            <Text style={[styles.rivalName, { color: colors.foreground }]} numberOfLines={1}>
               {card.rival_team_name}
             </Text>
             <Text style={[styles.leagueName, { color: colors.mutedForeground }]}>
@@ -92,22 +76,16 @@ export default function BanterCard({ card, onShare }: Props) {
         </Text>
       </View>
 
-      <Text style={[styles.headline, { color: colors.foreground }]}>
-        {card.headline}
-      </Text>
+      <Text style={[styles.headline, { color: colors.foreground }]}>{card.headline}</Text>
 
       <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Feather name="zap" size={14} color={colors.accent} />
-          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
-            Key Battle
-          </Text>
+          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Key Battle</Text>
         </View>
-        <Text style={[styles.sectionText, { color: colors.foreground }]}>
-          {card.key_battle}
-        </Text>
+        <Text style={[styles.sectionText, { color: colors.foreground }]}>{card.key_battle}</Text>
       </View>
 
       <View style={styles.section}>
@@ -117,9 +95,7 @@ export default function BanterCard({ card, onShare }: Props) {
             Captain Clash
           </Text>
         </View>
-        <Text style={[styles.sectionText, { color: colors.foreground }]}>
-          {card.captain_clash}
-        </Text>
+        <Text style={[styles.sectionText, { color: colors.foreground }]}>{card.captain_clash}</Text>
       </View>
 
       <View
@@ -128,16 +104,14 @@ export default function BanterCard({ card, onShare }: Props) {
           { backgroundColor: colors.accent + "10", borderColor: colors.accent + "30" },
         ]}
       >
-        <Text style={[styles.verdictLabel, { color: colors.accent }]}>
-          Verdict
-        </Text>
-        <Text style={[styles.verdictText, { color: colors.foreground }]}>
-          {card.verdict}
-        </Text>
+        <Text style={[styles.verdictLabel, { color: colors.accent }]}>Verdict</Text>
+        <Text style={[styles.verdictText, { color: colors.foreground }]}>{card.verdict}</Text>
       </View>
 
       <Pressable
         onPress={handleShare}
+        accessibilityLabel={`Send banter to ${card.rival_team_name}`}
+        accessibilityRole="button"
         style={({ pressed }) => [
           styles.shareButton,
           {

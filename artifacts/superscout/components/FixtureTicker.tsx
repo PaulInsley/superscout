@@ -76,9 +76,7 @@ export default function FixtureTicker({ teamShortName, compact }: FixtureTickerP
   return (
     <View style={compact ? compactStyles.container : styles.container}>
       {!compact && (
-        <Text style={[styles.label, { color: colors.mutedForeground }]}>
-          Next {slots.length}
-        </Text>
+        <Text style={[styles.label, { color: colors.mutedForeground }]}>Next {slots.length}</Text>
       )}
       <View style={compact ? compactStyles.row : styles.row}>
         {slots.map((group, i) =>

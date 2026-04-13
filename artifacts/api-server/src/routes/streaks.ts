@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { getSupabase } from "../lib/supabase";
+import { getSupabaseForRequest } from "../lib/supabaseUser";
 import { getCached, setCache, cacheKey, TTL } from "../lib/fplCache";
 
 const router = Router();
@@ -53,7 +54,8 @@ async function getCurrentGameweek(): Promise<number | null> {
   return null;
 }
 
-const SAFE_COLUMNS = "id, user_id, current_streak, longest_streak, streak_shield_available, season, last_active_gameweek";
+const SAFE_COLUMNS =
+  "id, user_id, current_streak, longest_streak, streak_shield_available, season, last_active_gameweek";
 
 async function queryStreak(supabase: any, userId: string, season: string, sport: string) {
   const { data, error } = await supabase
@@ -77,7 +79,7 @@ async function queryStreak(supabase: any, userId: string, season: string, sport:
 
 router.get("/streaks/:user_id", async (req: Request, res: Response) => {
   try {
-    const supabase = getSupabase();
+    const supabase = getSupabaseForRequest(req);
     if (!supabase) {
       res.status(503).json({ error: "Database unavailable" });
       return;
@@ -159,7 +161,7 @@ async function insertStreak(supabase: any, row: Record<string, any>) {
 
 router.post("/streaks/mark-active", async (req: Request, res: Response) => {
   try {
-    const supabase = getSupabase();
+    const supabase = getSupabaseForRequest(req);
     if (!supabase) {
       res.status(503).json({ error: "Database unavailable" });
       return;
@@ -281,7 +283,7 @@ router.post("/streaks/mark-active", async (req: Request, res: Response) => {
 
 router.post("/streaks/update-all", async (req: Request, res: Response) => {
   try {
-    const supabase = getSupabase();
+    const supabase = getSupabaseForRequest(req);
     if (!supabase) {
       res.status(503).json({ error: "Database unavailable" });
       return;
@@ -306,15 +308,14 @@ router.post("/streaks/update-all", async (req: Request, res: Response) => {
     let allStreaks: any[] | null = null;
     let fetchError: any = null;
 
-    const fullResult = await supabase
-      .from("streaks")
-      .select("*")
-      .eq("season", season);
+    const fullResult = await supabase.from("streaks").select("*").eq("season", season);
 
     if (fullResult.error && fullResult.error.code === "42703") {
       const safeResult = await supabase
         .from("streaks")
-        .select("id, user_id, current_streak, longest_streak, streak_shield_available, season, last_active_gameweek")
+        .select(
+          "id, user_id, current_streak, longest_streak, streak_shield_available, season, last_active_gameweek",
+        )
         .eq("season", season);
       allStreaks = safeResult.data;
       fetchError = safeResult.error;
@@ -374,26 +375,17 @@ router.post("/streaks/update-all", async (req: Request, res: Response) => {
           if ("streak_shield_used_gw" in streak) {
             shieldUpdate.streak_shield_used_gw = gameweek;
           }
-          await supabase
-            .from("streaks")
-            .update(shieldUpdate)
-            .eq("id", streak.id);
+          await supabase.from("streaks").update(shieldUpdate).eq("id", streak.id);
           shielded++;
         } else {
-          await supabase
-            .from("streaks")
-            .update({ current_streak: 0 })
-            .eq("id", streak.id);
+          await supabase.from("streaks").update({ current_streak: 0 }).eq("id", streak.id);
           broken++;
         }
         continue;
       }
 
       if (lastGw !== null && lastGw < gameweek - 1) {
-        await supabase
-          .from("streaks")
-          .update({ current_streak: 0 })
-          .eq("id", streak.id);
+        await supabase.from("streaks").update({ current_streak: 0 }).eq("id", streak.id);
         broken++;
       }
     }
@@ -413,7 +405,7 @@ router.post("/streaks/update-all", async (req: Request, res: Response) => {
 
 router.post("/streaks/init", async (req: Request, res: Response) => {
   try {
-    const supabase = getSupabase();
+    const supabase = getSupabaseForRequest(req);
     if (!supabase) {
       res.status(503).json({ error: "Database unavailable" });
       return;

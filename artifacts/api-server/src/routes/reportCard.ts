@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSupabase } from "../lib/supabase";
+import { getSupabaseForRequest } from "../lib/supabaseUser";
 import { VIBE_PROMPTS } from "../lib/vibes";
 import {
   computeFullScore,
@@ -66,7 +67,7 @@ router.post(
       }
 
       const managerId = parseInt(String(manager_id), 10);
-      const supabase = getSupabase();
+      const supabase = getSupabaseForRequest(req);
       if (!supabase) {
         res.status(503).json({ error: "Database not configured" });
         return;
@@ -106,32 +107,27 @@ router.post(
 
       req.log.info({ managerId, gw, userId }, "Generating report card");
 
-      const [bootstrap, liveData, userPicks, transferHistory] =
-        await Promise.all([
-          fetchFplJson<{
-            events: Array<{
-              id: number;
-              finished: boolean;
-              average_entry_score: number;
-            }>;
-            elements: Array<{ id: number; web_name: string }>;
-          }>("/bootstrap-static/"),
-          fetchFplJson<{ elements: FPLLiveElement[] }>(
-            `/event/${gw}/live/`,
-          ),
-          fetchFplJson<FPLPicksResponse>(
-            `/entry/${managerId}/event/${gw}/picks/`,
-          ),
-          fetchFplJson<
-            Array<{
-              element_in: number;
-              element_in_cost: number;
-              element_out: number;
-              element_out_cost: number;
-              event: number;
-            }>
-          >(`/entry/${managerId}/transfers/`),
-        ]);
+      const [bootstrap, liveData, userPicks, transferHistory] = await Promise.all([
+        fetchFplJson<{
+          events: Array<{
+            id: number;
+            finished: boolean;
+            average_entry_score: number;
+          }>;
+          elements: Array<{ id: number; web_name: string }>;
+        }>("/bootstrap-static/"),
+        fetchFplJson<{ elements: FPLLiveElement[] }>(`/event/${gw}/live/`),
+        fetchFplJson<FPLPicksResponse>(`/entry/${managerId}/event/${gw}/picks/`),
+        fetchFplJson<
+          Array<{
+            element_in: number;
+            element_in_cost: number;
+            element_out: number;
+            element_out_cost: number;
+            event: number;
+          }>
+        >(`/entry/${managerId}/transfers/`),
+      ]);
 
       const event = bootstrap.events.find((e) => e.id === gw);
       if (!event || !event.finished) {
@@ -143,12 +139,8 @@ router.post(
       }
 
       const averagePoints = event.average_entry_score ?? 0;
-      const playerMap = new Map(
-        bootstrap.elements.map((p) => [p.id, p.web_name]),
-      );
-      const pointsMap = new Map(
-        liveData.elements.map((e) => [e.id, e.stats.total_points]),
-      );
+      const playerMap = new Map(bootstrap.elements.map((p) => [p.id, p.web_name]));
+      const pointsMap = new Map(liveData.elements.map((e) => [e.id, e.stats.total_points]));
 
       const captainPick = userPicks.picks.find((p) => p.is_captain);
       const captainId = captainPick?.element ?? 0;
@@ -229,9 +221,7 @@ router.post(
             }
             if (rec.player_in) {
               const found = bootstrap.elements.find(
-                (e) =>
-                  e.web_name.toLowerCase() ===
-                  rec.player_in!.toLowerCase(),
+                (e) => e.web_name.toLowerCase() === rec.player_in!.toLowerCase(),
               );
               if (found) recommendedPlayerIns.add(found.id);
             }
@@ -252,8 +242,7 @@ router.post(
             gwTransfers.length > 0
               ? Math.max(
                   0,
-                  (userPicks.entry_history.event_transfers_cost ?? 0) /
-                    gwTransfers.length,
+                  (userPicks.entry_history.event_transfers_cost ?? 0) / gwTransfers.length,
                 )
               : 0,
         })),
@@ -285,18 +274,14 @@ router.post(
       }
 
       const currentRank = userPicks.entry_history.overall_rank;
-      const rankMovement = previousRank
-        ? previousRank - currentRank
-        : 0;
+      const rankMovement = previousRank ? previousRank - currentRank : 0;
 
       let commentary = "";
       try {
         const vibePrompt = VIBE_PROMPTS[vibe] ?? VIBE_PROMPTS.expert;
         const followedAdvice =
           captainOptions.length > 0 &&
-          captainOptions.some(
-            (o) => o.playerId === captainId && o.isSuperscoutPick,
-          );
+          captainOptions.some((o) => o.playerId === captainId && o.isSuperscoutPick);
 
         const anthropic = new Anthropic();
         const msg = await anthropic.messages.create({
@@ -387,63 +372,58 @@ Write ONLY the commentary paragraph — no headers, no labels, no JSON.`,
   },
 );
 
-router.get(
-  "/report-card/:gameweek",
-  async (req: Request, res: Response) => {
+router.get("/report-card/:gameweek", async (req: Request, res: Response) => {
+  try {
+    const gw = parseInt(String(req.params.gameweek), 10);
+    const managerId = req.query.manager_id;
+
+    if (isNaN(gw) || !managerId) {
+      res.status(400).json({ error: "Missing gameweek or manager_id" });
+      return;
+    }
+
+    const supabase = getSupabaseForRequest(req);
+    if (!supabase) {
+      res.status(503).json({ error: "Database not configured" });
+      return;
+    }
+
+    let userId: string | null = null;
     try {
-      const gw = parseInt(String(req.params.gameweek), 10);
-      const managerId = req.query.manager_id;
-
-      if (isNaN(gw) || !managerId) {
-        res
-          .status(400)
-          .json({ error: "Missing gameweek or manager_id" });
-        return;
-      }
-
-      const supabase = getSupabase();
-      if (!supabase) {
-        res.status(503).json({ error: "Database not configured" });
-        return;
-      }
-
-      let userId: string | null = null;
-      try {
-        const { data: userRow } = await supabase
-          .from("users")
-          .select("id")
-          .eq("fpl_manager_id", String(managerId))
-          .limit(1)
-          .single();
-        if (userRow?.id) userId = userRow.id;
-      } catch (err) {
-        req.log.warn({ err }, "[ReportCard] user lookup for GET failed");
-      }
-
-      if (!userId) {
-        res.status(404).json({ error: "User not found" });
-        return;
-      }
-
-      const { data: report, error } = await supabase
-        .from("report_cards")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("gameweek", gw)
+      const { data: userRow } = await supabase
+        .from("users")
+        .select("id")
+        .eq("fpl_manager_id", String(managerId))
         .limit(1)
         .single();
-
-      if (error || !report) {
-        res.json({ report: null });
-        return;
-      }
-
-      res.json({ report });
-    } catch (error: any) {
-      req.log.error({ err: error }, "Failed to fetch report card");
-      res.status(500).json({ error: "Failed to fetch report card" });
+      if (userRow?.id) userId = userRow.id;
+    } catch (err) {
+      req.log.warn({ err }, "[ReportCard] user lookup for GET failed");
     }
-  },
-);
+
+    if (!userId) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    const { data: report, error } = await supabase
+      .from("report_cards")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("gameweek", gw)
+      .limit(1)
+      .single();
+
+    if (error || !report) {
+      res.json({ report: null });
+      return;
+    }
+
+    res.json({ report });
+  } catch (error: any) {
+    req.log.error({ err: error }, "Failed to fetch report card");
+    res.status(500).json({ error: "Failed to fetch report card" });
+  }
+});
 
 export default router;

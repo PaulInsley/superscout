@@ -16,11 +16,7 @@ export default function ExplainIcon({ tipText, isBeginner }: ExplainIconProps) {
 
   return (
     <>
-      <Pressable
-        onPress={() => setVisible(true)}
-        hitSlop={8}
-        style={styles.iconButton}
-      >
+      <Pressable onPress={() => setVisible(true)} hitSlop={8} style={styles.iconButton}>
         <Feather name="help-circle" size={14} color={colors.mutedForeground} />
       </Pressable>
 
@@ -30,10 +26,7 @@ export default function ExplainIcon({ tipText, isBeginner }: ExplainIconProps) {
         animationType="fade"
         onRequestClose={() => setVisible(false)}
       >
-        <Pressable
-          style={styles.overlay}
-          onPress={() => setVisible(false)}
-        >
+        <Pressable style={styles.overlay} onPress={() => setVisible(false)}>
           <View
             style={[
               styles.tooltip,
@@ -45,20 +38,14 @@ export default function ExplainIcon({ tipText, isBeginner }: ExplainIconProps) {
           >
             <View style={styles.tooltipHeader}>
               <Feather name="book-open" size={14} color="#818CF8" />
-              <Text style={[styles.tooltipLabel, { color: "#818CF8" }]}>
-                Coach
-              </Text>
+              <Text style={[styles.tooltipLabel, { color: "#818CF8" }]}>Coach</Text>
             </View>
-            <Text style={[styles.tooltipText, { color: colors.foreground }]}>
-              {tipText}
-            </Text>
+            <Text style={[styles.tooltipText, { color: colors.foreground }]}>{tipText}</Text>
             <Pressable
               onPress={() => setVisible(false)}
               style={[styles.closeButton, { backgroundColor: colors.muted }]}
             >
-              <Text style={[styles.closeText, { color: colors.foreground }]}>
-                Got it
-              </Text>
+              <Text style={[styles.closeText, { color: colors.foreground }]}>Got it</Text>
             </Pressable>
           </View>
         </Pressable>

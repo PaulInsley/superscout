@@ -22,9 +22,7 @@ export interface LogRecommendationParams {
   options: RecommendationOption[];
 }
 
-export async function logRecommendation(
-  params: LogRecommendationParams,
-): Promise<string | null> {
+export async function logRecommendation(params: LogRecommendationParams): Promise<string | null> {
   try {
     const { data: rec, error: recError } = await supabase
       .from("recommendations")
@@ -60,32 +58,22 @@ export async function logRecommendation(
       is_superscout_pick: opt.is_superscout_pick,
     }));
 
-    const { error: optError } = await supabase
-      .from("recommendation_options")
-      .insert(optionRows);
+    const { error: optError } = await supabase.from("recommendation_options").insert(optionRows);
 
     if (optError) {
-      console.error(
-        "[DecisionLog] Failed to insert recommendation_options:",
-        optError,
-      );
+      console.error("[DecisionLog] Failed to insert recommendation_options:", optError);
     }
 
-    const { error: ctxError } = await supabase
-      .from("inference_context")
-      .insert({
-        recommendation_id: recommendationId,
-        engine_level: 1,
-        persona_prompt_version: "v1.0",
-        model_name: "claude-sonnet-4-6",
-        model_provider: "anthropic",
-      });
+    const { error: ctxError } = await supabase.from("inference_context").insert({
+      recommendation_id: recommendationId,
+      engine_level: 1,
+      persona_prompt_version: "v1.0",
+      model_name: "claude-sonnet-4-6",
+      model_provider: "anthropic",
+    });
 
     if (ctxError) {
-      console.error(
-        "[DecisionLog] Failed to insert inference_context:",
-        ctxError,
-      );
+      console.error("[DecisionLog] Failed to insert inference_context:", ctxError);
     }
 
     return recommendationId;
@@ -103,9 +91,7 @@ export interface LogUserDecisionParams {
   hours_before_deadline?: number | null;
 }
 
-export async function logUserDecision(
-  params: LogUserDecisionParams,
-): Promise<void> {
+export async function logUserDecision(params: LogUserDecisionParams): Promise<void> {
   try {
     const { error } = await supabase.from("user_decisions").insert({
       recommendation_id: params.recommendation_id,

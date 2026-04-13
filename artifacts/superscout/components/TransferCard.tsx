@@ -46,7 +46,17 @@ const CONFIDENCE_CONFIG: Record<string, { label: string; color: string }> = {
   BOLD_PUNT: { label: "Bold Punt", color: "#f97316" },
 };
 
-function SingleSwapRow({ playerOut, playerOutTeam, playerOutPrice, playerIn, playerInTeam, playerInPrice, colors, isBeginner, vibe }: {
+function SingleSwapRow({
+  playerOut,
+  playerOutTeam,
+  playerOutPrice,
+  playerIn,
+  playerInTeam,
+  playerInPrice,
+  colors,
+  isBeginner,
+  vibe,
+}: {
   playerOut: string;
   playerOutTeam: string;
   playerOutPrice?: number | null;
@@ -58,39 +68,44 @@ function SingleSwapRow({ playerOut, playerOutTeam, playerOutPrice, playerIn, pla
   vibe?: "expert" | "critic" | "fanboy";
 }) {
   return (
-    <View>
-      <View style={styles.swapRow}>
-        <View style={styles.playerBlock}>
-          <Text style={[styles.outLabel, { color: "#ef4444" }]}>OUT</Text>
-          <Text style={[styles.playerName, { color: colors.foreground }]} numberOfLines={1}>
+    <View style={s.swapContainer}>
+      <View style={s.swapRow}>
+        <View style={s.playerBlock}>
+          <Text style={[s.dirLabel, { color: "#ef4444" }]}>OUT</Text>
+          <Text style={[s.playerName, { color: colors.foreground }]} numberOfLines={1}>
             {playerOut}
           </Text>
-          <Text style={[styles.teamLine, { color: colors.mutedForeground }]}>
+          <Text style={[s.playerMeta, { color: colors.mutedForeground }]}>
             {playerOutTeam}
             {typeof playerOutPrice === "number" ? ` · £${playerOutPrice.toFixed(1)}m` : ""}
           </Text>
         </View>
-        <Text style={[styles.arrow, { color: colors.accent }]}>→</Text>
-        <View style={styles.playerBlock}>
-          <Text style={[styles.inLabel, { color: "#22c55e" }]}>IN</Text>
-          <Text style={[styles.playerName, { color: colors.foreground }]} numberOfLines={1}>
+
+        <View style={[s.arrowContainer, { backgroundColor: colors.accent + "15" }]}>
+          <Text style={[s.arrow, { color: colors.accent }]}>→</Text>
+        </View>
+
+        <View style={s.playerBlock}>
+          <Text style={[s.dirLabel, { color: "#22c55e" }]}>IN</Text>
+          <Text style={[s.playerName, { color: colors.foreground }]} numberOfLines={1}>
             {playerIn}
           </Text>
-          <Text style={[styles.teamLine, { color: colors.mutedForeground }]}>
+          <Text style={[s.playerMeta, { color: colors.mutedForeground }]}>
             {playerInTeam}
             {typeof playerInPrice === "number" ? ` · £${playerInPrice.toFixed(1)}m` : ""}
           </Text>
         </View>
       </View>
-      <View style={styles.tickerStack}>
-        <View style={styles.tickerRow}>
-          <View style={[styles.tickerDot, { backgroundColor: "#ef4444" }]} />
+
+      <View style={s.fixtureSection}>
+        <View style={s.fixtureRow}>
+          <View style={[s.fixtureDot, { backgroundColor: "#ef4444" }]} />
           <View style={{ flex: 1 }}>
             <FixtureTicker teamShortName={playerOutTeam} compact />
           </View>
         </View>
-        <View style={styles.tickerRow}>
-          <View style={[styles.tickerDot, { backgroundColor: "#22c55e" }]} />
+        <View style={s.fixtureRow}>
+          <View style={[s.fixtureDot, { backgroundColor: "#22c55e" }]} />
           <View style={{ flex: 1 }}>
             <FixtureTicker teamShortName={playerInTeam} compact />
           </View>
@@ -104,7 +119,15 @@ function SingleSwapRow({ playerOut, playerOutTeam, playerOutPrice, playerIn, pla
   );
 }
 
-export default function TransferCard({ recommendation, isBeginner = false, vibe = "expert" }: { recommendation: TransferRecommendation; isBeginner?: boolean; vibe?: "expert" | "critic" | "fanboy" }) {
+export default function TransferCard({
+  recommendation,
+  isBeginner = false,
+  vibe = "expert",
+}: {
+  recommendation: TransferRecommendation;
+  isBeginner?: boolean;
+  vibe?: "expert" | "critic" | "fanboy";
+}) {
   const colors = useColors();
   const isSuperScoutPick = recommendation.is_superscout_pick;
   const [expanded, setExpanded] = useState(isSuperScoutPick);
@@ -113,117 +136,123 @@ export default function TransferCard({ recommendation, isBeginner = false, vibe 
     color: colors.mutedForeground,
   };
   const isHold = recommendation.is_hold_recommendation;
-  const isPackage = recommendation.is_package && Array.isArray(recommendation.transfers) && recommendation.transfers.length > 0;
+  const isPackage =
+    recommendation.is_package &&
+    Array.isArray(recommendation.transfers) &&
+    recommendation.transfers.length > 0;
 
   const pointsImpact = isPackage
-    ? recommendation.total_expected_points_gain_3gw ?? 0
-    : recommendation.expected_points_gain_3gw ?? 0;
+    ? (recommendation.total_expected_points_gain_3gw ?? 0)
+    : (recommendation.expected_points_gain_3gw ?? 0);
 
-  const netCost = isPackage
-    ? recommendation.total_net_cost ?? 0
-    : recommendation.net_cost ?? 0;
+  const netCost = isPackage ? (recommendation.total_net_cost ?? 0) : (recommendation.net_cost ?? 0);
 
-  const hitCost = isPackage
-    ? recommendation.total_hit_cost ?? 0
-    : recommendation.hit_cost ?? 0;
+  const hitCost = isPackage ? (recommendation.total_hit_cost ?? 0) : (recommendation.hit_cost ?? 0);
 
   return (
-    <Pressable onPress={() => setExpanded((prev) => !prev)}>
-    <View
-      style={[
-        styles.card,
-        {
-          backgroundColor: colors.card,
-          borderColor: isSuperScoutPick ? colors.accent + "60" : colors.border,
-          borderWidth: isSuperScoutPick ? 1.5 : 1,
-        },
-      ]}
-    >
-      {isSuperScoutPick && (
-        <View style={[styles.badge, { backgroundColor: colors.accent }]}>
-          <Text style={[styles.badgeText, { color: colors.primary }]}>
-            SuperScout Pick
-          </Text>
-        </View>
-      )}
+    <Pressable onPress={() => setExpanded((prev) => !prev)} accessibilityLabel={expanded ? "Show less details" : "Show more details"} accessibilityRole="button">
+      <View
+        style={[
+          s.card,
+          {
+            backgroundColor: colors.card,
+            borderColor: isSuperScoutPick ? colors.accent + "60" : colors.border,
+            borderWidth: isSuperScoutPick ? 1.5 : 1,
+          },
+        ]}
+      >
+        {isSuperScoutPick && (
+          <View style={[s.badge, { backgroundColor: colors.accent }]}>
+            <Text style={[s.badgeText, { color: colors.primary }]}>SuperScout Pick</Text>
+          </View>
+        )}
 
-      {isHold ? (
-        <View style={styles.header}>
-          <View style={[styles.holdIcon, { backgroundColor: colors.accent + "20" }]}>
-            <Text style={styles.holdEmoji}>⏸️</Text>
-          </View>
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={[styles.playerName, { color: colors.foreground }]}>
-              Hold Your Transfer{(recommendation.uses_free_transfers ?? 0) > 1 ? "s" : ""}
-            </Text>
-            <Text style={[styles.teamLine, { color: colors.mutedForeground }]}>
-              Save {(recommendation.uses_free_transfers ?? 1) > 1 ? "them" : "it"} for next week
-            </Text>
-          </View>
-        </View>
-      ) : isPackage ? (
-        <View style={styles.packageHeader}>
-          <View style={[styles.packageBanner, { backgroundColor: colors.accent + "15" }]}>
-            <Text style={[styles.packageIcon]}>📦</Text>
-            <Text style={[styles.packageName, { color: colors.accent }]}>
-              {recommendation.package_name ?? "Transfer Package"}
-            </Text>
-            {recommendation.uses_free_transfers != null && (
-              <Text style={[styles.packageFtCount, { color: colors.mutedForeground }]}>
-                {recommendation.uses_free_transfers} FT
+        {isHold ? (
+          <View style={s.holdHeader}>
+            <View style={[s.holdIcon, { backgroundColor: colors.accent + "20" }]}>
+              <Text style={s.holdEmoji}>⏸️</Text>
+            </View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={[s.playerName, { color: colors.foreground }]}>
+                Hold Your Transfer{(recommendation.uses_free_transfers ?? 0) > 1 ? "s" : ""}
               </Text>
-            )}
+              <Text style={[s.playerMeta, { color: colors.mutedForeground }]}>
+                Save {(recommendation.uses_free_transfers ?? 1) > 1 ? "them" : "it"} for next week
+              </Text>
+            </View>
           </View>
-          <View style={styles.packageSwaps}>
-            {recommendation.transfers!.map((swap, i) => (
-              <View key={`${swap.player_out}-${swap.player_in}-${i}`}>
-                {i > 0 && <View style={[styles.swapDivider, { backgroundColor: colors.border }]} />}
-                <SingleSwapRow
-                  playerOut={swap.player_out}
-                  playerOutTeam={swap.player_out_team}
-                  playerOutPrice={swap.player_out_selling_price}
-                  playerIn={swap.player_in}
-                  playerInTeam={swap.player_in_team}
-                  playerInPrice={swap.player_in_price}
-                  colors={colors}
-                  isBeginner={isBeginner}
-                  vibe={vibe}
-                />
-              </View>
-            ))}
-          </View>
-        </View>
-      ) : Array.isArray(recommendation.player_out) ? (
-        <View style={styles.packageHeader}>
-          <View style={styles.packageSwaps}>
-            {(recommendation.player_out as string[]).map((pOut, i) => {
-              const pOutTeam = Array.isArray(recommendation.player_out_team) ? (recommendation.player_out_team as string[])[i] : recommendation.player_out_team;
-              const pOutPrice = Array.isArray(recommendation.player_out_selling_price) ? (recommendation.player_out_selling_price as number[])[i] : recommendation.player_out_selling_price;
-              const pIn = Array.isArray(recommendation.player_in) ? (recommendation.player_in as string[])[i] : recommendation.player_in;
-              const pInTeam = Array.isArray(recommendation.player_in_team) ? (recommendation.player_in_team as string[])[i] : recommendation.player_in_team;
-              const pInPrice = Array.isArray(recommendation.player_in_price) ? (recommendation.player_in_price as number[])[i] : recommendation.player_in_price;
-              return (
-                <View key={`${pOut}-${pIn}-${i}`}>
-                  {i > 0 && <View style={[styles.swapDivider, { backgroundColor: colors.border }]} />}
+        ) : isPackage ? (
+          <View style={s.packageSection}>
+            <View style={[s.packageBanner, { backgroundColor: colors.accent + "15" }]}>
+              <Text style={s.packageIcon}>📦</Text>
+              <Text style={[s.packageName, { color: colors.accent }]}>
+                {recommendation.package_name ?? "Transfer Package"}
+              </Text>
+              {recommendation.uses_free_transfers != null && (
+                <Text style={[s.packageFtCount, { color: colors.mutedForeground }]}>
+                  {recommendation.uses_free_transfers} FT
+                </Text>
+              )}
+            </View>
+            <View style={s.packageSwaps}>
+              {recommendation.transfers!.map((swap, i) => (
+                <View key={`${swap.player_out}-${swap.player_in}-${i}`}>
+                  {i > 0 && <View style={[s.swapDivider, { backgroundColor: colors.border }]} />}
                   <SingleSwapRow
-                    playerOut={pOut ?? ""}
-                    playerOutTeam={(pOutTeam as string) ?? ""}
-                    playerOutPrice={typeof pOutPrice === "number" ? pOutPrice : null}
-                    playerIn={(pIn as string) ?? ""}
-                    playerInTeam={(pInTeam as string) ?? ""}
-                    playerInPrice={typeof pInPrice === "number" ? pInPrice : null}
+                    playerOut={swap.player_out}
+                    playerOutTeam={swap.player_out_team}
+                    playerOutPrice={swap.player_out_selling_price}
+                    playerIn={swap.player_in}
+                    playerInTeam={swap.player_in_team}
+                    playerInPrice={swap.player_in_price}
                     colors={colors}
                     isBeginner={isBeginner}
                     vibe={vibe}
                   />
                 </View>
-              );
-            })}
+              ))}
+            </View>
           </View>
-        </View>
-      ) : (
-        <View style={styles.header}>
-          <View style={{ flex: 1 }}>
+        ) : Array.isArray(recommendation.player_out) ? (
+          <View style={s.packageSection}>
+            <View style={s.packageSwaps}>
+              {(recommendation.player_out as string[]).map((pOut, i) => {
+                const pOutTeam = Array.isArray(recommendation.player_out_team)
+                  ? (recommendation.player_out_team as string[])[i]
+                  : recommendation.player_out_team;
+                const pOutPrice = Array.isArray(recommendation.player_out_selling_price)
+                  ? (recommendation.player_out_selling_price as number[])[i]
+                  : recommendation.player_out_selling_price;
+                const pIn = Array.isArray(recommendation.player_in)
+                  ? (recommendation.player_in as string[])[i]
+                  : recommendation.player_in;
+                const pInTeam = Array.isArray(recommendation.player_in_team)
+                  ? (recommendation.player_in_team as string[])[i]
+                  : recommendation.player_in_team;
+                const pInPrice = Array.isArray(recommendation.player_in_price)
+                  ? (recommendation.player_in_price as number[])[i]
+                  : recommendation.player_in_price;
+                return (
+                  <View key={`${pOut}-${pIn}-${i}`}>
+                    {i > 0 && <View style={[s.swapDivider, { backgroundColor: colors.border }]} />}
+                    <SingleSwapRow
+                      playerOut={pOut ?? ""}
+                      playerOutTeam={(pOutTeam as string) ?? ""}
+                      playerOutPrice={typeof pOutPrice === "number" ? pOutPrice : null}
+                      playerIn={(pIn as string) ?? ""}
+                      playerInTeam={(pInTeam as string) ?? ""}
+                      playerInPrice={typeof pInPrice === "number" ? pInPrice : null}
+                      colors={colors}
+                      isBeginner={isBeginner}
+                      vibe={vibe}
+                    />
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        ) : (
+          <View style={s.singleSwapSection}>
             <SingleSwapRow
               playerOut={recommendation.player_out ?? ""}
               playerOutTeam={recommendation.player_out_team ?? ""}
@@ -236,107 +265,116 @@ export default function TransferCard({ recommendation, isBeginner = false, vibe 
               vibe={vibe}
             />
           </View>
-        </View>
-      )}
+        )}
 
-      <View style={styles.metaRow}>
-        <View style={styles.inlineRow}>
-          <View
-            style={[
-              styles.confidenceBadge,
-              { backgroundColor: conf.color + "20", borderColor: conf.color },
-            ]}
-          >
-            <Text style={[styles.confidenceText, { color: conf.color }]}>
-              {conf.label}
-            </Text>
+        <View style={s.metaRow}>
+          <View style={s.inlineRow}>
+            <View
+              style={[
+                s.confidenceBadge,
+                { backgroundColor: conf.color + "20", borderColor: conf.color },
+              ]}
+            >
+              <Text style={[s.confidenceText, { color: conf.color }]}>{conf.label}</Text>
+            </View>
+            <ExplainIcon tipText={EXPLAIN_TIPS.confidence[vibe]} isBeginner={isBeginner} />
           </View>
-          <ExplainIcon
-            tipText={EXPLAIN_TIPS.confidence[vibe]}
-            isBeginner={isBeginner}
-          />
+
+          {!isHold && (
+            <>
+              {typeof netCost === "number" && netCost !== 0 && (
+                <Text style={[s.costText, { color: colors.mutedForeground }]}>
+                  {netCost > 0
+                    ? `Costs £${netCost.toFixed(1)}m`
+                    : `Saves £${Math.abs(netCost).toFixed(1)}m`}
+                </Text>
+              )}
+              {(netCost === 0 || netCost == null) && !isPackage && (
+                <Text style={[s.costText, { color: colors.mutedForeground }]}>Free swap</Text>
+              )}
+
+              {hitCost > 0 ? (
+                <View style={[s.hitBadge, { backgroundColor: "#ef444420" }]}>
+                  <Text style={[s.hitText, { color: "#ef4444" }]}>-{hitCost}pt hit</Text>
+                </View>
+              ) : (
+                <View style={[s.freeBadge, { backgroundColor: "#22c55e20" }]}>
+                  <Text style={[s.freeText, { color: "#22c55e" }]}>
+                    {isPackage
+                      ? `${recommendation.uses_free_transfers ?? 0} free transfers`
+                      : "Free transfer"}
+                  </Text>
+                </View>
+              )}
+            </>
+          )}
         </View>
 
         {!isHold && (
-          <>
-            {typeof netCost === "number" && netCost !== 0 && (
-              <Text style={[styles.costText, { color: colors.mutedForeground }]}>
-                {netCost > 0
-                  ? `Costs £${netCost.toFixed(1)}m`
-                  : `Saves £${Math.abs(netCost).toFixed(1)}m`}
-              </Text>
-            )}
-            {(netCost === 0 || netCost == null) && !isPackage && (
-              <Text style={[styles.costText, { color: colors.mutedForeground }]}>
-                Free swap
-              </Text>
-            )}
-
-            {hitCost > 0 ? (
-              <View style={[styles.hitBadge, { backgroundColor: "#ef444420" }]}>
-                <Text style={[styles.hitText, { color: "#ef4444" }]}>
-                  -{hitCost}pt hit
-                </Text>
-              </View>
-            ) : (
-              <View style={[styles.freeBadge, { backgroundColor: "#22c55e20" }]}>
-                <Text style={[styles.freeText, { color: "#22c55e" }]}>
-                  {isPackage ? `${recommendation.uses_free_transfers ?? 0} free transfers` : "Free transfer"}
-                </Text>
-              </View>
-            )}
-          </>
+          <View style={[s.impactRow, { backgroundColor: colors.primary + "10" }]}>
+            <Text style={[s.impactLabel, { color: colors.mutedForeground }]}>
+              {isPackage ? "Combined 3GW impact" : "Expected 3GW impact"}
+            </Text>
+            <Text
+              style={[
+                s.impactValue,
+                {
+                  color:
+                    typeof pointsImpact === "number" && pointsImpact >= 0 ? "#22c55e" : "#ef4444",
+                },
+              ]}
+            >
+              {typeof pointsImpact === "number" && pointsImpact >= 0 ? "+" : ""}
+              {typeof pointsImpact === "number" ? pointsImpact.toFixed(1) : "0.0"} pts
+            </Text>
+          </View>
         )}
-      </View>
 
-      {!isHold && (
-        <View style={[styles.impactRow, { backgroundColor: colors.primary + "10" }]}>
-          <Text style={[styles.impactLabel, { color: colors.mutedForeground }]}>
-            {isPackage ? "Combined 3GW impact" : "Expected 3GW impact"}
-          </Text>
-          <Text style={[styles.impactValue, { color: typeof pointsImpact === "number" && pointsImpact >= 0 ? "#22c55e" : "#ef4444" }]}>
-            {typeof pointsImpact === "number" && pointsImpact >= 0 ? "+" : ""}
-            {typeof pointsImpact === "number" ? pointsImpact.toFixed(1) : "0.0"} pts
+        <View style={s.reasoningSection}>
+          <View style={s.reasonRow}>
+            <Text style={[s.reasonLabel, { color: "#22c55e" }]}>Upside</Text>
+            <Text
+              style={[s.reasonText, { color: colors.foreground }]}
+              numberOfLines={expanded ? undefined : 2}
+            >
+              {recommendation.upside}
+            </Text>
+          </View>
+          <View style={s.reasonRow}>
+            <Text style={[s.reasonLabel, { color: "#ef4444" }]}>Risk</Text>
+            <Text
+              style={[s.reasonText, { color: colors.foreground }]}
+              numberOfLines={expanded ? undefined : 2}
+            >
+              {recommendation.risk}
+            </Text>
+          </View>
+        </View>
+
+        <View style={[s.caseContainer, { backgroundColor: colors.primary + "15" }]}>
+          <Text
+            style={[s.caseText, { color: colors.foreground, fontStyle: "italic" }]}
+            numberOfLines={expanded ? undefined : 2}
+          >
+            "{recommendation.case}"
           </Text>
         </View>
-      )}
 
-      <View style={styles.reasoningContainer}>
-        <View style={styles.reasonRow}>
-          <Text style={[styles.reasonLabel, { color: "#22c55e" }]}>Upside</Text>
-          <Text style={[styles.reasonText, { color: colors.foreground }]} numberOfLines={expanded ? undefined : 2}>
-            {recommendation.upside}
-          </Text>
-        </View>
-        <View style={styles.reasonRow}>
-          <Text style={[styles.reasonLabel, { color: "#ef4444" }]}>Risk</Text>
-          <Text style={[styles.reasonText, { color: colors.foreground }]} numberOfLines={expanded ? undefined : 2}>
-            {recommendation.risk}
+        <View style={s.expandRow}>
+          <Text style={[s.expandText, { color: colors.accent }]}>
+            {expanded ? "Show less \u25B2" : "Read more \u25BC"}
           </Text>
         </View>
       </View>
-
-      <View style={[styles.caseContainer, { backgroundColor: colors.primary + "15" }]}>
-        <Text style={[styles.caseText, { color: colors.foreground, fontStyle: "italic" }]} numberOfLines={expanded ? undefined : 2}>
-          "{recommendation.case}"
-        </Text>
-      </View>
-
-      <View style={styles.expandRow}>
-        <Text style={[styles.expandText, { color: colors.accent }]}>
-          {expanded ? "Show less \u25B2" : "Read more \u25BC"}
-        </Text>
-      </View>
-    </View>
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   card: {
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    padding: 24,
+    marginBottom: 16,
     position: "relative",
     overflow: "hidden",
   },
@@ -353,10 +391,11 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 0.5,
   },
-  header: {
+
+  holdHeader: {
     flexDirection: "row",
     alignItems: "flex-start",
-    marginBottom: 10,
+    marginBottom: 16,
   },
   holdIcon: {
     width: 44,
@@ -368,17 +407,21 @@ const styles = StyleSheet.create({
   holdEmoji: {
     fontSize: 20,
   },
-  packageHeader: {
-    marginBottom: 10,
+
+  singleSwapSection: {
+    marginBottom: 16,
+  },
+  packageSection: {
+    marginBottom: 16,
   },
   packageBanner: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderRadius: 8,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   packageIcon: {
     fontSize: 16,
@@ -397,7 +440,11 @@ const styles = StyleSheet.create({
   },
   swapDivider: {
     height: 1,
-    marginVertical: 8,
+    marginVertical: 12,
+  },
+
+  swapContainer: {
+    gap: 12,
   },
   swapRow: {
     flexDirection: "row",
@@ -406,50 +453,52 @@ const styles = StyleSheet.create({
   playerBlock: {
     flex: 1,
   },
-  outLabel: {
+  dirLabel: {
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 1,
-    marginBottom: 2,
+    marginBottom: 4,
   },
-  inLabel: {
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 1,
-    marginBottom: 2,
+  playerName: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  playerMeta: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  arrowContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginHorizontal: 8,
   },
   arrow: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "700",
-    marginHorizontal: 8,
-    marginTop: 10,
   },
-  tickerStack: {
-    marginTop: 6,
-    gap: 4,
+
+  fixtureSection: {
+    gap: 6,
   },
-  tickerRow: {
+  fixtureRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
   },
-  tickerDot: {
+  fixtureDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
   },
-  playerName: {
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 2,
-  },
-  teamLine: {
-    fontSize: 12,
-  },
+
   metaRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 16,
     gap: 8,
     flexWrap: "wrap",
   },
@@ -459,8 +508,8 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   confidenceBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 6,
     borderWidth: 1,
   },
@@ -470,11 +519,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   costText: {
-    fontSize: 12,
+    fontSize: 13,
   },
   hitBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 4,
   },
   hitText: {
@@ -482,33 +531,36 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   freeBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 4,
   },
   freeText: {
     fontSize: 11,
     fontWeight: "700",
   },
+
   impactRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    marginBottom: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginBottom: 16,
   },
   impactLabel: {
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: "500",
   },
   impactValue: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "800",
   },
-  reasoningContainer: {
-    gap: 6,
-    marginBottom: 10,
+
+  reasoningSection: {
+    gap: 8,
+    marginBottom: 16,
   },
   reasonRow: {
     flexDirection: "row",
@@ -516,27 +568,30 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   reasonLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "700",
-    width: 45,
+    width: 48,
     letterSpacing: 0.3,
+    paddingTop: 1,
   },
   reasonText: {
-    fontSize: 13,
+    fontSize: 14,
     flex: 1,
-    lineHeight: 18,
+    lineHeight: 20,
   },
+
   caseContainer: {
-    padding: 10,
+    padding: 12,
     borderRadius: 8,
   },
   caseText: {
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 14,
+    lineHeight: 20,
   },
+
   expandRow: {
     alignItems: "center",
-    paddingTop: 8,
+    paddingTop: 12,
   },
   expandText: {
     fontSize: 12,

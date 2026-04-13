@@ -61,7 +61,10 @@ export async function updateUserSubscriptionTier(tier: string) {
     }
     const { error } = await supabase
       .from("users")
-      .update({ subscription_tier: tier === "free" ? "free" : tier === "season_pass" ? "season_pass" : "pro" })
+      .update({
+        subscription_tier:
+          tier === "free" ? "free" : tier === "season_pass" ? "season_pass" : "pro",
+      })
       .eq("id", userId);
 
     if (error) {

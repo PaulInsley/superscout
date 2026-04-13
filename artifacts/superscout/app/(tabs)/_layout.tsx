@@ -10,7 +10,15 @@ import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
 
-const VALID_TABS = ["captain", "transfers", "banter", "card", "squad", "settings", "index"] as const;
+const VALID_TABS = [
+  "captain",
+  "transfers",
+  "banter",
+  "card",
+  "squad",
+  "settings",
+  "index",
+] as const;
 type ValidTab = (typeof VALID_TABS)[number];
 
 // IMPORTANT: iOS 26 uses NativeTabs for native tabs with liquid glass support.
@@ -81,12 +89,7 @@ function ClassicTabLayout() {
               style={StyleSheet.absoluteFill}
             />
           ) : isWeb ? (
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: colors.background },
-              ]}
-            />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }]} />
           ) : null,
       }}
     >
@@ -190,15 +193,13 @@ export default function TabLayout() {
   const responseListener = useRef<Notifications.EventSubscription | null>(null);
 
   useEffect(() => {
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        const data = response.notification.request.content.data;
-        const target = data?.screen as string | undefined;
-        if (target && VALID_TABS.includes(target as ValidTab)) {
-          router.navigate(`/(tabs)/${target}` as any);
-        }
-      },
-    );
+    responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data;
+      const target = data?.screen as string | undefined;
+      if (target && VALID_TABS.includes(target as ValidTab)) {
+        router.navigate(`/(tabs)/${target}` as any);
+      }
+    });
 
     Notifications.getLastNotificationResponseAsync().then((response) => {
       if (response) {

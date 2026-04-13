@@ -89,8 +89,8 @@ export default function SignInScreen({ onSignInSuccess, onGoToSignUp }: Props) {
               Check your email
             </Text>
             <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-              We sent a password reset link to {email.trim().toLowerCase()}.
-              Tap the link to set a new password, then come back and sign in.
+              We sent a password reset link to {email.trim().toLowerCase()}. Tap the link to set a
+              new password, then come back and sign in.
             </Text>
             <Pressable
               style={[styles.submitButton, { backgroundColor: colors.accent, marginTop: 24 }]}
@@ -100,18 +100,14 @@ export default function SignInScreen({ onSignInSuccess, onGoToSignUp }: Props) {
                 setPassword("");
               }}
             >
-              <Text style={[styles.submitText, { color: colors.primary }]}>
-                Back to Sign In
-              </Text>
+              <Text style={[styles.submitText, { color: colors.primary }]}>Back to Sign In</Text>
             </Pressable>
           </View>
         ) : (
           <>
             <View style={styles.headerArea}>
               <Feather name="shield" size={40} color={colors.accent} />
-              <Text style={[styles.title, { color: colors.primaryForeground }]}>
-                Welcome back
-              </Text>
+              <Text style={[styles.title, { color: colors.primaryForeground }]}>Welcome back</Text>
               <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
                 Sign in to access your saved data
               </Text>
@@ -119,9 +115,7 @@ export default function SignInScreen({ onSignInSuccess, onGoToSignUp }: Props) {
 
             <View style={styles.form}>
               <View style={styles.inputContainer}>
-                <Text style={[styles.label, { color: colors.mutedForeground }]}>
-                  Email
-                </Text>
+                <Text style={[styles.label, { color: colors.mutedForeground }]}>Email</Text>
                 <TextInput
                   style={[
                     styles.input,
@@ -143,9 +137,7 @@ export default function SignInScreen({ onSignInSuccess, onGoToSignUp }: Props) {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={[styles.label, { color: colors.mutedForeground }]}>
-                  Password
-                </Text>
+                <Text style={[styles.label, { color: colors.mutedForeground }]}>Password</Text>
                 <View style={styles.passwordRow}>
                   <TextInput
                     style={[
@@ -154,8 +146,7 @@ export default function SignInScreen({ onSignInSuccess, onGoToSignUp }: Props) {
                       {
                         color: colors.foreground,
                         backgroundColor: colors.card,
-                        borderColor:
-                          password && !isValidPassword ? "#ef4444" : colors.border,
+                        borderColor: password && !isValidPassword ? "#ef4444" : colors.border,
                       },
                     ]}
                     placeholder="Min 8 characters"
@@ -213,7 +204,12 @@ export default function SignInScreen({ onSignInSuccess, onGoToSignUp }: Props) {
               </Pressable>
 
               <Pressable onPress={handleResetPassword} disabled={resetLoading || !isValidEmail}>
-                <Text style={[styles.forgotText, { color: isValidEmail ? colors.accent : colors.mutedForeground }]}>
+                <Text
+                  style={[
+                    styles.forgotText,
+                    { color: isValidEmail ? colors.accent : colors.mutedForeground },
+                  ]}
+                >
                   {resetLoading ? "Sending..." : "Forgot password?"}
                 </Text>
               </Pressable>
@@ -223,9 +219,7 @@ export default function SignInScreen({ onSignInSuccess, onGoToSignUp }: Props) {
               <Text style={[styles.toggleText, { color: colors.mutedForeground }]}>
                 {"Don't have an account? "}
               </Text>
-              <Text style={[styles.toggleLink, { color: colors.accent }]}>
-                Sign Up
-              </Text>
+              <Text style={[styles.toggleLink, { color: colors.accent }]}>Sign Up</Text>
             </Pressable>
           </>
         )}

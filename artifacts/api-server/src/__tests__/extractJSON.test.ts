@@ -7,7 +7,9 @@ function extractJSON(text: string): unknown | null {
   }
   try {
     return JSON.parse(cleaned);
-  } catch (_) { /* fallback */ }
+  } catch (_) {
+    /* fallback */
+  }
   let depth = 0;
   let start = -1;
   for (let i = 0; i < cleaned.length; i++) {
@@ -19,7 +21,9 @@ function extractJSON(text: string): unknown | null {
       if (depth === 0 && start >= 0) {
         try {
           return JSON.parse(cleaned.substring(start, i + 1));
-        } catch (_) { /* keep scanning */ }
+        } catch (_) {
+          /* keep scanning */
+        }
       }
     }
   }

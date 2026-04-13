@@ -28,10 +28,7 @@ import { useBeginnerMode } from "@/hooks/useBeginnerMode";
 import { GRADUATION_CONTENT } from "@/lib/coachingLessons";
 import { fetchCaptainCandidates } from "@/services/fpl/api";
 import type { CaptainCandidateResult } from "@/services/fpl/api";
-import type {
-  CaptainRecommendation,
-  CaptainPicksResponse,
-} from "@/services/fpl/types";
+import type { CaptainRecommendation, CaptainPicksResponse } from "@/services/fpl/types";
 
 const PERSONA_KEY = "superscout_persona";
 
@@ -44,7 +41,12 @@ function formatGeneratedAt(isoString: string): string {
   if (diffMins < 60) return `${diffMins}m ago`;
   const diffHours = Math.floor(diffMins / 60);
   if (diffHours < 24) return `${diffHours}h ago`;
-  return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function getApiBaseUrl(): string {
@@ -58,9 +60,7 @@ export default function CaptainPickerScreen() {
   const { managerId, loading: managerLoading, refresh: refreshManagerId } = useManagerId();
   const { isPro } = useSubscription();
   const beginner = useBeginnerMode();
-  const [recommendations, setRecommendations] = useState<
-    CaptainRecommendation[] | null
-  >(null);
+  const [recommendations, setRecommendations] = useState<CaptainRecommendation[] | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [loadingStage, setLoadingStage] = useState<string>("squad");
@@ -79,18 +79,20 @@ export default function CaptainPickerScreen() {
   useFocusEffect(
     useCallback(() => {
       refreshManagerId();
-      AsyncStorage.getItem(PERSONA_KEY).then((persona) => {
-        if (persona === "expert" || persona === "critic" || persona === "fanboy") {
-          const effectiveVibe = isPro ? persona : "expert";
-          setVibe((prev) => {
-            if (prev !== effectiveVibe) {
-              setRecommendations(null);
-              setAiError(null);
-            }
-            return effectiveVibe as "expert" | "critic" | "fanboy";
-          });
-        }
-      }).catch((err: unknown) => console.warn("[Captain] vibe load failed:", err));
+      AsyncStorage.getItem(PERSONA_KEY)
+        .then((persona) => {
+          if (persona === "expert" || persona === "critic" || persona === "fanboy") {
+            const effectiveVibe = isPro ? persona : "expert";
+            setVibe((prev) => {
+              if (prev !== effectiveVibe) {
+                setRecommendations(null);
+                setAiError(null);
+              }
+              return effectiveVibe as "expert" | "critic" | "fanboy";
+            });
+          }
+        })
+        .catch((err: unknown) => console.warn("[Captain] vibe load failed:", err));
     }, [isPro]),
   );
 
@@ -169,105 +171,111 @@ export default function CaptainPickerScreen() {
     };
   }, []);
 
-  const requestPicks = useCallback(async (skipCache = false) => {
-    if (!candidateData) return;
+  const requestPicks = useCallback(
+    async (skipCache = false) => {
+      if (!candidateData) return;
 
-    setAiLoading(true);
-    setAiError(null);
-    setRecommendations(null);
-    setLoadingStage("squad");
-    setGameweek(candidateData.gameweek);
-    setDeadlineTime(candidateData.deadlineTime);
+      setAiLoading(true);
+      setAiError(null);
+      setRecommendations(null);
+      setLoadingStage("squad");
+      setGameweek(candidateData.gameweek);
+      setDeadlineTime(candidateData.deadlineTime);
 
-    const loadingStart = Date.now();
-    startCaptainStageTimers();
+      const loadingStart = Date.now();
+      startCaptainStageTimers();
 
-    const waitForMinLoading = () => {
-      const elapsed = Date.now() - loadingStart;
-      const remaining = MIN_LOADING_MS - elapsed;
-      return remaining > 0 ? new Promise<void>((r) => setTimeout(r, remaining)) : Promise.resolve();
-    };
+      const waitForMinLoading = () => {
+        const elapsed = Date.now() - loadingStart;
+        const remaining = MIN_LOADING_MS - elapsed;
+        return remaining > 0
+          ? new Promise<void>((r) => setTimeout(r, remaining))
+          : Promise.resolve();
+      };
 
-    try {
-      const apiBase = getApiBaseUrl();
+      try {
+        const apiBase = getApiBaseUrl();
 
-      const userId = await getAuthenticatedUserId();
-      if (!userId) {
-        setAiError("Please sign in to get captain picks.");
-        return;
-      }
-
-      if (!skipCache) {
-        const preGenUrl = `${apiBase}/pre-generated/${candidateData.gameweek}?user_id=${userId}&decision_type=captain&vibe=${vibe}`;
-        try {
-          const preGenRes = await fetch(preGenUrl);
-          if (preGenRes.ok) {
-            const preGenData = await preGenRes.json();
-            if (preGenData.found && preGenData.response) {
-              const recs = preGenData.response.recommendations ?? preGenData.response;
-              const recsArray = Array.isArray(recs) ? recs : [];
-              await waitForMinLoading();
-              clearStageTimers();
-              setLoadingStage("done");
-              setGameweek(candidateData.gameweek);
-              setDeadlineTime(candidateData.deadlineTime);
-              setRecommendations(recsArray);
-              setGeneratedAt(preGenData.generated_at ?? null);
-              logRecommendationSilently({ recommendations: recsArray } as CaptainPicksResponse, candidateData.gameweek);
-              trackStreakActivity();
-              return;
-            }
-          }
-        } catch (err) {
-          console.warn("[Captain] pre-generated cache lookup failed:", err);
+        const userId = await getAuthenticatedUserId();
+        if (!userId) {
+          setAiError("Please sign in to get captain picks.");
+          return;
         }
-      }
 
-      const response = await fetch(`${apiBase}/captain-picks`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          vibe,
-          user_id: userId,
-          skip_cache: skipCache,
-          context: buildContext(
-            candidateData.candidates,
-            candidateData.gameweek,
-            candidateData.deadlineTime,
+        if (!skipCache) {
+          const preGenUrl = `${apiBase}/pre-generated/${candidateData.gameweek}?user_id=${userId}&decision_type=captain&vibe=${vibe}`;
+          try {
+            const preGenRes = await fetch(preGenUrl);
+            if (preGenRes.ok) {
+              const preGenData = await preGenRes.json();
+              if (preGenData.found && preGenData.response) {
+                const recs = preGenData.response.recommendations ?? preGenData.response;
+                const recsArray = Array.isArray(recs) ? recs : [];
+                await waitForMinLoading();
+                clearStageTimers();
+                setLoadingStage("done");
+                setGameweek(candidateData.gameweek);
+                setDeadlineTime(candidateData.deadlineTime);
+                setRecommendations(recsArray);
+                setGeneratedAt(preGenData.generated_at ?? null);
+                logRecommendationSilently(
+                  { recommendations: recsArray } as CaptainPicksResponse,
+                  candidateData.gameweek,
+                );
+                trackStreakActivity();
+                return;
+              }
+            }
+          } catch (err) {
+            console.warn("[Captain] pre-generated cache lookup failed:", err);
+          }
+        }
+
+        const response = await fetch(`${apiBase}/captain-picks`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
             vibe,
-            candidateData.activeChip,
-          ),
-        }),
-      });
+            user_id: userId,
+            skip_cache: skipCache,
+            context: buildContext(
+              candidateData.candidates,
+              candidateData.gameweek,
+              candidateData.deadlineTime,
+              vibe,
+              candidateData.activeChip,
+            ),
+          }),
+        });
 
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
 
-      const data: CaptainPicksResponse = await response.json();
+        const data: CaptainPicksResponse = await response.json();
 
-      if (data.recommendations) {
-        await waitForMinLoading();
+        if (data.recommendations) {
+          await waitForMinLoading();
+          clearStageTimers();
+          setLoadingStage("done");
+          setRecommendations(data.recommendations);
+          setGeneratedAt((data as any).generated_at ?? null);
+          logRecommendationSilently(data, candidateData.gameweek);
+          trackStreakActivity();
+          if (skipCache) startRegenCooldown();
+        } else {
+          throw new Error("No recommendations returned");
+        }
+      } catch (err) {
+        console.error("[SuperScout] Captain picks error:", err);
+        setAiError("SuperScout is thinking too hard — try again in a moment.");
+      } finally {
         clearStageTimers();
-        setLoadingStage("done");
-        setRecommendations(data.recommendations);
-        setGeneratedAt((data as any).generated_at ?? null);
-        logRecommendationSilently(data, candidateData.gameweek);
-        trackStreakActivity();
-        if (skipCache) startRegenCooldown();
-      } else {
-        throw new Error("No recommendations returned");
+        setAiLoading(false);
       }
-    } catch (err) {
-      console.error("[SuperScout] Captain picks error:", err);
-      setAiError(
-        "SuperScout is thinking too hard — try again in a moment.",
-      );
-    } finally {
-      clearStageTimers();
-      setAiLoading(false);
-    }
-  }, [candidateData, vibe, clearStageTimers, startCaptainStageTimers, startRegenCooldown]);
+    },
+    [candidateData, vibe, clearStageTimers, startCaptainStageTimers, startRegenCooldown],
+  );
 
   const autoLoadedVibeRef = useRef<string | null>(null);
 
@@ -284,10 +292,7 @@ export default function CaptainPickerScreen() {
     }
   }, [candidateData, recommendations, aiLoading, aiError, vibe, requestPicks]);
 
-  const logRecommendationSilently = async (
-    data: CaptainPicksResponse,
-    gw: number,
-  ) => {
+  const logRecommendationSilently = async (data: CaptainPicksResponse, gw: number) => {
     try {
       const apiBase = getApiBaseUrl();
       const logUserId = await getAuthenticatedUserId();
@@ -308,11 +313,7 @@ export default function CaptainPickerScreen() {
             option_type: "captain_pick",
             expected_points: r.expected_points,
             confidence_score:
-              r.confidence === "BANKER"
-                ? 0.9
-                : r.confidence === "CALCULATED_RISK"
-                  ? 0.6
-                  : 0.3,
+              r.confidence === "BANKER" ? 0.9 : r.confidence === "CALCULATED_RISK" ? 0.6 : 0.3,
             confidence_label: r.confidence,
             upside_text: r.upside,
             risk_text: r.risk,
@@ -330,12 +331,7 @@ export default function CaptainPickerScreen() {
 
   if (managerLoading) {
     return (
-      <View
-        style={[
-          styles.center,
-          { backgroundColor: colors.background, paddingTop: insets.top },
-        ]}
-      >
+      <View style={[styles.center, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
@@ -343,12 +339,7 @@ export default function CaptainPickerScreen() {
 
   if (!managerId) {
     return (
-      <View
-        style={[
-          styles.center,
-          { backgroundColor: colors.background, paddingTop: insets.top },
-        ]}
-      >
+      <View style={[styles.center, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <Feather name="link" size={40} color={colors.mutedForeground} />
         <Text style={[styles.connectPrompt, { color: colors.foreground }]}>
           Connect your FPL account in Settings to use the Captain Picker.
@@ -359,12 +350,7 @@ export default function CaptainPickerScreen() {
 
   if (isLoading) {
     return (
-      <View
-        style={[
-          styles.center,
-          { backgroundColor: colors.background, paddingTop: insets.top },
-        ]}
-      >
+      <View style={[styles.center, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color={colors.accent} />
         <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
           Loading your squad...
@@ -375,12 +361,7 @@ export default function CaptainPickerScreen() {
 
   if (hasError) {
     return (
-      <View
-        style={[
-          styles.center,
-          { backgroundColor: colors.background, paddingTop: insets.top },
-        ]}
-      >
+      <View style={[styles.center, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <Text style={[styles.errorText, { color: colors.destructive }]}>
           Could not load squad data. Check your connection and try again.
         </Text>
@@ -390,15 +371,11 @@ export default function CaptainPickerScreen() {
 
   if (candidateData?.seasonNotStarted) {
     return (
-      <View
-        style={[
-          styles.center,
-          { backgroundColor: colors.background, paddingTop: insets.top },
-        ]}
-      >
+      <View style={[styles.center, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <Feather name="calendar" size={40} color={colors.mutedForeground} />
         <Text style={[styles.connectPrompt, { color: colors.foreground }]}>
-          The FPL season hasn't started yet. Captain recommendations will be available once GW1 begins.
+          The FPL season hasn't started yet. Captain recommendations will be available once GW1
+          begins.
         </Text>
       </View>
     );
@@ -406,15 +383,11 @@ export default function CaptainPickerScreen() {
 
   if (candidateData?.noSquadData || (candidateData && candidateData.candidates.length === 0)) {
     return (
-      <View
-        style={[
-          styles.center,
-          { backgroundColor: colors.background, paddingTop: insets.top },
-        ]}
-      >
+      <View style={[styles.center, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <Feather name="alert-circle" size={40} color={colors.mutedForeground} />
         <Text style={[styles.connectPrompt, { color: colors.foreground }]}>
-          No squad data found for this season. Make sure you've entered your current FPL Manager ID in Settings.
+          No squad data found for this season. Make sure you've entered your current FPL Manager ID
+          in Settings.
         </Text>
       </View>
     );
@@ -432,19 +405,20 @@ export default function CaptainPickerScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.title, { color: colors.foreground }]}>
-          Captain Picker
-        </Text>
+        <Text style={[styles.title, { color: colors.foreground }]} accessibilityRole="header">Captain Picker</Text>
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-          GW{candidateData?.gameweek ?? "?"} ·{" "}
-          {candidateData?.candidates.length ?? 0} players
+          GW{candidateData?.gameweek ?? "?"} · {candidateData?.candidates.length ?? 0} players
         </Text>
 
         {candidateData?.deadlinePassed && (
           <View style={[styles.banner, { backgroundColor: "#f59e0b20", borderColor: "#f59e0b" }]}>
             <Feather name="clock" size={16} color="#f59e0b" />
             <Text style={[styles.bannerText, { color: "#f59e0b" }]}>
-              Deadline has passed{candidateData.currentCaptain ? ` — your captain is ${candidateData.currentCaptain}` : ""}. Showing picks for the next gameweek.
+              Deadline has passed
+              {candidateData.currentCaptain
+                ? ` — your captain is ${candidateData.currentCaptain}`
+                : ""}
+              . Showing picks for the next gameweek.
             </Text>
           </View>
         )}
@@ -453,11 +427,15 @@ export default function CaptainPickerScreen() {
           <View style={[styles.banner, { backgroundColor: "#8b5cf620", borderColor: "#8b5cf6" }]}>
             <Feather name="zap" size={16} color="#8b5cf6" />
             <Text style={[styles.bannerText, { color: "#8b5cf6" }]}>
-              {candidateData.activeChip === "3xc" ? "Triple Captain active — your captain earns 3x points!" :
-               candidateData.activeChip === "bboost" ? "Bench Boost active — all 15 players score this week" :
-               candidateData.activeChip === "wildcard" ? "Wildcard active" :
-               candidateData.activeChip === "freehit" ? "Free Hit active" :
-               `${candidateData.activeChip} chip active`}
+              {candidateData.activeChip === "3xc"
+                ? "Triple Captain active — your captain earns 3x points!"
+                : candidateData.activeChip === "bboost"
+                  ? "Bench Boost active — all 15 players score this week"
+                  : candidateData.activeChip === "wildcard"
+                    ? "Wildcard active"
+                    : candidateData.activeChip === "freehit"
+                      ? "Free Hit active"
+                      : `${candidateData.activeChip} chip active`}
             </Text>
           </View>
         )}
@@ -483,57 +461,53 @@ export default function CaptainPickerScreen() {
         {!recommendations && !aiLoading && (
           <Pressable
             onPress={requestPicks}
+            accessibilityLabel="Get captain recommendations"
+            accessibilityRole="button"
             style={[styles.generateButton, { backgroundColor: colors.accent }]}
           >
-            <Text
-              style={[styles.generateButtonText, { color: colors.primary }]}
-            >
+            <Text style={[styles.generateButtonText, { color: colors.primary }]}>
               Get Captain Recommendations
             </Text>
           </Pressable>
         )}
 
         {aiLoading && (
-          <ProgressLoadingIndicator
-            vibe={vibe}
-            currentStage={loadingStage}
-            variant="captain"
-          />
+          <ProgressLoadingIndicator vibe={vibe} currentStage={loadingStage} variant="captain" />
         )}
 
         {aiError && (
           <View style={styles.errorContainer}>
-            <Text style={[styles.errorText, { color: colors.destructive }]}>
-              {aiError}
-            </Text>
+            <Text style={[styles.errorText, { color: colors.destructive }]}>{aiError}</Text>
             <Pressable
               onPress={requestPicks}
+              accessibilityLabel="Try again"
+              accessibilityRole="button"
               style={[styles.retryButton, { borderColor: colors.accent }]}
             >
-              <Text style={[styles.retryText, { color: colors.accent }]}>
-                Try Again
-              </Text>
+              <Text style={[styles.retryText, { color: colors.accent }]}>Try Again</Text>
             </Pressable>
           </View>
         )}
 
         {recommendations && (
           <>
-            {!coachingDismissed && !showGraduation && (() => {
-              const lesson = beginner.getNextLesson("captain");
-              if (!lesson) return null;
-              return (
-                <CoachingCard
-                  headline={lesson.headline}
-                  body={lesson.content[vibe]}
-                  onDismiss={async () => {
-                    const isGraduating = await beginner.dismissLesson(lesson.key);
-                    setCoachingDismissed(true);
-                    if (isGraduating) setShowGraduation(true);
-                  }}
-                />
-              );
-            })()}
+            {!coachingDismissed &&
+              !showGraduation &&
+              (() => {
+                const lesson = beginner.getNextLesson("captain");
+                if (!lesson) return null;
+                return (
+                  <CoachingCard
+                    headline={lesson.headline}
+                    body={lesson.content[vibe]}
+                    onDismiss={async () => {
+                      const isGraduating = await beginner.dismissLesson(lesson.key);
+                      setCoachingDismissed(true);
+                      if (isGraduating) setShowGraduation(true);
+                    }}
+                  />
+                );
+              })()}
 
             {showGraduation && (
               <CoachingCard
@@ -581,7 +555,12 @@ export default function CaptainPickerScreen() {
             <Pressable
               onPress={() => requestPicks(true)}
               disabled={regenCooldown > 0}
-              style={[styles.regenerateButton, { borderColor: colors.border, opacity: regenCooldown > 0 ? 0.5 : 1 }]}
+              accessibilityLabel="Regenerate recommendations"
+              accessibilityRole="button"
+              style={[
+                styles.regenerateButton,
+                { borderColor: colors.border, opacity: regenCooldown > 0 ? 0.5 : 1 },
+              ]}
             >
               <Text style={[styles.regenerateText, { color: colors.mutedForeground }]}>
                 {regenCooldown > 0 ? `Regenerate (${regenCooldown}s)` : "Regenerate"}
@@ -597,11 +576,7 @@ export default function CaptainPickerScreen() {
       </ScrollView>
 
       <Paywall visible={showPaywall} onClose={() => setShowPaywall(false)} />
-      <PulseCheck
-        gameweek={gameweek}
-        visible={showPulse}
-        onDismiss={() => setShowPulse(false)}
-      />
+      <PulseCheck gameweek={gameweek} visible={showPulse} onDismiss={() => setShowPulse(false)} />
     </View>
   );
 }

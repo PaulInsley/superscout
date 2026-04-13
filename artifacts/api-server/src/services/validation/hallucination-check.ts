@@ -85,10 +85,7 @@ function normalize(name: string): string {
     .trim();
 }
 
-function fuzzyPlayerMatch(
-  name: string,
-  players: FPLPlayer[],
-): FPLPlayer | null {
+function fuzzyPlayerMatch(name: string, players: FPLPlayer[]): FPLPlayer | null {
   if (!name) return null;
   const norm = normalize(name);
 
@@ -114,9 +111,7 @@ function fuzzyPlayerMatch(
   if (normTokens.length >= 1) {
     const lastToken = normTokens[normTokens.length - 1];
     if (lastToken.length >= 3) {
-      const matches = players.filter(
-        (p) => normalize(p.second_name) === lastToken,
-      );
+      const matches = players.filter((p) => normalize(p.second_name) === lastToken);
       if (matches.length === 1) return matches[0];
     }
   }
@@ -124,10 +119,7 @@ function fuzzyPlayerMatch(
   return null;
 }
 
-function fuzzyTeamMatch(
-  name: string,
-  teams: FPLTeam[],
-): FPLTeam | null {
+function fuzzyTeamMatch(name: string, teams: FPLTeam[]): FPLTeam | null {
   if (!name) return null;
   const norm = normalize(name);
 
@@ -173,9 +165,7 @@ function verifyFixture(
   const team = fuzzyTeamMatch(teamName, ctx.teams);
   if (!team) return { valid: false };
 
-  const opponentMatch = opponentStr.match(
-    /^(.+?)\s*\(([HA])\)\s*$/i,
-  );
+  const opponentMatch = opponentStr.match(/^(.+?)\s*\(([HA])\)\s*$/i);
   const opponentName = opponentMatch ? opponentMatch[1].trim() : opponentStr;
   const claimedVenue = opponentMatch ? opponentMatch[2].toUpperCase() : null;
 
@@ -243,8 +233,13 @@ export function checkCaptainHallucinations(
       const actualTeam = ctx.teams.find((t) => t.id === player.team);
       if (actualTeam) {
         result.correctedCount++;
-        result.warnings.push(`Player "${playerName}" is on ${actualTeam.short_name}, not ${teamName} — corrected`);
-        ctx.logger?.warn({ playerName, claimed: teamName, actual: actualTeam.short_name }, "Hallucination: player-team mismatch corrected");
+        result.warnings.push(
+          `Player "${playerName}" is on ${actualTeam.short_name}, not ${teamName} — corrected`,
+        );
+        ctx.logger?.warn(
+          { playerName, claimed: teamName, actual: actualTeam.short_name },
+          "Hallucination: player-team mismatch corrected",
+        );
         rec.team = actualTeam.short_name;
       }
     }
@@ -253,8 +248,13 @@ export function checkCaptainHallucinations(
       const actualTeamName = String(rec.team);
       const fixtureCheck = verifyFixture(actualTeamName, String(rec.opponent), ctx);
       if (!fixtureCheck.valid) {
-        result.warnings.push(`Fixture "${actualTeamName} vs ${rec.opponent}" not found in upcoming GWs — correcting`);
-        ctx.logger?.warn({ teamName: actualTeamName, opponent: rec.opponent }, "Hallucination: fixture mismatch");
+        result.warnings.push(
+          `Fixture "${actualTeamName} vs ${rec.opponent}" not found in upcoming GWs — correcting`,
+        );
+        ctx.logger?.warn(
+          { teamName: actualTeamName, opponent: rec.opponent },
+          "Hallucination: fixture mismatch",
+        );
         const gwFixtures = ctx.fixtures.filter(
           (f) => f.event === ctx.gameweek && (f.team_h === player.team || f.team_a === player.team),
         );
@@ -279,19 +279,40 @@ export function checkCaptainHallucinations(
       for (const change of rec.lineup_changes as Array<Record<string, unknown>>) {
         const playerInName = String(change.player_in ?? "");
         const playerOutName = String(change.player_out ?? "");
-        const playersToCheck = ctx.squadPlayerNames ? ctx.players.filter(
-          (p) => ctx.squadPlayerNames!.has(normalize(p.second_name)) || ctx.squadPlayerNames!.has(normalize(p.web_name))
-        ) : ctx.players;
-        const playerIn = playerInName ? fuzzyPlayerMatch(playerInName, playersToCheck.length > 0 ? playersToCheck : ctx.players) : null;
-        const playerOut = playerOutName ? fuzzyPlayerMatch(playerOutName, playersToCheck.length > 0 ? playersToCheck : ctx.players) : null;
+        const playersToCheck = ctx.squadPlayerNames
+          ? ctx.players.filter(
+              (p) =>
+                ctx.squadPlayerNames!.has(normalize(p.second_name)) ||
+                ctx.squadPlayerNames!.has(normalize(p.web_name)),
+            )
+          : ctx.players;
+        const playerIn = playerInName
+          ? fuzzyPlayerMatch(playerInName, playersToCheck.length > 0 ? playersToCheck : ctx.players)
+          : null;
+        const playerOut = playerOutName
+          ? fuzzyPlayerMatch(
+              playerOutName,
+              playersToCheck.length > 0 ? playersToCheck : ctx.players,
+            )
+          : null;
         if (!playerIn && playerInName) {
-          result.warnings.push(`Lineup change player_in "${playerInName}" not found in squad — removed change`);
-          ctx.logger?.warn({ playerInName, playerName }, "Hallucination: lineup_changes player_in not in squad");
+          result.warnings.push(
+            `Lineup change player_in "${playerInName}" not found in squad — removed change`,
+          );
+          ctx.logger?.warn(
+            { playerInName, playerName },
+            "Hallucination: lineup_changes player_in not in squad",
+          );
           continue;
         }
         if (!playerOut && playerOutName) {
-          result.warnings.push(`Lineup change player_out "${playerOutName}" not found in squad — removed change`);
-          ctx.logger?.warn({ playerOutName, playerName }, "Hallucination: lineup_changes player_out not in squad");
+          result.warnings.push(
+            `Lineup change player_out "${playerOutName}" not found in squad — removed change`,
+          );
+          ctx.logger?.warn(
+            { playerOutName, playerName },
+            "Hallucination: lineup_changes player_out not in squad",
+          );
           continue;
         }
         validChanges.push(change);
@@ -314,7 +335,10 @@ export function checkCaptainHallucinations(
     const statClaims = extractStatClaims(allText);
     if (statClaims.length > 0) {
       result.flaggedStats.push(...statClaims.map((s) => `[${playerName}] ${s}`));
-      ctx.logger?.info({ playerName, statClaims }, "Hallucination check: stat claims flagged for review");
+      ctx.logger?.info(
+        { playerName, statClaims },
+        "Hallucination check: stat claims flagged for review",
+      );
     }
 
     filtered.push(rec);
@@ -336,11 +360,7 @@ export function checkTransferHallucinations(
 
   const filtered: TransferRecommendation[] = [];
 
-  function checkPlayerAndTeam(
-    playerName: string,
-    teamName: string,
-    label: string,
-  ): boolean {
+  function checkPlayerAndTeam(playerName: string, teamName: string, label: string): boolean {
     if (!playerName) return true;
 
     const player = fuzzyPlayerMatch(playerName, ctx.players);
@@ -362,8 +382,13 @@ export function checkTransferHallucinations(
         const actualTeam = ctx.teams.find((t) => t.id === player.team);
         if (actualTeam) {
           result.correctedCount++;
-          result.warnings.push(`${label} "${playerName}" is on ${actualTeam.short_name}, not ${teamName} — corrected`);
-          ctx.logger?.warn({ playerName, claimed: teamName, actual: actualTeam.short_name, label }, "Hallucination: transfer player-team mismatch corrected");
+          result.warnings.push(
+            `${label} "${playerName}" is on ${actualTeam.short_name}, not ${teamName} — corrected`,
+          );
+          ctx.logger?.warn(
+            { playerName, claimed: teamName, actual: actualTeam.short_name, label },
+            "Hallucination: transfer player-team mismatch corrected",
+          );
           return { correctedTeam: actualTeam.short_name };
         }
       }
@@ -387,16 +412,24 @@ export function checkTransferHallucinations(
           String(swap.player_out_team ?? ""),
           "Package player_out",
         );
-        if (outOk === false) { valid = false; break; }
-        if (typeof outOk === "object" && outOk.correctedTeam) swap.player_out_team = outOk.correctedTeam;
+        if (outOk === false) {
+          valid = false;
+          break;
+        }
+        if (typeof outOk === "object" && outOk.correctedTeam)
+          swap.player_out_team = outOk.correctedTeam;
 
         const inOk = checkPlayerAndTeam(
           String(swap.player_in ?? ""),
           String(swap.player_in_team ?? ""),
           "Package player_in",
         );
-        if (inOk === false) { valid = false; break; }
-        if (typeof inOk === "object" && inOk.correctedTeam) swap.player_in_team = inOk.correctedTeam;
+        if (inOk === false) {
+          valid = false;
+          break;
+        }
+        if (typeof inOk === "object" && inOk.correctedTeam)
+          swap.player_in_team = inOk.correctedTeam;
       }
     } else {
       const outOk = checkPlayerAndTeam(
@@ -405,7 +438,8 @@ export function checkTransferHallucinations(
         "player_out",
       );
       if (outOk === false) valid = false;
-      else if (typeof outOk === "object" && outOk.correctedTeam) rec.player_out_team = outOk.correctedTeam;
+      else if (typeof outOk === "object" && outOk.correctedTeam)
+        rec.player_out_team = outOk.correctedTeam;
 
       const inOk = checkPlayerAndTeam(
         String(rec.player_in ?? ""),
@@ -413,7 +447,8 @@ export function checkTransferHallucinations(
         "player_in",
       );
       if (inOk === false) valid = false;
-      else if (typeof inOk === "object" && inOk.correctedTeam) rec.player_in_team = inOk.correctedTeam;
+      else if (typeof inOk === "object" && inOk.correctedTeam)
+        rec.player_in_team = inOk.correctedTeam;
     }
 
     if (!valid) {
@@ -428,7 +463,10 @@ export function checkTransferHallucinations(
         ? String((rec as Record<string, unknown>).package_name ?? "package")
         : `${rec.player_out} → ${rec.player_in}`;
       result.flaggedStats.push(...statClaims.map((s) => `[${label}] ${s}`));
-      ctx.logger?.info({ label, statClaims }, "Hallucination check: stat claims flagged for review");
+      ctx.logger?.info(
+        { label, statClaims },
+        "Hallucination check: stat claims flagged for review",
+      );
     }
 
     filtered.push(rec);

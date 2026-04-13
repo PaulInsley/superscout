@@ -27,12 +27,7 @@ interface Props {
   onSkipToMain: () => void;
 }
 
-export default function SignUpScreen({
-  managerId,
-  vibe,
-  onSignUpComplete,
-  onSkipToMain,
-}: Props) {
+export default function SignUpScreen({ managerId, vibe, onSignUpComplete, onSkipToMain }: Props) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [isSignIn, setIsSignIn] = useState(false);
@@ -155,147 +150,151 @@ export default function SignUpScreen({
                 setError(null);
                 setPassword("");
               }}
+              accessibilityLabel="Sign in"
+              accessibilityRole="button"
             >
-              <Text style={[styles.submitText, { color: colors.primary }]}>
-                Sign In
-              </Text>
+              <Text style={[styles.submitText, { color: colors.primary }]}>Sign In</Text>
             </Pressable>
           </View>
         ) : (
-        <>
-        <View style={styles.headerArea}>
-          <Feather name="shield" size={40} color={colors.accent} />
-          <Text style={[styles.title, { color: colors.primaryForeground }]}>
-            {isSignIn ? "Welcome back" : "Create your account"}
-          </Text>
-          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            {isSignIn
-              ? "Sign in to access your saved data"
-              : "Your decisions, streaks, and reports stay with you"}
-          </Text>
-        </View>
-
-        <View style={styles.form}>
-          <View style={styles.inputContainer}>
-            <Text style={[styles.label, { color: colors.mutedForeground }]}>
-              Email
-            </Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  color: colors.foreground,
-                  backgroundColor: colors.card,
-                  borderColor: email && !isValidEmail ? "#ef4444" : colors.border,
-                },
-              ]}
-              placeholder="you@example.com"
-              placeholderTextColor={colors.mutedForeground}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              value={email}
-              onChangeText={setEmail}
-              editable={!loading}
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={[styles.label, { color: colors.mutedForeground }]}>
-              Password
-            </Text>
-            <View style={styles.passwordRow}>
-              <TextInput
-                style={[
-                  styles.input,
-                  styles.passwordInput,
-                  {
-                    color: colors.foreground,
-                    backgroundColor: colors.card,
-                    borderColor:
-                      password && !isValidPassword ? "#ef4444" : colors.border,
-                  },
-                ]}
-                placeholder="Min 8 characters"
-                placeholderTextColor={colors.mutedForeground}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                value={password}
-                onChangeText={setPassword}
-                editable={!loading}
-              />
-              <Pressable
-                onPress={() => setShowPassword(!showPassword)}
-                style={styles.eyeButton}
-                hitSlop={8}
-              >
-                <Feather
-                  name={showPassword ? "eye-off" : "eye"}
-                  size={18}
-                  color={colors.mutedForeground}
-                />
-              </Pressable>
-            </View>
-            {password.length > 0 && password.length < 8 && (
-              <Text style={styles.hint}>At least 8 characters</Text>
-            )}
-          </View>
-
-          {error && (
-            <View style={styles.errorBox}>
-              <Feather name="alert-circle" size={14} color="#ef4444" />
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          )}
-
-          <Pressable
-            style={[
-              styles.submitButton,
-              { backgroundColor: canSubmit ? colors.accent : colors.border },
-            ]}
-            onPress={handleSubmit}
-            disabled={!canSubmit}
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color={colors.primary} />
-            ) : (
-              <Text
-                style={[
-                  styles.submitText,
-                  { color: canSubmit ? colors.primary : colors.mutedForeground },
-                ]}
-              >
-                {isSignIn ? "Sign In" : "Create Account"}
+          <>
+            <View style={styles.headerArea}>
+              <Feather name="shield" size={40} color={colors.accent} />
+              <Text style={[styles.title, { color: colors.primaryForeground }]}>
+                {isSignIn ? "Welcome back" : "Create your account"}
               </Text>
-            )}
-          </Pressable>
+              <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+                {isSignIn
+                  ? "Sign in to access your saved data"
+                  : "Your decisions, streaks, and reports stay with you"}
+              </Text>
+            </View>
 
-          {isSignIn && (
-            <Pressable onPress={handleResetPassword} disabled={resetLoading || !isValidEmail}>
-              <Text style={[styles.forgotText, { color: isValidEmail ? colors.accent : colors.mutedForeground }]}>
-                {resetLoading ? "Sending..." : "Forgot password?"}
+            <View style={styles.form}>
+              <View style={styles.inputContainer}>
+                <Text style={[styles.label, { color: colors.mutedForeground }]}>Email</Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      color: colors.foreground,
+                      backgroundColor: colors.card,
+                      borderColor: email && !isValidEmail ? "#ef4444" : colors.border,
+                    },
+                  ]}
+                  placeholder="you@example.com"
+                  placeholderTextColor={colors.mutedForeground}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  value={email}
+                  onChangeText={setEmail}
+                  editable={!loading}
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={[styles.label, { color: colors.mutedForeground }]}>Password</Text>
+                <View style={styles.passwordRow}>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      styles.passwordInput,
+                      {
+                        color: colors.foreground,
+                        backgroundColor: colors.card,
+                        borderColor: password && !isValidPassword ? "#ef4444" : colors.border,
+                      },
+                    ]}
+                    placeholder="Min 8 characters"
+                    placeholderTextColor={colors.mutedForeground}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    value={password}
+                    onChangeText={setPassword}
+                    editable={!loading}
+                  />
+                  <Pressable
+                    onPress={() => setShowPassword(!showPassword)}
+                    style={styles.eyeButton}
+                    hitSlop={8}
+                    accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+                    accessibilityRole="button"
+                  >
+                    <Feather
+                      name={showPassword ? "eye-off" : "eye"}
+                      size={18}
+                      color={colors.mutedForeground}
+                    />
+                  </Pressable>
+                </View>
+                {password.length > 0 && password.length < 8 && (
+                  <Text style={styles.hint}>At least 8 characters</Text>
+                )}
+              </View>
+
+              {error && (
+                <View style={styles.errorBox}>
+                  <Feather name="alert-circle" size={14} color="#ef4444" />
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              )}
+
+              <Pressable
+                style={[
+                  styles.submitButton,
+                  { backgroundColor: canSubmit ? colors.accent : colors.border },
+                ]}
+                onPress={handleSubmit}
+                disabled={!canSubmit}
+                accessibilityLabel={isSignIn ? "Sign in" : "Create account"}
+                accessibilityRole="button"
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <Text
+                    style={[
+                      styles.submitText,
+                      { color: canSubmit ? colors.primary : colors.mutedForeground },
+                    ]}
+                  >
+                    {isSignIn ? "Sign In" : "Create Account"}
+                  </Text>
+                )}
+              </Pressable>
+
+              {isSignIn && (
+                <Pressable onPress={handleResetPassword} disabled={resetLoading || !isValidEmail} accessibilityLabel="Forgot password" accessibilityRole="button">
+                  <Text
+                    style={[
+                      styles.forgotText,
+                      { color: isValidEmail ? colors.accent : colors.mutedForeground },
+                    ]}
+                  >
+                    {resetLoading ? "Sending..." : "Forgot password?"}
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+
+            <Pressable
+              onPress={() => {
+                setIsSignIn(!isSignIn);
+                setError(null);
+              }}
+              style={styles.toggleRow}
+              accessibilityLabel={isSignIn ? "Switch to sign up" : "Switch to sign in"}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.toggleText, { color: colors.mutedForeground }]}>
+                {isSignIn ? "Don't have an account? " : "Already have an account? "}
+              </Text>
+              <Text style={[styles.toggleLink, { color: colors.accent }]}>
+                {isSignIn ? "Sign Up" : "Sign In"}
               </Text>
             </Pressable>
-          )}
-        </View>
-
-        <Pressable
-          onPress={() => {
-            setIsSignIn(!isSignIn);
-            setError(null);
-          }}
-          style={styles.toggleRow}
-        >
-          <Text style={[styles.toggleText, { color: colors.mutedForeground }]}>
-            {isSignIn
-              ? "Don't have an account? "
-              : "Already have an account? "}
-          </Text>
-          <Text style={[styles.toggleLink, { color: colors.accent }]}>
-            {isSignIn ? "Sign Up" : "Sign In"}
-          </Text>
-        </Pressable>
-        </>
+          </>
         )}
       </View>
     </KeyboardAvoidingView>

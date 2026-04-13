@@ -10,10 +10,7 @@ const VIBE_NAMES: Record<Vibe, string> = {
   fanboy: "Fanboy",
 };
 
-const STAGE_MESSAGES: Record<
-  string,
-  Record<Vibe, string>
-> = {
+const STAGE_MESSAGES: Record<string, Record<Vibe, string>> = {
   squad: {
     expert: "Pulling your latest squad data from the FPL servers...",
     critic: "Let's have a look at what you're working with...",
@@ -141,7 +138,8 @@ export default function ProgressLoadingIndicator({
   variant = "transfer",
 }: Props) {
   const colors = useColors();
-  const stages = variant === "banter" ? BANTER_STAGES : variant === "captain" ? CAPTAIN_STAGES : TRANSFER_STAGES;
+  const stages =
+    variant === "banter" ? BANTER_STAGES : variant === "captain" ? CAPTAIN_STAGES : TRANSFER_STAGES;
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const widthAnim = useRef(new Animated.Value(0)).current;
   const [prevStage, setPrevStage] = useState(currentStage);
@@ -179,9 +177,7 @@ export default function ProgressLoadingIndicator({
     }
   }, [currentStage, prevStage]);
 
-  const stageMessage =
-    STAGE_MESSAGES[currentStage]?.[vibe] ??
-    STAGE_MESSAGES.ai[vibe];
+  const stageMessage = STAGE_MESSAGES[currentStage]?.[vibe] ?? STAGE_MESSAGES.ai[vibe];
 
   const vibeName = VIBE_NAMES[vibe];
   const stageLabel =
@@ -197,26 +193,17 @@ export default function ProgressLoadingIndicator({
   return (
     <View style={styles.container}>
       <View style={styles.stageRow}>
-        <Text style={[styles.stageLabel, { color: colors.foreground }]}>
-          {stageLabel}
-        </Text>
+        <Text style={[styles.stageLabel, { color: colors.foreground }]}>{stageLabel}</Text>
       </View>
 
-      <View
-        style={[styles.barTrack, { backgroundColor: colors.border }]}
-      >
+      <View style={[styles.barTrack, { backgroundColor: colors.border }]}>
         <Animated.View
-          style={[
-            styles.barFill,
-            { backgroundColor: colors.accent, width: barWidth },
-          ]}
+          style={[styles.barFill, { backgroundColor: colors.accent, width: barWidth }]}
         />
       </View>
 
       <Animated.View style={{ opacity: fadeAnim }}>
-        <Text style={[styles.vibeMessage, { color: colors.mutedForeground }]}>
-          {stageMessage}
-        </Text>
+        <Text style={[styles.vibeMessage, { color: colors.mutedForeground }]}>{stageMessage}</Text>
       </Animated.View>
     </View>
   );

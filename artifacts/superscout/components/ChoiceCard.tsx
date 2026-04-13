@@ -20,7 +20,11 @@ const CONFIDENCE_CONFIG: Record<string, { label: string; color: string }> = {
   BOLD_PUNT: { label: "Bold Punt", color: "#f97316" },
 };
 
-export default function ChoiceCard({ recommendation, isBeginner = false, vibe = "expert" }: ChoiceCardProps) {
+export default function ChoiceCard({
+  recommendation,
+  isBeginner = false,
+  vibe = "expert",
+}: ChoiceCardProps) {
   const colors = useColors();
   const isSuperScoutPick = recommendation.is_superscout_pick;
   const [expanded, setExpanded] = useState(isSuperScoutPick);
@@ -28,10 +32,11 @@ export default function ChoiceCard({ recommendation, isBeginner = false, vibe = 
     label: recommendation.confidence,
     color: colors.mutedForeground,
   };
-  const hasLineupChanges = recommendation.lineup_changes && recommendation.lineup_changes.length > 0;
+  const hasLineupChanges =
+    recommendation.lineup_changes && recommendation.lineup_changes.length > 0;
 
   return (
-    <Pressable onPress={() => setExpanded((prev) => !prev)}>
+    <Pressable onPress={() => setExpanded((prev) => !prev)} accessibilityLabel={expanded ? "Show less details" : "Show more details"} accessibilityRole="button">
       <View
         style={[
           styles.card,
@@ -44,23 +49,23 @@ export default function ChoiceCard({ recommendation, isBeginner = false, vibe = 
       >
         {isSuperScoutPick && (
           <View style={[styles.badge, { backgroundColor: colors.accent }]}>
-            <Text style={[styles.badgeText, { color: colors.primary }]}>
-              SuperScout Pick
-            </Text>
+            <Text style={[styles.badgeText, { color: colors.primary }]}>SuperScout Pick</Text>
           </View>
         )}
 
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
             <View style={styles.nameRow}>
-              <Text
-                style={[styles.playerName, { color: colors.foreground }]}
-                numberOfLines={1}
-              >
+              <Text style={[styles.playerName, { color: colors.foreground }]} numberOfLines={1}>
                 {recommendation.player_name}
               </Text>
               {recommendation.is_on_bench && (
-                <View style={[styles.benchBadge, { backgroundColor: "#f59e0b20", borderColor: "#f59e0b" }]}>
+                <View
+                  style={[
+                    styles.benchBadge,
+                    { backgroundColor: "#f59e0b20", borderColor: "#f59e0b" },
+                  ]}
+                >
                   <Text style={[styles.benchBadgeText, { color: "#f59e0b" }]}>BENCH</Text>
                 </View>
               )}
@@ -70,21 +75,14 @@ export default function ChoiceCard({ recommendation, isBeginner = false, vibe = 
             </Text>
             <View style={styles.inlineRow}>
               <FixtureTicker teamShortName={recommendation.team} />
-              <ExplainIcon
-                tipText={EXPLAIN_TIPS.fixtures[vibe]}
-                isBeginner={isBeginner}
-              />
+              <ExplainIcon tipText={EXPLAIN_TIPS.fixtures[vibe]} isBeginner={isBeginner} />
             </View>
           </View>
           <View style={styles.pointsContainer}>
             <Text style={[styles.expectedPoints, { color: colors.accent }]}>
               {recommendation.expected_points.toFixed(1)}
             </Text>
-            <Text
-              style={[styles.pointsLabel, { color: colors.mutedForeground }]}
-            >
-              exp pts
-            </Text>
+            <Text style={[styles.pointsLabel, { color: colors.mutedForeground }]}>exp pts</Text>
           </View>
         </View>
 
@@ -96,14 +94,9 @@ export default function ChoiceCard({ recommendation, isBeginner = false, vibe = 
                 { backgroundColor: conf.color + "20", borderColor: conf.color },
               ]}
             >
-              <Text style={[styles.confidenceText, { color: conf.color }]}>
-                {conf.label}
-              </Text>
+              <Text style={[styles.confidenceText, { color: conf.color }]}>{conf.label}</Text>
             </View>
-            <ExplainIcon
-              tipText={EXPLAIN_TIPS.confidence[vibe]}
-              isBeginner={isBeginner}
-            />
+            <ExplainIcon tipText={EXPLAIN_TIPS.confidence[vibe]} isBeginner={isBeginner} />
           </View>
           <Text style={[styles.ownership, { color: colors.mutedForeground }]}>
             {recommendation.ownership_pct.toFixed(1)}% owned
@@ -118,18 +111,13 @@ export default function ChoiceCard({ recommendation, isBeginner = false, vibe = 
                 ownershipContext={recommendation.ownership_context}
               />
             </View>
-            <ExplainIcon
-              tipText={EXPLAIN_TIPS.ownership[vibe]}
-              isBeginner={isBeginner}
-            />
+            <ExplainIcon tipText={EXPLAIN_TIPS.ownership[vibe]} isBeginner={isBeginner} />
           </View>
         ) : null}
 
         <View style={styles.reasoningContainer}>
           <View style={styles.reasonRow}>
-            <Text style={[styles.reasonLabel, { color: "#22c55e" }]}>
-              Upside
-            </Text>
+            <Text style={[styles.reasonLabel, { color: "#22c55e" }]}>Upside</Text>
             <Text
               style={[styles.reasonText, { color: colors.foreground }]}
               numberOfLines={expanded ? undefined : 2}
@@ -149,12 +137,15 @@ export default function ChoiceCard({ recommendation, isBeginner = false, vibe = 
         </View>
 
         {hasLineupChanges && (
-          <View style={[styles.lineupContainer, { backgroundColor: "#8b5cf610", borderColor: "#8b5cf640" }]}>
+          <View
+            style={[
+              styles.lineupContainer,
+              { backgroundColor: "#8b5cf610", borderColor: "#8b5cf640" },
+            ]}
+          >
             <View style={styles.lineupHeader}>
               <Feather name="shuffle" size={13} color="#8b5cf6" />
-              <Text style={[styles.lineupTitle, { color: "#8b5cf6" }]}>
-                Lineup Changes
-              </Text>
+              <Text style={[styles.lineupTitle, { color: "#8b5cf6" }]}>Lineup Changes</Text>
             </View>
             {recommendation.lineup_changes!.map((change, idx) => (
               <View key={idx} style={styles.lineupSwap}>
@@ -183,17 +174,9 @@ export default function ChoiceCard({ recommendation, isBeginner = false, vibe = 
           </View>
         )}
 
-        <View
-          style={[
-            styles.caseContainer,
-            { backgroundColor: colors.primary + "15" },
-          ]}
-        >
+        <View style={[styles.caseContainer, { backgroundColor: colors.primary + "15" }]}>
           <Text
-            style={[
-              styles.caseText,
-              { color: colors.foreground, fontStyle: "italic" },
-            ]}
+            style={[styles.caseText, { color: colors.foreground, fontStyle: "italic" }]}
             numberOfLines={expanded ? undefined : 2}
           >
             "{recommendation.case}"

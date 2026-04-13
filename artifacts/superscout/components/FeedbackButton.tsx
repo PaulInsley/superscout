@@ -27,13 +27,7 @@ interface FeedbackButtonProps {
   accentColor?: string;
 }
 
-export function FeedbackModal({
-  visible,
-  onClose,
-}: {
-  visible: boolean;
-  onClose: () => void;
-}) {
+export function FeedbackModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const [category, setCategory] = useState<Category>("bug");
   const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -44,7 +38,10 @@ export function FeedbackModal({
     setSubmitting(true);
     try {
       const userId = await getAuthenticatedUserId();
-      if (!userId) { setSubmitting(false); return; }
+      if (!userId) {
+        setSubmitting(false);
+        return;
+      }
 
       await supabase.from("feedback_responses").insert({
         user_id: userId,
@@ -75,17 +72,12 @@ export function FeedbackModal({
   }, [onClose, submitted]);
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={handleClose}
-    >
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.overlay}
       >
-        <Pressable style={styles.backdrop} onPress={handleClose} />
+        <Pressable style={styles.backdrop} onPress={handleClose} accessibilityLabel="Close feedback" accessibilityRole="button" />
         <View style={styles.modal}>
           {submitted ? (
             <View style={styles.successContainer}>
@@ -98,7 +90,7 @@ export function FeedbackModal({
             <>
               <View style={styles.header}>
                 <Text style={styles.title}>Send Feedback</Text>
-                <Pressable onPress={handleClose} hitSlop={12}>
+                <Pressable onPress={handleClose} hitSlop={12} accessibilityLabel="Close feedback" accessibilityRole="button">
                   <Feather name="x" size={22} color="#888" />
                 </Pressable>
               </View>
@@ -109,10 +101,9 @@ export function FeedbackModal({
                   <Pressable
                     key={cat.key}
                     onPress={() => setCategory(cat.key)}
-                    style={[
-                      styles.categoryChip,
-                      category === cat.key && styles.categoryChipActive,
-                    ]}
+                    accessibilityLabel={`Select ${cat.label} category`}
+                    accessibilityRole="button"
+                    style={[styles.categoryChip, category === cat.key && styles.categoryChipActive]}
                   >
                     <Text
                       style={[
@@ -141,16 +132,13 @@ export function FeedbackModal({
               </View>
 
               <Pressable
-                style={[
-                  styles.submitButton,
-                  !text.trim() && styles.submitDisabled,
-                ]}
+                style={[styles.submitButton, !text.trim() && styles.submitDisabled]}
                 onPress={handleSubmit}
                 disabled={!text.trim() || submitting}
+                accessibilityLabel="Submit feedback"
+                accessibilityRole="button"
               >
-                <Text style={styles.submitText}>
-                  {submitting ? "Sending..." : "Submit"}
-                </Text>
+                <Text style={styles.submitText}>{submitting ? "Sending..." : "Submit"}</Text>
               </Pressable>
             </>
           )}
@@ -160,28 +148,21 @@ export function FeedbackModal({
   );
 }
 
-export default function FeedbackButton({
-  color = "#ccc",
-  accentColor,
-}: FeedbackButtonProps) {
+export default function FeedbackButton({ color = "#ccc", accentColor }: FeedbackButtonProps) {
   const [showModal, setShowModal] = useState(false);
 
   return (
     <>
       <Pressable
         onPress={() => setShowModal(true)}
-        style={({ pressed }) => [
-          styles.iconButton,
-          { opacity: pressed ? 0.7 : 1 },
-        ]}
+        style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.7 : 1 }]}
         hitSlop={8}
+        accessibilityLabel="Send feedback"
+        accessibilityRole="button"
       >
         <Feather name="message-circle" size={20} color={accentColor ?? color} />
       </Pressable>
-      <FeedbackModal
-        visible={showModal}
-        onClose={() => setShowModal(false)}
-      />
+      <FeedbackModal visible={showModal} onClose={() => setShowModal(false)} />
     </>
   );
 }

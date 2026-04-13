@@ -1,23 +1,23 @@
 /**
  * Superscout Admin Dashboard
- * 
+ *
  * Drop this into: artifacts/api-server/src/routes/admin.ts
  * Then register in app.ts:  import adminRouter from './routes/admin';
  *                            app.use('/admin', adminRouter);
- * 
+ *
  * Set ADMIN_PASSWORD in Replit Secrets (or .env).
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
-import { createClient } from '@supabase/supabase-js';
+import { Router, Request, Response, NextFunction } from "express";
+import { createClient } from "@supabase/supabase-js";
 
 const router = Router();
 
 // ---------------------------------------------------------------------------
 // Supabase client (uses existing env vars from your api-server)
 // ---------------------------------------------------------------------------
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const supabaseUrl = process.env.SUPABASE_URL || "";
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: { persistSession: false },
 });
@@ -28,7 +28,7 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 import crypto from "crypto";
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || null;
-const COOKIE_NAME = 'ss_admin_auth';
+const COOKIE_NAME = "ss_admin_auth";
 const SESSION_MAX_AGE = 4 * 60 * 60 * 1000;
 const activeSessions = new Map<string, { authenticatedAt: number }>();
 
@@ -37,7 +37,7 @@ const LOCKOUT_MS = 15 * 60 * 1000;
 const loginAttempts = new Map<string, { count: number; lockedUntil: number }>();
 
 function getClientIp(req: Request): string {
-  return (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown';
+  return (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "unknown";
 }
 
 function isLockedOut(ip: string): { locked: boolean; remainingMs: number } {
@@ -79,13 +79,13 @@ function isAuthenticated(req: Request): boolean {
 
 function requireAuth(req: Request, res: Response, next: NextFunction): void {
   // Allow login page and login POST through
-  if (req.path === '/login' || req.path === '/api/login') {
+  if (req.path === "/login" || req.path === "/api/login") {
     return next();
   }
   if (isAuthenticated(req)) {
     return next();
   }
-  res.redirect('/api/admin/login');
+  res.redirect("/api/admin/login");
 }
 
 router.use(requireAuth);
@@ -93,13 +93,15 @@ router.use(requireAuth);
 // ---------------------------------------------------------------------------
 // Login page
 // ---------------------------------------------------------------------------
-router.get('/login', (_req: Request, res: Response) => {
+router.get("/login", (_req: Request, res: Response) => {
   res.send(loginPage());
 });
 
-router.post('/api/login', (req: Request, res: Response) => {
+router.post("/api/login", (req: Request, res: Response) => {
   if (!ADMIN_PASSWORD) {
-    res.status(503).json({ error: 'Admin panel not configured — set ADMIN_PASSWORD environment variable' });
+    res
+      .status(503)
+      .json({ error: "Admin panel not configured — set ADMIN_PASSWORD environment variable" });
     return;
   }
 
@@ -107,7 +109,12 @@ router.post('/api/login', (req: Request, res: Response) => {
   const lockout = isLockedOut(ip);
   if (lockout.locked) {
     const mins = Math.ceil(lockout.remainingMs / 60000);
-    res.status(429).json({ error: 'Too many attempts. Try again in ' + mins + ' minute' + (mins === 1 ? '' : 's') + '.' });
+    res
+      .status(429)
+      .json({
+        error:
+          "Too many attempts. Try again in " + mins + " minute" + (mins === 1 ? "" : "s") + ".",
+      });
     return;
   }
 
@@ -129,14 +136,23 @@ router.post('/api/login', (req: Request, res: Response) => {
     const record = loginAttempts.get(ip);
     const remaining = MAX_ATTEMPTS - (record?.count || 0);
     if (remaining <= 0) {
-      res.status(429).json({ error: 'Too many attempts. Locked out for 15 minutes.' });
+      res.status(429).json({ error: "Too many attempts. Locked out for 15 minutes." });
     } else {
-      res.status(401).json({ error: 'Invalid password. ' + remaining + ' attempt' + (remaining === 1 ? '' : 's') + ' remaining.' });
+      res
+        .status(401)
+        .json({
+          error:
+            "Invalid password. " +
+            remaining +
+            " attempt" +
+            (remaining === 1 ? "" : "s") +
+            " remaining.",
+        });
     }
   }
 });
 
-router.post('/api/logout', (req: Request, res: Response) => {
+router.post("/api/logout", (req: Request, res: Response) => {
   const token = req.signedCookies?.[COOKIE_NAME];
   if (token) activeSessions.delete(token);
   res.clearCookie(COOKIE_NAME);
@@ -146,14 +162,14 @@ router.post('/api/logout', (req: Request, res: Response) => {
 // ---------------------------------------------------------------------------
 // Dashboard page
 // ---------------------------------------------------------------------------
-router.get('/', (_req: Request, res: Response) => {
+router.get("/", (_req: Request, res: Response) => {
   res.send(dashboardPage());
 });
 
 // ---------------------------------------------------------------------------
 // API: Table list with row counts
 // ---------------------------------------------------------------------------
-router.get('/api/tables', async (_req: Request, res: Response) => {
+router.get("/api/tables", async (_req: Request, res: Response) => {
   try {
     const resp = await fetch(`${supabaseUrl}/rest/v1/`, {
       headers: {
@@ -168,7 +184,7 @@ router.get('/api/tables', async (_req: Request, res: Response) => {
     for (const table of tables.sort()) {
       const { count, error } = await supabase
         .from(table)
-        .select('*', { count: 'exact', head: true });
+        .select("*", { count: "exact", head: true });
       results.push({
         name: table,
         count: error ? -1 : count,
@@ -184,22 +200,22 @@ router.get('/api/tables', async (_req: Request, res: Response) => {
 // ---------------------------------------------------------------------------
 // API: Query a table
 // ---------------------------------------------------------------------------
-router.post('/api/query', async (req: Request, res: Response) => {
+router.post("/api/query", async (req: Request, res: Response) => {
   try {
-    const { table, select = '*', filters = [], order_by, ascending = false, limit = 20 } = req.body;
+    const { table, select = "*", filters = [], order_by, ascending = false, limit = 20 } = req.body;
 
     if (!table) {
-      res.status(400).json({ error: 'table is required' });
+      res.status(400).json({ error: "table is required" });
       return;
     }
 
     const safeLimit = Math.min(limit, 500);
-    let query = supabase.from(table).select(select, { count: 'exact' });
+    let query = supabase.from(table).select(select, { count: "exact" });
 
     for (const f of filters) {
-      if (f.operator === 'in') {
+      if (f.operator === "in") {
         query = query.in(f.column, Array.isArray(f.value) ? f.value : [f.value]);
-      } else if (f.operator === 'is') {
+      } else if (f.operator === "is") {
         query = query.is(f.column, f.value);
       } else {
         query = (query as any)[f.operator](f.column, f.value);
@@ -224,7 +240,7 @@ router.post('/api/query', async (req: Request, res: Response) => {
 // ---------------------------------------------------------------------------
 // API: Recent rows from a table
 // ---------------------------------------------------------------------------
-router.get('/api/recent/:table', async (req: Request, res: Response) => {
+router.get("/api/recent/:table", async (req: Request, res: Response) => {
   try {
     const { table } = req.params;
     const limit = Math.min(parseInt(req.query.limit as string) || 10, 100);
@@ -232,13 +248,13 @@ router.get('/api/recent/:table', async (req: Request, res: Response) => {
     // Try ordering by created_at, fall back to id
     let { data, error } = await supabase
       .from(table)
-      .select('*')
-      .order('created_at', { ascending: false })
+      .select("*")
+      .order("created_at", { ascending: false })
       .limit(limit);
 
     if (error) {
       // Retry without created_at ordering
-      const retry = await supabase.from(table).select('*').limit(limit);
+      const retry = await supabase.from(table).select("*").limit(limit);
       data = retry.data;
       error = retry.error;
     }

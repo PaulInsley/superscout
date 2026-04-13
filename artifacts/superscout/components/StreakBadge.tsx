@@ -1,12 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import {
-  Animated,
-  Easing,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 
 interface StreakBadgeProps {
@@ -91,13 +84,8 @@ export default function StreakBadge({
   const isLarge = size === "large";
 
   return (
-    <Pressable onPress={onPress} style={styles.container}>
-      <Animated.View
-        style={[
-          styles.flameWrapper,
-          { transform: [{ scale: pulseAnim }] },
-        ]}
-      >
+    <Pressable onPress={onPress} accessibilityLabel={`Streak: ${currentStreak} days`} accessibilityRole="button" style={styles.container}>
+      <Animated.View style={[styles.flameWrapper, { transform: [{ scale: pulseAnim }] }]}>
         {currentStreak >= 10 && (
           <Animated.View
             style={[
@@ -115,9 +103,7 @@ export default function StreakBadge({
             ]}
           />
         )}
-        <Text style={{ fontSize: flameSize }}>
-          {currentStreak <= 0 ? "🔥" : "🔥"}
-        </Text>
+        <Text style={{ fontSize: flameSize }}>{currentStreak <= 0 ? "🔥" : "🔥"}</Text>
       </Animated.View>
 
       {currentStreak > 0 && (

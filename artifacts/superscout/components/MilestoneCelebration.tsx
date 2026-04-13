@@ -136,9 +136,7 @@ export default function MilestoneCelebration({
           >
             <Text style={styles.badgeEmoji}>{getBadgeEmoji()}</Text>
 
-            <Text style={[styles.milestoneTitle, { color: "#f97316" }]}>
-              {title}
-            </Text>
+            <Text style={[styles.milestoneTitle, { color: "#f97316" }]}>{title}</Text>
 
             <Text style={[styles.streakCount, { color: colors.foreground }]}>
               {currentStreak} {sportConfig.roundNamePlural} strong
@@ -176,9 +174,7 @@ export default function MilestoneCelebration({
                 ]}
               >
                 <Feather name="share-2" size={16} color={colors.primaryForeground} />
-                <Text style={[styles.shareText, { color: colors.primaryForeground }]}>
-                  Share
-                </Text>
+                <Text style={[styles.shareText, { color: colors.primaryForeground }]}>Share</Text>
               </Pressable>
 
               <Pressable
@@ -192,9 +188,7 @@ export default function MilestoneCelebration({
                   },
                 ]}
               >
-                <Text style={[styles.dismissText, { color: colors.foreground }]}>
-                  Keep Going
-                </Text>
+                <Text style={[styles.dismissText, { color: colors.foreground }]}>Keep Going</Text>
               </Pressable>
             </View>
           </View>

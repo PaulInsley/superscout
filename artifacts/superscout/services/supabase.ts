@@ -41,16 +41,35 @@ export const supabase = new Proxy({} as SupabaseClient, {
     if (!client) {
       if (prop === "from") {
         return () => ({
-          insert: () => ({ select: () => ({ single: () => Promise.resolve({ data: null, error: { message: "Supabase not configured" } }) }) }),
-          update: () => ({ eq: () => Promise.resolve({ data: null, error: { message: "Supabase not configured" } }) }),
-          select: () => ({ single: () => Promise.resolve({ data: null, error: { message: "Supabase not configured" } }) }),
+          insert: () => ({
+            select: () => ({
+              single: () =>
+                Promise.resolve({ data: null, error: { message: "Supabase not configured" } }),
+            }),
+          }),
+          update: () => ({
+            eq: () =>
+              Promise.resolve({ data: null, error: { message: "Supabase not configured" } }),
+          }),
+          select: () => ({
+            single: () =>
+              Promise.resolve({ data: null, error: { message: "Supabase not configured" } }),
+          }),
         });
       }
       if (prop === "auth") {
         return {
           getUser: () => Promise.resolve({ data: { user: null }, error: null }),
-          signUp: () => Promise.resolve({ data: { user: null }, error: { message: "Supabase not configured" } }),
-          signInWithPassword: () => Promise.resolve({ data: { user: null }, error: { message: "Supabase not configured" } }),
+          signUp: () =>
+            Promise.resolve({
+              data: { user: null },
+              error: { message: "Supabase not configured" },
+            }),
+          signInWithPassword: () =>
+            Promise.resolve({
+              data: { user: null },
+              error: { message: "Supabase not configured" },
+            }),
           signOut: () => Promise.resolve({ error: null }),
           onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
         };

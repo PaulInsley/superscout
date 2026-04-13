@@ -30,9 +30,8 @@ export default function BeginnerCheckScreen({ onNext }: Props) {
         </Text>
 
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-          No worries — SuperScout will coach you through the basics over your
-          first few gameweeks. Same app, same features, just with your coach
-          explaining things as you go.
+          No worries — SuperScout will coach you through the basics over your first few gameweeks.
+          Same app, same features, just with your coach explaining things as you go.
         </Text>
       </View>
 
@@ -47,9 +46,7 @@ export default function BeginnerCheckScreen({ onNext }: Props) {
             },
           ]}
         >
-          <Text style={[styles.primaryButtonText, { color: colors.primary }]}>
-            Yes, I'm new
-          </Text>
+          <Text style={[styles.primaryButtonText, { color: colors.primary }]}>Yes, I'm new</Text>
         </Pressable>
 
         <Pressable
@@ -62,9 +59,7 @@ export default function BeginnerCheckScreen({ onNext }: Props) {
             },
           ]}
         >
-          <Text
-            style={[styles.secondaryButtonText, { color: colors.foreground }]}
-          >
+          <Text style={[styles.secondaryButtonText, { color: colors.foreground }]}>
             Nah, I know the game
           </Text>
         </Pressable>

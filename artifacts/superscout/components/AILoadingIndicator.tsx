@@ -66,11 +66,7 @@ export default function AILoadingIndicator({ vibe, label }: Props) {
   return (
     <View style={styles.container}>
       <ActivityIndicator size="large" color={colors.accent} />
-      {label && (
-        <Text style={[styles.label, { color: colors.foreground }]}>
-          {label}
-        </Text>
-      )}
+      {label && <Text style={[styles.label, { color: colors.foreground }]}>{label}</Text>}
       <Animated.View style={{ opacity: fadeAnim }}>
         <Text style={[styles.message, { color: colors.mutedForeground }]}>
           {messages[messageIndex]}

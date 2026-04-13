@@ -33,19 +33,12 @@ export default function CoachingCard({
           size={14}
           color={isGraduation ? "#22c55e" : "#818CF8"}
         />
-        <Text
-          style={[
-            styles.label,
-            { color: isGraduation ? "#22c55e" : "#818CF8" },
-          ]}
-        >
+        <Text style={[styles.label, { color: isGraduation ? "#22c55e" : "#818CF8" }]}>
           {isGraduation ? "Congratulations" : "Coach"}
         </Text>
       </View>
 
-      <Text style={[styles.headline, { color: colors.foreground }]}>
-        {headline}
-      </Text>
+      <Text style={[styles.headline, { color: colors.foreground }]}>{headline}</Text>
 
       <Text style={[styles.body, { color: colors.foreground }]}>{body}</Text>
 
@@ -59,12 +52,7 @@ export default function CoachingCard({
           },
         ]}
       >
-        <Text
-          style={[
-            styles.dismissText,
-            { color: isGraduation ? "#22c55e" : "#818CF8" },
-          ]}
-        >
+        <Text style={[styles.dismissText, { color: isGraduation ? "#22c55e" : "#818CF8" }]}>
           Got it
         </Text>
       </Pressable>

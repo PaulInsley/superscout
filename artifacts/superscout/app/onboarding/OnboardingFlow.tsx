@@ -4,6 +4,7 @@ import { View, StyleSheet } from "react-native";
 
 import WelcomeScreen from "./WelcomeScreen";
 import ConnectFPLScreen from "./ConnectFPLScreen";
+import VibeQuizScreen from "./VibeQuizScreen";
 import ChooseVibeScreen from "./ChooseVibeScreen";
 import SignUpScreen from "./SignUpScreen";
 import BeginnerCheckScreen from "./BeginnerCheckScreen";
@@ -32,15 +33,36 @@ export default function OnboardingFlow({ onComplete }: Props) {
     if (id && name) {
       setTeamName(name);
       setManagerId(id);
-      AsyncStorage.setItem(MANAGER_ID_KEY, String(id)).catch((err: unknown) => console.warn("[Onboarding] manager ID save failed:", err));
-      AsyncStorage.setItem(TEAM_NAME_KEY, name).catch((err: unknown) => console.warn("[Onboarding] team name save failed:", err));
+      AsyncStorage.setItem(MANAGER_ID_KEY, String(id)).catch((err: unknown) =>
+        console.warn("[Onboarding] manager ID save failed:", err),
+      );
+      AsyncStorage.setItem(TEAM_NAME_KEY, name).catch((err: unknown) =>
+        console.warn("[Onboarding] team name save failed:", err),
+      );
     }
     setStep(2);
   };
 
+  const [quizResult, setQuizResult] = useState<"expert" | "critic" | "fanboy" | null>(null);
+
+  const handleQuizComplete = (v: "expert" | "critic" | "fanboy") => {
+    setVibe(v);
+    AsyncStorage.setItem(PERSONA_KEY, v).catch((err: unknown) =>
+      console.warn("[Onboarding] persona save failed:", err),
+    );
+    setStep(3);
+  };
+
+  const handleTryAll = (quizVibe: "expert" | "critic" | "fanboy") => {
+    setQuizResult(quizVibe);
+    setStep(2.5);
+  };
+
   const handleVibeSelect = (v: "expert" | "critic" | "fanboy") => {
     setVibe(v);
-    AsyncStorage.setItem(PERSONA_KEY, v).catch((err: unknown) => console.warn("[Onboarding] persona save failed:", err));
+    AsyncStorage.setItem(PERSONA_KEY, v).catch((err: unknown) =>
+      console.warn("[Onboarding] persona save failed:", err),
+    );
     setStep(3);
   };
 
@@ -60,16 +82,24 @@ export default function OnboardingFlow({ onComplete }: Props) {
 
   const handleBeginnerCheck = (beginner: boolean) => {
     setIsBeginner(beginner);
-    AsyncStorage.setItem(BEGINNER_KEY, beginner ? "true" : "false").catch((err: unknown) => console.warn("[Onboarding] beginner flag save failed:", err));
+    AsyncStorage.setItem(BEGINNER_KEY, beginner ? "true" : "false").catch((err: unknown) =>
+      console.warn("[Onboarding] beginner flag save failed:", err),
+    );
     if (beginner) {
-      AsyncStorage.setItem("superscout_beginner_rounds", "0").catch((err: unknown) => console.warn("[Onboarding] beginner rounds save failed:", err));
-      AsyncStorage.setItem("superscout_beginner_lessons", "").catch((err: unknown) => console.warn("[Onboarding] beginner lessons save failed:", err));
+      AsyncStorage.setItem("superscout_beginner_rounds", "0").catch((err: unknown) =>
+        console.warn("[Onboarding] beginner rounds save failed:", err),
+      );
+      AsyncStorage.setItem("superscout_beginner_lessons", "").catch((err: unknown) =>
+        console.warn("[Onboarding] beginner lessons save failed:", err),
+      );
     }
     setStep(5);
   };
 
   const handleFinish = () => {
-    AsyncStorage.setItem(ONBOARDING_COMPLETE_KEY, "true").catch((err: unknown) => console.warn("[Onboarding] completion flag save failed:", err));
+    AsyncStorage.setItem(ONBOARDING_COMPLETE_KEY, "true").catch((err: unknown) =>
+      console.warn("[Onboarding] completion flag save failed:", err),
+    );
 
     import("@/services/auth")
       .then(({ getAuthenticatedUserId }) => getAuthenticatedUserId())
@@ -100,7 +130,8 @@ export default function OnboardingFlow({ onComplete }: Props) {
     <View style={styles.container}>
       {step === 0 && <WelcomeScreen onNext={() => setStep(1)} />}
       {step === 1 && <ConnectFPLScreen onNext={handleFPLConnect} />}
-      {step === 2 && <ChooseVibeScreen onNext={handleVibeSelect} />}
+      {step === 2 && <VibeQuizScreen onComplete={handleQuizComplete} onTryAll={handleTryAll} />}
+      {step === 2.5 && <ChooseVibeScreen onNext={handleVibeSelect} />}
       {step === 3 && (
         <SignUpScreen
           managerId={managerId}
@@ -112,7 +143,12 @@ export default function OnboardingFlow({ onComplete }: Props) {
       {step === 4 && <BeginnerCheckScreen onNext={handleBeginnerCheck} />}
       {step === 5 && <WhatWeDoScreen onNext={() => setStep(6)} />}
       {step === 6 && (
-        <YoureInScreen teamName={teamName} onFinish={handleFinish} />
+        <YoureInScreen
+          teamName={teamName}
+          managerId={managerId}
+          vibe={vibe}
+          onFinish={handleFinish}
+        />
       )}
     </View>
   );

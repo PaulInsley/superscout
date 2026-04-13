@@ -56,7 +56,10 @@ export default function PulseCheck({ gameweek, visible, onDismiss }: PulseCheckP
     setSubmitting(true);
     try {
       const userId = await getAuthenticatedUserId();
-      if (!userId) { setSubmitting(false); return; }
+      if (!userId) {
+        setSubmitting(false);
+        return;
+      }
 
       await supabase.from("feedback_responses").insert({
         user_id: userId,
@@ -82,12 +85,7 @@ export default function PulseCheck({ gameweek, visible, onDismiss }: PulseCheckP
   if (alreadyPulsed || !visible) return null;
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={handleSkip}
-    >
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleSkip}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.overlay}
@@ -121,16 +119,10 @@ export default function PulseCheck({ gameweek, visible, onDismiss }: PulseCheckP
               <Pressable
                 key={option}
                 onPress={() => setBestFeature(bestFeature === option ? null : option)}
-                style={[
-                  styles.optionChip,
-                  bestFeature === option && styles.optionChipActive,
-                ]}
+                style={[styles.optionChip, bestFeature === option && styles.optionChipActive]}
               >
                 <Text
-                  style={[
-                    styles.optionText,
-                    bestFeature === option && styles.optionTextActive,
-                  ]}
+                  style={[styles.optionText, bestFeature === option && styles.optionTextActive]}
                 >
                   {option}
                 </Text>
@@ -157,9 +149,7 @@ export default function PulseCheck({ gameweek, visible, onDismiss }: PulseCheckP
             onPress={handleSubmit}
             disabled={rating === 0 || submitting}
           >
-            <Text style={styles.submitText}>
-              {submitting ? "Sending..." : "Submit"}
-            </Text>
+            <Text style={styles.submitText}>{submitting ? "Sending..." : "Submit"}</Text>
           </Pressable>
 
           <Pressable onPress={handleSkip} style={styles.skipButton}>

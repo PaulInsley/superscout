@@ -6,7 +6,10 @@ interface OwnershipSpectrumProps {
   ownershipContext: string;
 }
 
-export default function OwnershipSpectrum({ ownershipPct, ownershipContext }: OwnershipSpectrumProps) {
+export default function OwnershipSpectrum({
+  ownershipPct,
+  ownershipContext,
+}: OwnershipSpectrumProps) {
   const colors = useColors();
 
   const raw = 100 - ownershipPct;

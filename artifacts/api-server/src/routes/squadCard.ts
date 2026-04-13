@@ -4,6 +4,7 @@ import { getCached, setCache, cacheKey, TTL } from "../lib/fplCache";
 import { fetchFromFpl } from "../lib/fplRateLimiter";
 import { VIBE_PROMPTS } from "../lib/vibes";
 import { getSupabase } from "../lib/supabase";
+import { getSupabaseForRequest } from "../lib/supabaseUser";
 import { validateBody } from "../lib/validateRequest";
 import { squadCardGenerateSchema, squadCardShareSchema } from "../schemas/squadCard";
 
@@ -88,167 +89,205 @@ function getClient(): Anthropic {
   });
 }
 
-async function getBootstrapData(): Promise<{ players: FPLPlayer[]; teams: FPLTeam[]; events: FPLEvent[] }> {
+async function getBootstrapData(): Promise<{
+  players: FPLPlayer[];
+  teams: FPLTeam[];
+  events: FPLEvent[];
+}> {
   const key = cacheKey("bootstrap-static");
   const cached = getCached<{ elements: FPLPlayer[]; teams: FPLTeam[]; events: FPLEvent[] }>(key);
   if (cached) {
     return { players: cached.data.elements, teams: cached.data.teams, events: cached.data.events };
   }
 
-  const data = await fetchFromFpl("/bootstrap-static/") as { elements: FPLPlayer[]; teams: FPLTeam[]; events: FPLEvent[] };
+  const data = (await fetchFromFpl("/bootstrap-static/")) as {
+    elements: FPLPlayer[];
+    teams: FPLTeam[];
+    events: FPLEvent[];
+  };
   setCache(key, data, TTL.STATIC);
   return { players: data.elements, teams: data.teams, events: data.events };
 }
 
 function inferFormation(starters: SquadCardPlayer[]): string {
-  const outfield = starters.filter(p => p.position !== "GKP");
-  const def = outfield.filter(p => p.position === "DEF").length;
-  const mid = outfield.filter(p => p.position === "MID").length;
-  const fwd = outfield.filter(p => p.position === "FWD").length;
+  const outfield = starters.filter((p) => p.position !== "GKP");
+  const def = outfield.filter((p) => p.position === "DEF").length;
+  const mid = outfield.filter((p) => p.position === "MID").length;
+  const fwd = outfield.filter((p) => p.position === "FWD").length;
   return `${def}-${mid}-${fwd}`;
 }
 
-router.post("/squad-card", validateBody(squadCardGenerateSchema), async (req: Request, res: Response) => {
-  try {
-    const { manager_id, vibe, gameweek: requestedGw } = req.body;
-
-    const vibeKey = vibe || "expert";
-    const vibePrompt = VIBE_PROMPTS[vibeKey];
-
-    const { players, teams, events } = await getBootstrapData();
-    const playerMap = new Map(players.map(p => [p.id, p]));
-    const teamMap = new Map(teams.map(t => [t.id, t]));
-
-    const lastFinished = [...events].reverse().find(e => e.finished);
-    const targetGw = requestedGw || lastFinished?.id;
-
-    if (!targetGw) {
-      res.status(400).json({ error: "no_finished_gameweek", message: "No finished gameweeks found yet." });
-      return;
-    }
-
-    const targetEvent = events.find(e => e.id === targetGw);
-    if (targetEvent && !targetEvent.finished) {
-      res.status(400).json({
-        error: "gameweek_not_finished",
-        message: "This gameweek isn't finished yet. Come back after the last match to see your full results.",
-        gameweek: targetEvent.id,
-      });
-      return;
-    }
-
-    const gwAverage = targetEvent?.average_entry_score ?? null;
-
-    let managerInfo: { name: string; summary_overall_points: number | null; summary_overall_rank: number | null };
+router.post(
+  "/squad-card",
+  validateBody(squadCardGenerateSchema),
+  async (req: Request, res: Response) => {
     try {
-      managerInfo = await fetchFromFpl(`/entry/${manager_id}/`) as typeof managerInfo;
-    } catch (err) {
-      req.log.warn({ err, manager_id }, "[SquadCard] manager lookup failed");
-      res.status(404).json({ error: "manager_not_found", message: "Could not find that FPL manager." });
-      return;
-    }
+      const { manager_id, vibe, gameweek: requestedGw } = req.body;
 
-    let picksData: {
-      picks: FPLPick[];
-      entry_history: { points: number; total_points: number; overall_rank: number; points_on_bench: number };
-      automatic_subs: AutoSub[];
-    };
-    try {
-      picksData = await fetchFromFpl(`/entry/${manager_id}/event/${targetGw}/picks/`) as typeof picksData;
-    } catch (err) {
-      req.log.warn({ err, manager_id, targetGw }, "[SquadCard] picks fetch failed");
-      res.status(404).json({ error: "no_picks", message: "No squad data found for this gameweek." });
-      return;
-    }
+      const vibeKey = vibe || "expert";
+      const vibePrompt = VIBE_PROMPTS[vibeKey];
 
-    let liveData: { elements: FPLLiveElement[] };
-    try {
-      const liveKey = cacheKey("live", targetGw);
-      const cachedLive = getCached<{ elements: FPLLiveElement[] }>(liveKey);
-      if (cachedLive) {
-        liveData = cachedLive.data;
-      } else {
-        liveData = await fetchFromFpl(`/event/${targetGw}/live/`) as typeof liveData;
-        setCache(liveKey, liveData, TTL.SEMI_LIVE);
+      const { players, teams, events } = await getBootstrapData();
+      const playerMap = new Map(players.map((p) => [p.id, p]));
+      const teamMap = new Map(teams.map((t) => [t.id, t]));
+
+      const lastFinished = [...events].reverse().find((e) => e.finished);
+      const targetGw = requestedGw || lastFinished?.id;
+
+      if (!targetGw) {
+        res
+          .status(400)
+          .json({ error: "no_finished_gameweek", message: "No finished gameweeks found yet." });
+        return;
       }
-    } catch (err) {
-      req.log.warn({ err, targetGw }, "[SquadCard] live data fetch failed");
-      res.status(500).json({ error: "live_data_error", message: "Could not load live points data." });
-      return;
-    }
 
-    const liveMap = new Map(liveData.elements.map(e => [e.id, e.stats.total_points]));
-    const autoSubInSet = new Set(picksData.automatic_subs?.map(s => s.element_in) || []);
-    const autoSubOutSet = new Set(picksData.automatic_subs?.map(s => s.element_out) || []);
+      const targetEvent = events.find((e) => e.id === targetGw);
+      if (targetEvent && !targetEvent.finished) {
+        res.status(400).json({
+          error: "gameweek_not_finished",
+          message:
+            "This gameweek isn't finished yet. Come back after the last match to see your full results.",
+          gameweek: targetEvent.id,
+        });
+        return;
+      }
 
-    const squadPlayers: SquadCardPlayer[] = picksData.picks.map(pick => {
-      const player = playerMap.get(pick.element);
-      const points = liveMap.get(pick.element) ?? 0;
-      return {
-        id: pick.element,
-        name: player?.web_name ?? `Player ${pick.element}`,
-        webName: player?.web_name ?? `P${pick.element}`,
-        position: player ? POSITION_MAP[player.element_type] ?? "MID" : "MID",
-        points: points * pick.multiplier,
-        isCaptain: pick.is_captain,
-        isViceCaptain: pick.is_vice_captain,
-        isBench: pick.position >= 12,
-        isAutoSubIn: autoSubInSet.has(pick.element),
-        isAutoSubOut: autoSubOutSet.has(pick.element),
-        pickPosition: pick.position,
-        multiplier: pick.multiplier,
+      const gwAverage = targetEvent?.average_entry_score ?? null;
+
+      let managerInfo: {
+        name: string;
+        summary_overall_points: number | null;
+        summary_overall_rank: number | null;
       };
-    });
+      try {
+        managerInfo = (await fetchFromFpl(`/entry/${manager_id}/`)) as typeof managerInfo;
+      } catch (err) {
+        req.log.warn({ err, manager_id }, "[SquadCard] manager lookup failed");
+        res
+          .status(404)
+          .json({ error: "manager_not_found", message: "Could not find that FPL manager." });
+        return;
+      }
 
-    const webNameCounts = new Map<string, number>();
-    for (const p of squadPlayers) {
-      webNameCounts.set(p.webName, (webNameCounts.get(p.webName) ?? 0) + 1);
-    }
-    for (const p of squadPlayers) {
-      if ((webNameCounts.get(p.webName) ?? 0) > 1) {
-        const player = playerMap.get(p.id);
-        if (player?.first_name) {
-          p.webName = `${player.first_name.charAt(0)}. ${p.webName}`;
+      let picksData: {
+        picks: FPLPick[];
+        entry_history: {
+          points: number;
+          total_points: number;
+          overall_rank: number;
+          points_on_bench: number;
+        };
+        automatic_subs: AutoSub[];
+      };
+      try {
+        picksData = (await fetchFromFpl(
+          `/entry/${manager_id}/event/${targetGw}/picks/`,
+        )) as typeof picksData;
+      } catch (err) {
+        req.log.warn({ err, manager_id, targetGw }, "[SquadCard] picks fetch failed");
+        res
+          .status(404)
+          .json({ error: "no_picks", message: "No squad data found for this gameweek." });
+        return;
+      }
+
+      let liveData: { elements: FPLLiveElement[] };
+      try {
+        const liveKey = cacheKey("live", targetGw);
+        const cachedLive = getCached<{ elements: FPLLiveElement[] }>(liveKey);
+        if (cachedLive) {
+          liveData = cachedLive.data;
+        } else {
+          liveData = (await fetchFromFpl(`/event/${targetGw}/live/`)) as typeof liveData;
+          setCache(liveKey, liveData, TTL.SEMI_LIVE);
+        }
+      } catch (err) {
+        req.log.warn({ err, targetGw }, "[SquadCard] live data fetch failed");
+        res
+          .status(500)
+          .json({ error: "live_data_error", message: "Could not load live points data." });
+        return;
+      }
+
+      const liveMap = new Map(liveData.elements.map((e) => [e.id, e.stats.total_points]));
+      const autoSubInSet = new Set(picksData.automatic_subs?.map((s) => s.element_in) || []);
+      const autoSubOutSet = new Set(picksData.automatic_subs?.map((s) => s.element_out) || []);
+
+      const squadPlayers: SquadCardPlayer[] = picksData.picks.map((pick) => {
+        const player = playerMap.get(pick.element);
+        const points = liveMap.get(pick.element) ?? 0;
+        return {
+          id: pick.element,
+          name: player?.web_name ?? `Player ${pick.element}`,
+          webName: player?.web_name ?? `P${pick.element}`,
+          position: player ? (POSITION_MAP[player.element_type] ?? "MID") : "MID",
+          points: points * pick.multiplier,
+          isCaptain: pick.is_captain,
+          isViceCaptain: pick.is_vice_captain,
+          isBench: pick.position >= 12,
+          isAutoSubIn: autoSubInSet.has(pick.element),
+          isAutoSubOut: autoSubOutSet.has(pick.element),
+          pickPosition: pick.position,
+          multiplier: pick.multiplier,
+        };
+      });
+
+      const webNameCounts = new Map<string, number>();
+      for (const p of squadPlayers) {
+        webNameCounts.set(p.webName, (webNameCounts.get(p.webName) ?? 0) + 1);
+      }
+      for (const p of squadPlayers) {
+        if ((webNameCounts.get(p.webName) ?? 0) > 1) {
+          const player = playerMap.get(p.id);
+          if (player?.first_name) {
+            p.webName = `${player.first_name.charAt(0)}. ${p.webName}`;
+          }
         }
       }
-    }
 
-    const starters = squadPlayers.filter(p => !p.isBench);
-    const bench = squadPlayers.filter(p => p.isBench).sort((a, b) => a.pickPosition - b.pickPosition);
-    const formation = inferFormation(starters);
-    const totalPoints = picksData.entry_history.points;
-    const benchPoints = picksData.entry_history.points_on_bench;
-    const overallRank = picksData.entry_history.overall_rank;
+      const starters = squadPlayers.filter((p) => !p.isBench);
+      const bench = squadPlayers
+        .filter((p) => p.isBench)
+        .sort((a, b) => a.pickPosition - b.pickPosition);
+      const formation = inferFormation(starters);
+      const totalPoints = picksData.entry_history.points;
+      const benchPoints = picksData.entry_history.points_on_bench;
+      const overallRank = picksData.entry_history.overall_rank;
 
-    let previousRank: number | null = null;
-    try {
-      const history = await fetchFromFpl(`/entry/${manager_id}/history/`) as { current: { event: number; overall_rank: number }[] };
-      const prevGw = history.current.find(h => h.event === targetGw - 1);
-      if (prevGw) {
-        previousRank = prevGw.overall_rank;
+      let previousRank: number | null = null;
+      try {
+        const history = (await fetchFromFpl(`/entry/${manager_id}/history/`)) as {
+          current: { event: number; overall_rank: number }[];
+        };
+        const prevGw = history.current.find((h) => h.event === targetGw - 1);
+        if (prevGw) {
+          previousRank = prevGw.overall_rank;
+        }
+      } catch (err) {
+        req.log.warn({ err, manager_id }, "[SquadCard] previous rank lookup failed");
       }
-    } catch (err) {
-      req.log.warn({ err, manager_id }, "[SquadCard] previous rank lookup failed");
-    }
 
-    let rankChange: number | null = null;
-    let rankDirection: "up" | "down" | "same" | "new" = "new";
-    if (previousRank !== null) {
-      rankChange = previousRank - overallRank;
-      if (rankChange > 0) rankDirection = "up";
-      else if (rankChange < 0) { rankDirection = "down"; rankChange = Math.abs(rankChange); }
-      else rankDirection = "same";
-    }
+      let rankChange: number | null = null;
+      let rankDirection: "up" | "down" | "same" | "new" = "new";
+      if (previousRank !== null) {
+        rankChange = previousRank - overallRank;
+        if (rankChange > 0) rankDirection = "up";
+        else if (rankChange < 0) {
+          rankDirection = "down";
+          rankChange = Math.abs(rankChange);
+        } else rankDirection = "same";
+      }
 
-    const captain = squadPlayers.find(p => p.isCaptain);
-    const viceCaptain = squadPlayers.find(p => p.isViceCaptain);
-    const topScorer = [...starters].sort((a, b) => b.points - a.points)[0];
-    const highestBench = bench.length > 0 ? [...bench].sort((a, b) => b.points - a.points)[0] : null;
-    const captainPlayer = captain ? playerMap.get(captain.id) : null;
+      const captain = squadPlayers.find((p) => p.isCaptain);
+      const viceCaptain = squadPlayers.find((p) => p.isViceCaptain);
+      const topScorer = [...starters].sort((a, b) => b.points - a.points)[0];
+      const highestBench =
+        bench.length > 0 ? [...bench].sort((a, b) => b.points - a.points)[0] : null;
+      const captainPlayer = captain ? playerMap.get(captain.id) : null;
 
-    let quipText = `Gameweek ${targetGw} — ${totalPoints} points. The numbers speak for themselves.`;
-    try {
-      const quipContext = `Generate a Squad Card quip for this gameweek. ONE sentence only, maximum 280 characters. Be specific to the actual results — reference the captain pick, standout performers, or bench disasters. Make it feel personal and shareable.
+      let quipText = `Gameweek ${targetGw} — ${totalPoints} points. The numbers speak for themselves.`;
+      try {
+        const quipContext = `Generate a Squad Card quip for this gameweek. ONE sentence only, maximum 280 characters. Be specific to the actual results — reference the captain pick, standout performers, or bench disasters. Make it feel personal and shareable.
 
 Gameweek: ${targetGw}
 Total points: ${totalPoints}
@@ -263,147 +302,191 @@ New overall rank: ${overallRank.toLocaleString()}
 
 IMPORTANT: Return ONLY the quip text. No quotes, no preamble, no explanation. Just the single line.`;
 
-      const client = getClient();
-      const message = await client.messages.create({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 200,
-        temperature: 0.7,
-        system: vibePrompt,
-        messages: [{ role: "user", content: quipContext }],
+        const client = getClient();
+        const message = await client.messages.create({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 200,
+          temperature: 0.7,
+          system: vibePrompt,
+          messages: [{ role: "user", content: quipContext }],
+        });
+
+        const block = message.content[0];
+        if (block.type === "text") {
+          const raw = block.text.trim().replace(/^["']|["']$/g, "");
+          if (raw.length > 0 && raw.length <= 350) {
+            quipText = raw;
+          }
+        }
+      } catch (err: any) {
+        const isTimeout =
+          err?.status === 408 ||
+          err?.code === "ETIMEDOUT" ||
+          err?.message?.includes("timed out") ||
+          err?.message?.includes("timeout");
+        req.log.error({ err, isTimeout }, "Quip generation failed, using fallback");
+      }
+
+      let cardId: string | null = null;
+      try {
+        const supabase = getSupabaseForRequest(req);
+        if (supabase) {
+          let userId: string | null = null;
+          try {
+            const { data: userRow } = await supabase
+              .from("users")
+              .select("id")
+              .eq("fpl_manager_id", String(manager_id))
+              .limit(1)
+              .single();
+            if (userRow?.id) userId = userRow.id;
+          } catch (err) {
+            req.log.warn({ err, manager_id }, "[SquadCard] user lookup for DB save failed");
+          }
+
+          if (userId) {
+            const { data: cardRow } = await supabase
+              .from("squad_cards")
+              .insert({
+                user_id: userId,
+                season: "2026-27",
+                gameweek: targetGw,
+                skin_name: "default",
+                was_shared: false,
+                quip_text: quipText,
+              })
+              .select("id")
+              .single();
+            cardId = cardRow?.id ?? null;
+          }
+        }
+      } catch (err) {
+        req.log.warn({ err }, "Failed to log squad card to DB");
+      }
+
+      res.json({
+        cardId,
+        teamName: managerInfo.name,
+        gameweek: targetGw,
+        formation,
+        starters: starters.map((p) => ({
+          id: p.id,
+          webName: p.webName,
+          position: p.position,
+          points: p.points,
+          isCaptain: p.isCaptain,
+          isViceCaptain: p.isViceCaptain,
+          isAutoSubOut: p.isAutoSubOut,
+        })),
+        bench: bench.map((p) => ({
+          id: p.id,
+          webName: p.webName,
+          position: p.position,
+          points: p.points,
+          isAutoSubIn: p.isAutoSubIn,
+        })),
+        totalPoints,
+        benchPoints,
+        overallRank,
+        rankChange,
+        rankDirection,
+        gwAverage,
+        quipText,
+        vibe: vibeKey,
       });
-
-      const block = message.content[0];
-      if (block.type === "text") {
-        const raw = block.text.trim().replace(/^["']|["']$/g, "");
-        if (raw.length > 0 && raw.length <= 350) {
-          quipText = raw;
-        }
-      }
     } catch (err: any) {
-      const isTimeout = err?.status === 408 || err?.code === "ETIMEDOUT" || err?.message?.includes("timed out") || err?.message?.includes("timeout");
-      req.log.error({ err, isTimeout }, "Quip generation failed, using fallback");
-    }
-
-    let cardId: string | null = null;
-    try {
-      const supabase = getSupabase();
-      if (supabase) {
-        let userId: string | null = null;
-        try {
-          const { data: userRow } = await supabase
-            .from("users")
-            .select("id")
-            .eq("fpl_manager_id", String(manager_id))
-            .limit(1)
-            .single();
-          if (userRow?.id) userId = userRow.id;
-        } catch (err) {
-          req.log.warn({ err, manager_id }, "[SquadCard] user lookup for DB save failed");
-        }
-
-        if (userId) {
-          const { data: cardRow } = await supabase.from("squad_cards").insert({
-            user_id: userId,
-            season: "2026-27",
-            gameweek: targetGw,
-            skin_name: "default",
-            was_shared: false,
-            quip_text: quipText,
-          }).select("id").single();
-          cardId = cardRow?.id ?? null;
-        }
+      const isTimeout =
+        err?.status === 408 ||
+        err?.code === "ETIMEDOUT" ||
+        err?.message?.includes("timed out") ||
+        err?.message?.includes("timeout");
+      if (isTimeout) {
+        req.log.warn({ err }, "Claude API timeout during squad card generation");
+        res
+          .status(504)
+          .json({
+            error: "timeout",
+            message: "SuperScout is taking longer than usual — please try again in a moment.",
+          });
+      } else {
+        req.log.error({ err }, "Squad card generation failed");
+        res
+          .status(500)
+          .json({ error: "internal", message: "Something went wrong generating your squad card." });
       }
+    }
+  },
+);
+
+router.post(
+  "/squad-card/share",
+  validateBody(squadCardShareSchema),
+  async (req: Request, res: Response) => {
+    try {
+      const supabase = getSupabaseForRequest(req);
+      if (!supabase) {
+        res.status(503).json({ error: "Database not configured" });
+        return;
+      }
+
+      const { card_id, gameweek, platform, user_id } = req.body;
+
+      const dbPlatforms = [
+        "twitter",
+        "whatsapp",
+        "imessage",
+        "instagram",
+        "clipboard",
+        "facebook",
+        "other",
+      ];
+      const sharePlatform = dbPlatforms.includes(platform) ? platform : null;
+
+      let updateResult;
+      if (card_id) {
+        updateResult = await supabase
+          .from("squad_cards")
+          .update({ was_shared: true, share_platform: sharePlatform })
+          .eq("id", card_id)
+          .eq("user_id", user_id)
+          .select("id, was_shared, share_platform");
+      } else {
+        updateResult = await supabase
+          .from("squad_cards")
+          .update({ was_shared: true, share_platform: sharePlatform })
+          .eq("user_id", user_id)
+          .eq("gameweek", gameweek)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .select("id, was_shared, share_platform");
+      }
+
+      if (updateResult.error) {
+        req.log.error(
+          { err: updateResult.error, card_id, gameweek },
+          "Supabase share update failed",
+        );
+        res.status(500).json({ error: "Failed to update share status" });
+        return;
+      }
+
+      req.log.info(
+        {
+          card_id,
+          gameweek,
+          platform: sharePlatform,
+          rowsUpdated: updateResult.data?.length ?? 0,
+          data: updateResult.data,
+        },
+        "Share update result",
+      );
+
+      res.json({ success: true, updated: updateResult.data?.length ?? 0 });
     } catch (err) {
-      req.log.warn({ err }, "Failed to log squad card to DB");
+      req.log.error({ err }, "Failed to update share status");
+      res.status(500).json({ error: "internal" });
     }
-
-    res.json({
-      cardId,
-      teamName: managerInfo.name,
-      gameweek: targetGw,
-      formation,
-      starters: starters.map(p => ({
-        id: p.id,
-        webName: p.webName,
-        position: p.position,
-        points: p.points,
-        isCaptain: p.isCaptain,
-        isViceCaptain: p.isViceCaptain,
-        isAutoSubOut: p.isAutoSubOut,
-      })),
-      bench: bench.map(p => ({
-        id: p.id,
-        webName: p.webName,
-        position: p.position,
-        points: p.points,
-        isAutoSubIn: p.isAutoSubIn,
-      })),
-      totalPoints,
-      benchPoints,
-      overallRank,
-      rankChange,
-      rankDirection,
-      gwAverage,
-      quipText,
-      vibe: vibeKey,
-    });
-  } catch (err: any) {
-    const isTimeout = err?.status === 408 || err?.code === "ETIMEDOUT" || err?.message?.includes("timed out") || err?.message?.includes("timeout");
-    if (isTimeout) {
-      req.log.warn({ err }, "Claude API timeout during squad card generation");
-      res.status(504).json({ error: "timeout", message: "SuperScout is taking longer than usual — please try again in a moment." });
-    } else {
-      req.log.error({ err }, "Squad card generation failed");
-      res.status(500).json({ error: "internal", message: "Something went wrong generating your squad card." });
-    }
-  }
-});
-
-router.post("/squad-card/share", validateBody(squadCardShareSchema), async (req: Request, res: Response) => {
-  try {
-    const supabase = getSupabase();
-    if (!supabase) {
-      res.status(503).json({ error: "Database not configured" });
-      return;
-    }
-
-    const { card_id, gameweek, platform, user_id } = req.body;
-
-    const dbPlatforms = ["twitter", "whatsapp", "imessage", "instagram", "clipboard", "facebook", "other"];
-    const sharePlatform = dbPlatforms.includes(platform) ? platform : null;
-
-    let updateResult;
-    if (card_id) {
-      updateResult = await supabase
-        .from("squad_cards")
-        .update({ was_shared: true, share_platform: sharePlatform })
-        .eq("id", card_id)
-        .eq("user_id", user_id)
-        .select("id, was_shared, share_platform");
-    } else {
-      updateResult = await supabase
-        .from("squad_cards")
-        .update({ was_shared: true, share_platform: sharePlatform })
-        .eq("user_id", user_id)
-        .eq("gameweek", gameweek)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .select("id, was_shared, share_platform");
-    }
-
-    if (updateResult.error) {
-      req.log.error({ err: updateResult.error, card_id, gameweek }, "Supabase share update failed");
-      res.status(500).json({ error: "Failed to update share status" });
-      return;
-    }
-
-    req.log.info({ card_id, gameweek, platform: sharePlatform, rowsUpdated: updateResult.data?.length ?? 0, data: updateResult.data }, "Share update result");
-
-    res.json({ success: true, updated: updateResult.data?.length ?? 0 });
-  } catch (err) {
-    req.log.error({ err }, "Failed to update share status");
-    res.status(500).json({ error: "internal" });
-  }
-});
+  },
+);
 
 export default router;

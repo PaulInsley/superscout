@@ -1,13 +1,5 @@
 import React, { useRef, useState } from "react";
-import {
-  Dimensions,
-  FlatList,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Dimensions, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -77,24 +69,21 @@ export default function ChooseVibeScreen({ onNext, onCancel, isSettings }: Props
 
   const renderCardView = () => (
     <View style={styles.cardViewContainer}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {isSettings && onCancel && (
-          <Pressable onPress={onCancel} style={styles.backButton}>
+          <Pressable onPress={onCancel} accessibilityLabel="Go back" accessibilityRole="button" style={styles.backButton}>
             <Feather name="arrow-left" size={22} color={colors.foreground} />
             <Text style={[styles.backText, { color: colors.foreground }]}>Back</Text>
           </Pressable>
         )}
-        <Text style={[styles.title, { color: colors.foreground }]}>
-          Choose Your Vibe
-        </Text>
+        <Text style={[styles.title, { color: colors.foreground }]}>Choose Your Vibe</Text>
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
           How do you want your AI coach to sound?
         </Text>
         <Pressable
           onPress={() => setPreviewMode(true)}
+          accessibilityLabel="Try all three vibes"
+          accessibilityRole="button"
           style={[
             styles.tryAllButton,
             {
@@ -104,9 +93,7 @@ export default function ChooseVibeScreen({ onNext, onCancel, isSettings }: Props
           ]}
         >
           <Feather name="repeat" size={16} color={colors.primary} />
-          <Text style={[styles.tryAllText, { color: colors.primary }]}>
-            Try all three
-          </Text>
+          <Text style={[styles.tryAllText, { color: colors.primary }]}>Try all three</Text>
         </Pressable>
 
         {VIBES.map((p) => {
@@ -115,6 +102,8 @@ export default function ChooseVibeScreen({ onNext, onCancel, isSettings }: Props
             <Pressable
               key={p.key}
               onPress={() => setSelected(p.key)}
+              accessibilityLabel={`Select ${p.name} vibe`}
+              accessibilityRole="button"
               style={[
                 styles.card,
                 {
@@ -134,25 +123,19 @@ export default function ChooseVibeScreen({ onNext, onCancel, isSettings }: Props
               >
                 {p.name}
               </Text>
-              <Text
-                style={[styles.vibeDesc, { color: colors.mutedForeground }]}
-              >
+              <Text style={[styles.vibeDesc, { color: colors.mutedForeground }]}>
                 {p.description}
               </Text>
               <View
                 style={[
                   styles.exampleBox,
                   {
-                    backgroundColor: isSelected
-                      ? colors.background
-                      : colors.muted,
+                    backgroundColor: isSelected ? colors.background : colors.muted,
                     borderRadius: colors.radius - 2,
                   },
                 ]}
               >
-                <Text
-                  style={[styles.exampleText, { color: colors.foreground }]}
-                >
+                <Text style={[styles.exampleText, { color: colors.foreground }]}>
                   "{p.example}"
                 </Text>
               </View>
@@ -170,9 +153,16 @@ export default function ChooseVibeScreen({ onNext, onCancel, isSettings }: Props
           },
         ]}
       >
+        {selected && !isSettings && (
+          <Text style={[styles.changeAnytime, { color: colors.mutedForeground }]}>
+            You can change this anytime in Settings
+          </Text>
+        )}
         <Pressable
           onPress={() => selected && onNext(selected)}
           disabled={!selected}
+          accessibilityLabel={isSettings ? "Save vibe" : "This is my vibe"}
+          accessibilityRole="button"
           style={({ pressed }) => [
             styles.button,
             {
@@ -185,9 +175,7 @@ export default function ChooseVibeScreen({ onNext, onCancel, isSettings }: Props
             style={[
               styles.buttonText,
               {
-                color: selected
-                  ? colors.primaryForeground
-                  : colors.mutedForeground,
+                color: selected ? colors.primaryForeground : colors.mutedForeground,
               },
             ]}
           >
@@ -203,7 +191,7 @@ export default function ChooseVibeScreen({ onNext, onCancel, isSettings }: Props
     return (
       <View style={styles.carouselContainer}>
         <View style={styles.carouselHeader}>
-          <Pressable onPress={() => setPreviewMode(false)}>
+          <Pressable onPress={() => setPreviewMode(false)} accessibilityLabel="Go back" accessibilityRole="button">
             <Feather name="arrow-left" size={24} color={colors.foreground} />
           </Pressable>
           <Text style={[styles.title, { color: colors.foreground, flex: 1, textAlign: "center" }]}>
@@ -241,17 +229,10 @@ export default function ChooseVibeScreen({ onNext, onCancel, isSettings }: Props
                   },
                 ]}
               >
-                <Text
-                  style={[styles.carouselVibeName, { color: colors.primary }]}
-                >
+                <Text style={[styles.carouselVibeName, { color: colors.primary }]}>
                   {item.name}
                 </Text>
-                <Text
-                  style={[
-                    styles.carouselVibeDesc,
-                    { color: colors.mutedForeground },
-                  ]}
-                >
+                <Text style={[styles.carouselVibeDesc, { color: colors.mutedForeground }]}>
                   {item.description}
                 </Text>
                 <View
@@ -263,12 +244,7 @@ export default function ChooseVibeScreen({ onNext, onCancel, isSettings }: Props
                     },
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.carouselExampleText,
-                      { color: colors.foreground },
-                    ]}
-                  >
+                  <Text style={[styles.carouselExampleText, { color: colors.foreground }]}>
                     "{item.example}"
                   </Text>
                 </View>
@@ -279,13 +255,12 @@ export default function ChooseVibeScreen({ onNext, onCancel, isSettings }: Props
 
         <View style={styles.dots}>
           {VIBES.map((p, i) => (
-            <Pressable key={p.key} onPress={() => goToSlide(i)}>
+            <Pressable key={p.key} onPress={() => goToSlide(i)} accessibilityLabel={`Go to ${p.name}`} accessibilityRole="button">
               <View
                 style={[
                   styles.dot,
                   {
-                    backgroundColor:
-                      i === carouselIndex ? colors.primary : colors.border,
+                    backgroundColor: i === carouselIndex ? colors.primary : colors.border,
                   },
                 ]}
               />
@@ -296,6 +271,8 @@ export default function ChooseVibeScreen({ onNext, onCancel, isSettings }: Props
         <View style={styles.carouselBottom}>
           <Pressable
             onPress={() => onNext(current.key)}
+            accessibilityLabel={`Choose ${current.name}`}
+            accessibilityRole="button"
             style={({ pressed }) => [
               styles.button,
               {
@@ -304,9 +281,7 @@ export default function ChooseVibeScreen({ onNext, onCancel, isSettings }: Props
               },
             ]}
           >
-            <Text
-              style={[styles.buttonText, { color: colors.primaryForeground }]}
-            >
+            <Text style={[styles.buttonText, { color: colors.primaryForeground }]}>
               Choose this one
             </Text>
           </Pressable>
@@ -379,6 +354,12 @@ const styles = StyleSheet.create({
   tryAllText: {
     fontSize: 15,
     fontFamily: "Inter_600SemiBold",
+  },
+  changeAnytime: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    marginBottom: 8,
   },
   card: {
     padding: 16,
