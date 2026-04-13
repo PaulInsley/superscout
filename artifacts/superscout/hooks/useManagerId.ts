@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { supabase } from "@/services/supabase";
+import { getAuthenticatedUserId } from "@/services/auth";
 
 const MANAGER_ID_KEY = "superscout_manager_id";
 const TEAM_NAME_KEY = "superscout_team_name";
@@ -43,14 +43,14 @@ export function useManagerId(): ManagerIdState {
     await AsyncStorage.setItem(TEAM_NAME_KEY, name).catch(() => {});
 
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        await supabase
-          .from("users")
-          .update({ fpl_manager_id: String(id) })
-          .eq("id", user.id);
+      const userId = await getAuthenticatedUserId();
+      if (userId) {
+        const domain = process.env.EXPO_PUBLIC_DOMAIN;
+        await fetch(`https://${domain}/api/users/profile`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: userId, fpl_manager_id: String(id) }),
+        });
       }
     } catch {}
   }, []);
@@ -63,14 +63,14 @@ export function useManagerId(): ManagerIdState {
     await AsyncStorage.removeItem(TEAM_NAME_KEY).catch(() => {});
 
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        await supabase
-          .from("users")
-          .update({ fpl_manager_id: null })
-          .eq("id", user.id);
+      const userId = await getAuthenticatedUserId();
+      if (userId) {
+        const domain = process.env.EXPO_PUBLIC_DOMAIN;
+        await fetch(`https://${domain}/api/users/profile`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: userId, fpl_manager_id: null }),
+        });
       }
     } catch {}
   }, []);

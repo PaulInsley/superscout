@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { supabase } from "@/services/supabase";
+import { getAuthenticatedUserId } from "@/services/auth";
 import type { LessonKey } from "@/lib/coachingLessons";
 
 const BEGINNER_KEY = "superscout_is_beginner";
@@ -62,14 +62,18 @@ export function useBeginnerMode() {
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const updates: Record<string, unknown> = { is_beginner: value };
-        if (value) {
-          updates.beginner_rounds_completed = 0;
-          updates.beginner_lessons_seen = "";
-        }
-        await supabase.from("users").update(updates).eq("id", user.id);
+      const userId = await getAuthenticatedUserId();
+      if (userId) {
+        const domain = process.env.EXPO_PUBLIC_DOMAIN;
+        await fetch(`https://${domain}/api/users/profile`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: userId,
+            is_beginner: value,
+            ...(value ? { beginner_rounds_completed: 0, beginner_lessons_seen: "" } : {}),
+          }),
+        });
       }
     } catch {}
   }, []);
@@ -91,15 +95,18 @@ export function useBeginnerMode() {
       }));
 
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await supabase
-            .from("users")
-            .update({
+        const userId = await getAuthenticatedUserId();
+        if (userId) {
+          const domain = process.env.EXPO_PUBLIC_DOMAIN;
+          await fetch(`https://${domain}/api/users/profile`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              user_id: userId,
               beginner_rounds_completed: newRounds,
               beginner_lessons_seen: newLessons.join(","),
-            })
-            .eq("id", user.id);
+            }),
+          });
         }
       } catch {}
 

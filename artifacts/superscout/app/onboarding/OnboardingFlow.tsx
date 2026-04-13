@@ -2,7 +2,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useState } from "react";
 import { View, StyleSheet } from "react-native";
 
-import { supabase } from "@/services/supabase";
 import WelcomeScreen from "./WelcomeScreen";
 import ConnectFPLScreen from "./ConnectFPLScreen";
 import ChooseVibeScreen from "./ChooseVibeScreen";
@@ -75,26 +74,27 @@ export default function OnboardingFlow({ onComplete }: Props) {
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const updates: Record<string, unknown> = {
-          onboarding_completed: true,
-          is_beginner: isBeginner,
-        };
-        if (vibe) updates.default_persona = vibe;
-        if (managerId) updates.fpl_manager_id = String(managerId);
-        if (isBeginner) {
-          updates.beginner_rounds_completed = 0;
-          updates.beginner_lessons_seen = "";
-        }
-
-        await supabase
-          .from("users")
-          .update(updates)
-          .eq("id", user.id);
+      const { getAuthenticatedUserId } = await import("@/services/auth");
+      const userId = await getAuthenticatedUserId();
+      if (userId) {
+        const domain = process.env.EXPO_PUBLIC_DOMAIN;
+        const apiBase = `https://${domain}/api`;
+        await fetch(`${apiBase}/users/profile`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: userId,
+            onboarding_completed: true,
+            is_beginner: isBeginner,
+            default_persona: vibe || undefined,
+            fpl_manager_id: managerId ? String(managerId) : undefined,
+            beginner_rounds_completed: isBeginner ? 0 : undefined,
+            beginner_lessons_seen: isBeginner ? "" : undefined,
+          }),
+        });
       }
     } catch {
-      console.error("[Onboarding] Failed to update Supabase user");
+      console.error("[Onboarding] Failed to update user profile via API");
     }
 
     onComplete();

@@ -11,6 +11,7 @@ import banterRouter from "./banter";
 import notificationsRouter from "./notifications";
 import streaksRouter from "./streaks";
 import reportCardRouter from "./reportCard";
+import usersRouter from "./users";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(banterRouter);
 router.use(notificationsRouter);
 router.use(streaksRouter);
 router.use(reportCardRouter);
+router.use(usersRouter);
 
 export default router;

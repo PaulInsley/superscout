@@ -14,7 +14,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { signUp, signIn } from "@/services/auth";
-import { supabase } from "@/services/supabase";
+
+function getApiBaseUrl(): string {
+  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+  return `https://${domain}/api`;
+}
 
 interface Props {
   managerId: number | null;
@@ -67,21 +71,23 @@ export default function SignUpScreen({
       }
       if (result.userId) {
         try {
-          const updates: Record<string, unknown> = {
-            email: email.trim().toLowerCase(),
-          };
-          if (managerId) updates.fpl_manager_id = String(managerId);
-          if (vibe) updates.default_persona = vibe;
-
-          const { error: upsertError } = await supabase.from("users").upsert(
-            { id: result.userId, ...updates },
-            { onConflict: "id" },
-          );
-          if (upsertError) {
-            console.error("[SuperScout] User upsert failed:", upsertError.message);
+          const apiBase = getApiBaseUrl();
+          const profileRes = await fetch(`${apiBase}/users/profile`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              user_id: result.userId,
+              email: email.trim().toLowerCase(),
+              fpl_manager_id: managerId ? String(managerId) : undefined,
+              default_persona: vibe || undefined,
+            }),
+          });
+          if (!profileRes.ok) {
+            const errData = await profileRes.json().catch(() => ({}));
+            console.error("[SuperScout] User profile creation failed:", errData.error);
           }
         } catch (e: any) {
-          console.error("[SuperScout] User upsert exception:", e?.message);
+          console.error("[SuperScout] User profile request failed:", e?.message);
         }
 
         onSignUpComplete(result.userId);
