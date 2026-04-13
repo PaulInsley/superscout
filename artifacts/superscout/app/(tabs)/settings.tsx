@@ -1110,6 +1110,29 @@ export default function SettingsScreen() {
                 Sign Out
               </Text>
             </View>
+          </Pressable>
+
+          {/* TODO: TEMPORARY — remove after Sentry verification */}
+          <Pressable
+            onPress={() => {
+              throw new Error("TEST SENTRY CRASH — remove this button after verification");
+            }}
+            style={({ pressed }) => [
+              styles.settingRow,
+              { opacity: pressed ? 0.5 : 1, borderColor: "#f97316", borderWidth: 1, borderRadius: 8, marginTop: 8 },
+            ]}
+          >
+            <View style={styles.settingRowInner}>
+              <Feather
+                name="alert-triangle"
+                size={18}
+                color="#f97316"
+                style={styles.settingIcon}
+              />
+              <Text style={[styles.settingLabel, { color: "#f97316" }]}>
+                Test Sentry Crash (TEMP)
+              </Text>
+            </View>
             <Feather
               name="chevron-right"
               size={18}
