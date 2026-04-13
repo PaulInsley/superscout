@@ -999,6 +999,7 @@ export default function SettingsScreen() {
           </Text>
 
           {__DEV__ && (
+            <>
             <View style={styles.settingRow}>
               <View style={styles.settingLeft}>
                 <Feather name="unlock" size={18} color="#8b5cf6" />
@@ -1022,6 +1023,44 @@ export default function SettingsScreen() {
                 thumbColor="#ffffff"
               />
             </View>
+
+            <Pressable
+              onPress={async () => {
+                try {
+                  const { scheduleNotification } = await import(
+                    "@/services/notifications/pushNotificationService"
+                  );
+                  const fire = new Date(Date.now() + 10_000);
+                  await scheduleNotification(
+                    "SuperScout",
+                    "Deadline in 2 hours! Lock in your captain pick.",
+                    fire,
+                    { screen: "captain" },
+                  );
+                  Alert.alert("Scheduled", "Test notification in 10 seconds — put your phone down!");
+                } catch (e: any) {
+                  Alert.alert("Error", e?.message ?? "Could not schedule notification");
+                }
+              }}
+              style={({ pressed }) => [
+                styles.settingRow,
+                { opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <View style={styles.settingLeft}>
+                <Feather name="bell" size={18} color="#f59e0b" />
+                <View>
+                  <Text style={[styles.settingLabel, { color: colors.foreground }]}>
+                    Test Notification (10s)
+                  </Text>
+                  <Text style={[styles.settingValue, { color: colors.mutedForeground }]}>
+                    Fires in 10 seconds — lock your phone to test
+                  </Text>
+                </View>
+              </View>
+              <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+            </Pressable>
+            </>
           )}
 
           <Pressable
