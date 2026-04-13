@@ -32,7 +32,7 @@ import NotificationConsentScreen from "@/components/NotificationConsentScreen";
 Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || "",
   debug: __DEV__,
-  enabled: !__DEV__,
+  enabled: true,
   tracesSampleRate: 0.2,
 });
 
