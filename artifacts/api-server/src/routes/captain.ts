@@ -105,8 +105,8 @@ async function generateCaptainPicks(
 ): Promise<{ parsed: Record<string, unknown> | null; rawText: string }> {
   const client = getClient();
   const message = await client.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 2500,
+    model: "claude-haiku-3-5",
+    max_tokens: 1500,
     system: systemPrompt,
     messages: [{ role: "user", content: context }],
   });
