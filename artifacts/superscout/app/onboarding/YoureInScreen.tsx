@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -20,22 +20,35 @@ interface MiniRecommendation {
   reason: string;
 }
 
+const FETCH_TIMEOUT_MS = 12000;
+
 export default function YoureInScreen({ teamName, managerId, vibe, onFinish }: Props) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [recommendation, setRecommendation] = useState<MiniRecommendation | null>(null);
   const [loading, setLoading] = useState(false);
+  const [gave_up, setGaveUp] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (!managerId) return;
     setLoading(true);
+    setGaveUp(false);
     const domain = process.env.EXPO_PUBLIC_DOMAIN;
     const apiBase = `https://${domain}/api`;
     const persona = vibe || "expert";
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, FETCH_TIMEOUT_MS);
+
     (async () => {
       try {
         const result = await fetchCaptainCandidates(managerId);
+        if (controller.signal.aborted) return;
         if (!result.candidates.length) throw new Error("No candidates available");
 
         const squadSummary = result.candidates
@@ -65,6 +78,7 @@ You MUST respond with valid JSON only — no markdown, no preamble, no backticks
       "expected_points": 8,
       "confidence": "BANKER",
       "ownership_pct": 50,
+      "ownership_context": "One short sentence about what this ownership means for rank",
       "upside": "One sentence",
       "risk": "One sentence",
       "case": "Persona one-liner",
@@ -77,9 +91,12 @@ You MUST respond with valid JSON only — no markdown, no preamble, no backticks
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ vibe: persona, context }),
+          signal: controller.signal,
         });
         if (!captainRes.ok) throw new Error(`Captain HTTP ${captainRes.status}`);
         const data = await captainRes.json();
+
+        if (controller.signal.aborted) return;
 
         const picks = data?.recommendations ?? data?.picks ?? [];
         if (picks.length > 0) {
@@ -90,13 +107,26 @@ You MUST respond with valid JSON only — no markdown, no preamble, no backticks
             confidence: top.confidence ?? "BANKER",
             reason: top.case ?? top.upside ?? "",
           });
+        } else {
+          setGaveUp(true);
         }
       } catch (err: unknown) {
-        console.warn("[YoureIn] recommendation fetch failed:", err);
+        if (controller.signal.aborted) {
+          console.warn("[YoureIn] recommendation fetch timed out");
+        } else {
+          console.warn("[YoureIn] recommendation fetch failed:", err);
+        }
+        setGaveUp(true);
       } finally {
+        clearTimeout(timeout);
         setLoading(false);
       }
     })();
+
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
   }, [managerId, vibe]);
 
   const confLabel =
@@ -119,11 +149,20 @@ You MUST respond with valid JSON only — no markdown, no preamble, no backticks
           {teamName ? teamName : `Welcome to ${config.brandName}`}
         </Text>
         <Text style={[styles.subtext, { color: colors.primaryForeground }]}>
-          Your first recommendation is ready.
+          {recommendation
+            ? "Your first recommendation is ready."
+            : gave_up
+              ? "You're all set — let's go!"
+              : "Getting your first recommendation..."}
         </Text>
 
         {loading && (
-          <ActivityIndicator size="small" color={colors.accent} style={{ marginTop: 16 }} />
+          <View style={styles.loadingRow}>
+            <ActivityIndicator size="small" color={colors.accent} />
+            <Text style={[styles.loadingHint, { color: colors.primaryForeground }]}>
+              Analysing your squad...
+            </Text>
+          </View>
         )}
 
         {recommendation && !loading && (
@@ -185,6 +224,17 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     opacity: 0.9,
     textAlign: "center",
+  },
+  loadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 8,
+  },
+  loadingHint: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    opacity: 0.7,
   },
   previewCard: {
     borderRadius: 12,

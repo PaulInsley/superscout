@@ -178,7 +178,28 @@ function RootLayout() {
               )}
               {screen === "notificationConsent" && (
                 <NotificationConsentScreen
-                  onEnable={() => handleNotificationConsent(true)}
+                  onEnable={async () => {
+                    await AsyncStorage.setItem("notification_consent_shown", "true");
+                    try {
+                      const granted = await requestPushPermissions();
+                      if (granted) {
+                        const token = await getExpoPushToken();
+                        if (token) {
+                          const domain = process.env.EXPO_PUBLIC_DOMAIN;
+                          if (domain) {
+                            const { getAuthenticatedUserId } = await import("@/services/auth");
+                            const authUserId = await getAuthenticatedUserId();
+                            if (authUserId) {
+                              await registerTokenWithServer(`https://${domain}/api`, authUserId, token);
+                            }
+                          }
+                        }
+                      }
+                    } catch (err) {
+                      console.warn("[RootLayout] push notification setup failed:", err);
+                    }
+                  }}
+                  onDone={() => refreshRoute()}
                   onSkip={() => handleNotificationConsent(false)}
                 />
               )}

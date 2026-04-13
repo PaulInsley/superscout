@@ -1,10 +1,11 @@
-import React from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import React, { useState } from "react";
+import { View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 interface Props {
-  onEnable: () => void;
+  onEnable: () => Promise<void> | void;
+  onDone: () => void;
   onSkip: () => void;
 }
 
@@ -31,8 +32,24 @@ const NOTIFICATION_TYPES = [
   },
 ];
 
-export default function NotificationConsentScreen({ onEnable, onSkip }: Props) {
+export default function NotificationConsentScreen({ onEnable, onDone, onSkip }: Props) {
   const insets = useSafeAreaInsets();
+  const [processing, setProcessing] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const handleEnable = async () => {
+    if (processing || done) return;
+    setProcessing(true);
+    try {
+      await onEnable();
+      setProcessing(false);
+      setDone(true);
+      setTimeout(() => onDone(), 800);
+    } catch (err) {
+      console.warn("[NotificationConsent] enable failed:", err);
+      setProcessing(false);
+    }
+  };
 
   return (
     <View
@@ -63,18 +80,53 @@ export default function NotificationConsentScreen({ onEnable, onSkip }: Props) {
       </Text>
 
       <View style={styles.actions}>
-        <Pressable style={styles.enableButton} onPress={onEnable} accessibilityLabel="Enable notifications" accessibilityRole="button">
-          <Ionicons
-            name="notifications-outline"
-            size={20}
-            color="#1a472a"
-            style={{ marginRight: 8 }}
-          />
-          <Text style={styles.enableText}>Enable notifications</Text>
+        <Pressable
+          style={({ pressed }) => [
+            styles.enableButton,
+            pressed && !processing && !done && styles.enableButtonPressed,
+            done && styles.enableButtonDone,
+          ]}
+          onPress={handleEnable}
+          disabled={processing || done}
+          accessibilityLabel="Enable notifications"
+          accessibilityRole="button"
+        >
+          {processing ? (
+            <ActivityIndicator size="small" color="#1a472a" />
+          ) : done ? (
+            <>
+              <Ionicons
+                name="checkmark-circle"
+                size={20}
+                color="#1a472a"
+                style={{ marginRight: 8 }}
+              />
+              <Text style={styles.enableText}>Enabled!</Text>
+            </>
+          ) : (
+            <>
+              <Ionicons
+                name="notifications-outline"
+                size={20}
+                color="#1a472a"
+                style={{ marginRight: 8 }}
+              />
+              <Text style={styles.enableText}>Enable notifications</Text>
+            </>
+          )}
         </Pressable>
 
-        <Pressable style={styles.skipButton} onPress={onSkip} accessibilityLabel="Skip notifications" accessibilityRole="button">
-          <Text style={styles.skipText}>Not now</Text>
+        <Pressable
+          style={({ pressed }) => [
+            styles.skipButton,
+            pressed && styles.skipButtonPressed,
+          ]}
+          onPress={onSkip}
+          disabled={processing}
+          accessibilityLabel="Skip notifications"
+          accessibilityRole="button"
+        >
+          <Text style={[styles.skipText, processing && { opacity: 0.4 }]}>Not now</Text>
         </Pressable>
       </View>
     </View>
@@ -157,6 +209,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: "100%",
     marginBottom: 16,
+    minHeight: 52,
+  },
+  enableButtonPressed: {
+    backgroundColor: "#00cc6a",
+    transform: [{ scale: 0.97 }],
+  },
+  enableButtonDone: {
+    backgroundColor: "#00cc6a",
   },
   enableText: {
     fontSize: 17,
@@ -165,6 +225,9 @@ const styles = StyleSheet.create({
   },
   skipButton: {
     paddingVertical: 12,
+  },
+  skipButtonPressed: {
+    opacity: 0.6,
   },
   skipText: {
     fontSize: 15,
