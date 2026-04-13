@@ -78,6 +78,8 @@ export default function TransferAdvisorScreen() {
   const [coachingDismissed, setCoachingDismissed] = useState(false);
   const [showGraduation, setShowGraduation] = useState(false);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
+  const [regenCooldown, setRegenCooldown] = useState(0);
+  const regenTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -115,6 +117,27 @@ export default function TransferAdvisorScreen() {
     const t6 = setTimeout(() => setLoadingStage("ai_deep"), 20000);
     stageTimersRef.current = [t1, t2, t3, t4, t5, t6];
   }, [clearStageTimers]);
+
+  const startRegenCooldown = useCallback(() => {
+    if (regenTimerRef.current) clearInterval(regenTimerRef.current);
+    setRegenCooldown(60);
+    regenTimerRef.current = setInterval(() => {
+      setRegenCooldown((prev) => {
+        if (prev <= 1) {
+          if (regenTimerRef.current) clearInterval(regenTimerRef.current);
+          regenTimerRef.current = null;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (regenTimerRef.current) clearInterval(regenTimerRef.current);
+    };
+  }, []);
 
   const applyTransferResult = useCallback((data: TransferAdviceResponse & { generated_at?: string }) => {
     setRecommendations(data.recommendations ?? []);
@@ -214,6 +237,7 @@ export default function TransferAdvisorScreen() {
         clearStageTimers();
         setLoadingStage("done");
         applyTransferResult(json);
+        if (skipCache) startRegenCooldown();
       } else {
         setAiError("Couldn't load transfer advice. Tap to try again.");
       }
@@ -230,7 +254,7 @@ export default function TransferAdvisorScreen() {
       clearStageTimers();
       setAiLoading(false);
     }
-  }, [managerId, vibe, startStageTimers, clearStageTimers, applyTransferResult]);
+  }, [managerId, vibe, startStageTimers, clearStageTimers, applyTransferResult, startRegenCooldown]);
 
   const autoLoadedVibeRef = useRef<string | null>(null);
 
@@ -472,10 +496,11 @@ export default function TransferAdvisorScreen() {
 
             <Pressable
               onPress={() => requestAdvice(true)}
-              style={[styles.regenerateButton, { borderColor: colors.border }]}
+              disabled={regenCooldown > 0}
+              style={[styles.regenerateButton, { borderColor: colors.border, opacity: regenCooldown > 0 ? 0.5 : 1 }]}
             >
               <Text style={[styles.regenerateText, { color: colors.mutedForeground }]}>
-                Regenerate
+                {regenCooldown > 0 ? `Regenerate (${regenCooldown}s)` : "Regenerate"}
               </Text>
             </Pressable>
             {generatedAt && (

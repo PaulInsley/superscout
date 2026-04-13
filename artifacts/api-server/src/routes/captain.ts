@@ -107,6 +107,7 @@ async function generateCaptainPicks(
   const message = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
     max_tokens: 1500,
+    temperature: 0.3,
     system: systemPrompt,
     messages: [{ role: "user", content: context }],
   });

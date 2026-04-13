@@ -84,6 +84,8 @@ export default function CardScreen() {
   const [errorType, setErrorType] = useState<"error" | "info">("error");
   const [saving, setSaving] = useState(false);
   const [showPulse, setShowPulse] = useState(false);
+  const [regenCooldown, setRegenCooldown] = useState(0);
+  const regenTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const viewShotRef = useRef<ViewShot>(null);
 
   useEffect(() => {
@@ -107,6 +109,27 @@ export default function CardScreen() {
       });
     }, [vibe, isPro])
   );
+
+  const startRegenCooldown = useCallback(() => {
+    if (regenTimerRef.current) clearInterval(regenTimerRef.current);
+    setRegenCooldown(60);
+    regenTimerRef.current = setInterval(() => {
+      setRegenCooldown((prev) => {
+        if (prev <= 1) {
+          if (regenTimerRef.current) clearInterval(regenTimerRef.current);
+          regenTimerRef.current = null;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (regenTimerRef.current) clearInterval(regenTimerRef.current);
+    };
+  }, []);
 
   const generateCard = useCallback(async () => {
     if (!managerId) return;
@@ -162,6 +185,7 @@ export default function CardScreen() {
           }
           setLoading(false);
           trackStreakActivity();
+          startRegenCooldown();
         }, 400);
       }, 300);
     } catch (err) {
@@ -372,11 +396,12 @@ export default function CardScreen() {
           </View>
 
           <Pressable
-            style={[styles.generateRealButton, { backgroundColor: colors.primary }]}
+            style={[styles.generateRealButton, { backgroundColor: colors.primary, opacity: regenCooldown > 0 ? 0.5 : 1 }]}
             onPress={generateCard}
+            disabled={regenCooldown > 0}
           >
             <Text style={[styles.generateButtonText, { color: colors.primaryForeground }]}>
-              Regenerate Card
+              {regenCooldown > 0 ? `Regenerate Card (${regenCooldown}s)` : "Regenerate Card"}
             </Text>
           </Pressable>
         </>

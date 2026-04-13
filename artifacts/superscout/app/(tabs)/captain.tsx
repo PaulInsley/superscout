@@ -72,6 +72,8 @@ export default function CaptainPickerScreen() {
   const [coachingDismissed, setCoachingDismissed] = useState(false);
   const [showGraduation, setShowGraduation] = useState(false);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
+  const [regenCooldown, setRegenCooldown] = useState(0);
+  const regenTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const stageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useFocusEffect(
@@ -145,6 +147,27 @@ export default function CaptainPickerScreen() {
       }, 700);
     }, 600);
   }, [clearStageTimers]);
+
+  const startRegenCooldown = useCallback(() => {
+    if (regenTimerRef.current) clearInterval(regenTimerRef.current);
+    setRegenCooldown(60);
+    regenTimerRef.current = setInterval(() => {
+      setRegenCooldown((prev) => {
+        if (prev <= 1) {
+          if (regenTimerRef.current) clearInterval(regenTimerRef.current);
+          regenTimerRef.current = null;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (regenTimerRef.current) clearInterval(regenTimerRef.current);
+    };
+  }, []);
 
   const requestPicks = useCallback(async (skipCache = false) => {
     if (!candidateData) return;
@@ -229,6 +252,7 @@ export default function CaptainPickerScreen() {
         setGeneratedAt((data as any).generated_at ?? null);
         logRecommendationSilently(data, candidateData.gameweek);
         trackStreakActivity();
+        if (skipCache) startRegenCooldown();
       } else {
         throw new Error("No recommendations returned");
       }
@@ -241,7 +265,7 @@ export default function CaptainPickerScreen() {
       clearStageTimers();
       setAiLoading(false);
     }
-  }, [candidateData, vibe, clearStageTimers, startCaptainStageTimers]);
+  }, [candidateData, vibe, clearStageTimers, startCaptainStageTimers, startRegenCooldown]);
 
   const autoLoadedVibeRef = useRef<string | null>(null);
 
@@ -554,10 +578,11 @@ export default function CaptainPickerScreen() {
 
             <Pressable
               onPress={() => requestPicks(true)}
-              style={[styles.regenerateButton, { borderColor: colors.border }]}
+              disabled={regenCooldown > 0}
+              style={[styles.regenerateButton, { borderColor: colors.border, opacity: regenCooldown > 0 ? 0.5 : 1 }]}
             >
               <Text style={[styles.regenerateText, { color: colors.mutedForeground }]}>
-                Regenerate
+                {regenCooldown > 0 ? `Regenerate (${regenCooldown}s)` : "Regenerate"}
               </Text>
             </Pressable>
             {generatedAt && (
