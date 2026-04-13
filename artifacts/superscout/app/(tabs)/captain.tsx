@@ -112,7 +112,7 @@ export default function CaptainPickerScreen() {
     }
   }, [candidateData?.deadlinePassed, recommendations, gameweek]);
 
-  const MIN_LOADING_MS = 2500;
+  const MIN_LOADING_MS = 3000;
 
   const startCaptainStageTimers = useCallback(() => {
     clearStageTimers();

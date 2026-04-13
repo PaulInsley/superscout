@@ -84,7 +84,7 @@ export default function TransferAdvisorScreen() {
     }, [isPro]),
   );
 
-  const MIN_LOADING_MS = 3500;
+  const MIN_LOADING_MS = 5000;
   const stageTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const clearStageTimers = useCallback(() => {
