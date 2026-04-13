@@ -9,7 +9,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Alert } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -25,6 +25,7 @@ import { supabase } from "@/services/supabase";
 import OnboardingFlow, {
   ONBOARDING_COMPLETE_KEY,
 } from "./onboarding/OnboardingFlow";
+import SignInScreen from "./onboarding/SignInScreen";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -35,6 +36,8 @@ try {
 }
 
 const queryClient = new QueryClient();
+
+type AppScreen = "loading" | "onboarding" | "signIn" | "main";
 
 function RootLayoutNav() {
   return (
@@ -52,45 +55,78 @@ export default function RootLayout() {
     Inter_700Bold,
   });
 
-  const [onboardingChecked, setOnboardingChecked] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [screen, setScreen] = useState<AppScreen>("loading");
+  const initialLoadDone = useRef(false);
 
-  useEffect(() => {
-    AsyncStorage.getItem(ONBOARDING_COMPLETE_KEY)
-      .then((value) => {
-        setShowOnboarding(value !== "true");
-      })
-      .catch(() => {
-        setShowOnboarding(true);
-      })
-      .finally(() => {
-        setOnboardingChecked(true);
-      });
+  const refreshRoute = useCallback(async () => {
+    try {
+      const onboardingDone = await AsyncStorage.getItem(ONBOARDING_COMPLETE_KEY);
+      if (onboardingDone !== "true") {
+        setScreen("onboarding");
+        return;
+      }
+      const { data: { session } } = await supabase.auth.getSession();
+      setScreen(session ? "main" : "signIn");
+    } catch {
+      setScreen("onboarding");
+    }
   }, []);
 
   useEffect(() => {
+    refreshRoute().then(() => { initialLoadDone.current = true; });
+  }, [refreshRoute]);
+
+  useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (!session) {
-          AsyncStorage.getItem(ONBOARDING_COMPLETE_KEY).then((val) => {
-            if (val !== "true") {
-              setShowOnboarding(true);
-            }
-          });
+      () => {
+        if (initialLoadDone.current) {
+          refreshRoute();
         }
       },
     );
     return () => subscription.unsubscribe();
-  }, []);
+  }, [refreshRoute]);
 
   useEffect(() => {
-    if ((fontsLoaded || fontError) && onboardingChecked) {
+    if ((fontsLoaded || fontError) && screen !== "loading") {
       SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, fontError, onboardingChecked]);
+  }, [fontsLoaded, fontError, screen]);
 
   if (!fontsLoaded && !fontError) return null;
-  if (!onboardingChecked) return null;
+  if (screen === "loading") return null;
+
+  const handleOnboardingComplete = async () => {
+    await refreshRoute();
+    try {
+      const granted = await requestPushPermissions();
+      if (granted) {
+        const token = await getExpoPushToken();
+        if (token) {
+          const domain = process.env.EXPO_PUBLIC_DOMAIN;
+          if (domain) {
+            const { getAuthenticatedUserId } = await import("@/services/auth");
+            const authUserId = await getAuthenticatedUserId();
+            if (authUserId) {
+              await registerTokenWithServer(
+                `https://${domain}/api`,
+                authUserId,
+                token,
+              );
+            }
+          }
+        }
+      }
+    } catch {}
+  };
+
+  const handleSignInSuccess = () => {
+    refreshRoute();
+  };
+
+  const handleGoToSignUp = () => {
+    setScreen("onboarding");
+  };
 
   return (
     <SafeAreaProvider>
@@ -98,35 +134,16 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <SubscriptionProvider>
             <GestureHandlerRootView style={{ flex: 1 }}>
-                {showOnboarding ? (
-                  <OnboardingFlow
-                    onComplete={async () => {
-                      setShowOnboarding(false);
-                      try {
-                        const granted = await requestPushPermissions();
-                        if (granted) {
-                          const token = await getExpoPushToken();
-                          if (token) {
-                            const domain = process.env.EXPO_PUBLIC_DOMAIN;
-                            if (domain) {
-                              const { getAuthenticatedUserId } = await import("@/services/auth");
-                              const authUserId = await getAuthenticatedUserId();
-                              if (authUserId) {
-                                await registerTokenWithServer(
-                                  `https://${domain}/api`,
-                                  authUserId,
-                                  token,
-                                );
-                              }
-                            }
-                          }
-                        }
-                      } catch {}
-                    }}
-                  />
-                ) : (
-                  <RootLayoutNav />
-                )}
+              {screen === "onboarding" && (
+                <OnboardingFlow onComplete={handleOnboardingComplete} />
+              )}
+              {screen === "signIn" && (
+                <SignInScreen
+                  onSignInSuccess={handleSignInSuccess}
+                  onGoToSignUp={handleGoToSignUp}
+                />
+              )}
+              {screen === "main" && <RootLayoutNav />}
             </GestureHandlerRootView>
           </SubscriptionProvider>
         </QueryClientProvider>

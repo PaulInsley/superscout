@@ -1066,15 +1066,6 @@ export default function SettingsScreen() {
           <Pressable
             onPress={async () => {
               await authSignOut();
-              await AsyncStorage.multiRemove([
-                ONBOARDING_COMPLETE_KEY,
-                "superscout_manager_id",
-                "superscout_team_name",
-                PERSONA_KEY,
-                "superscout_is_beginner",
-                "superscout_beginner_rounds",
-                "superscout_beginner_lessons",
-              ]);
               if (Platform.OS === "web") {
                 window.location.reload();
               }
