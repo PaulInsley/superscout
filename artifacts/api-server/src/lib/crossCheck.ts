@@ -52,15 +52,26 @@ CRITICAL RULES:
 3. If no transfer context is available (fallback scenario), generate captain picks normally without this constraint. Do not mention transfers.`;
 }
 
+const CONFIDENCE_LABELS: Record<string, string> = {
+  BANKER: "strong",
+  CALCULATED_RISK: "solid",
+  BOLD_PUNT: "speculative",
+};
+
 export function buildCaptainContextPrompt(captainPicks: Array<{ name: string; confidence: string }>): string {
   if (captainPicks.length === 0) return "";
 
   const picksList = captainPicks
-    .map((p) => `${p.name} (${p.confidence})`)
+    .map((p) => p.name)
     .join(", ");
 
-  return `CAPTAIN CONTEXT:
-The Captain Picker has recommended the following players as captain options: ${picksList}
+  const strongPicks = captainPicks
+    .filter((p) => p.confidence === "BANKER" || p.confidence === "CALCULATED_RISK")
+    .map((p) => p.name);
 
-RULE: If a player appears as a strong captain option (BANKER or CALCULATED_RISK confidence), think carefully before recommending them as a transfer OUT. It's not forbidden — a player can be a good captain this week but worth selling for the longer term — but if you do recommend selling a captain option, explicitly acknowledge the tension in the commentary.`;
+  return `CAPTAIN CONTEXT (internal — do NOT echo these labels in your output):
+The Captain Picker recommends: ${picksList}.
+${strongPicks.length > 0 ? `Strong captain candidates: ${strongPicks.join(", ")}.` : ""}
+If a strong captain candidate appears, avoid recommending them as a transfer OUT unless you explicitly acknowledge the trade-off.
+IMPORTANT: Do not use internal labels like BANKER, CALCULATED_RISK, or BOLD_PUNT in your output text. Use natural language only.`;
 }
