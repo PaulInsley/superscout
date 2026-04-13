@@ -645,6 +645,7 @@ Use this exact JSON structure:
       "expected_points": <number>,
       "confidence": "BANKER|CALCULATED_RISK|BOLD_PUNT",
       "ownership_pct": <number>,
+      "ownership_context": "One short persona-voiced sentence about what this ownership means for rank",
       "upside": "One sentence about the upside",
       "risk": "One sentence about the risk",
       "case": "Your persona-voiced one-liner goes here",
