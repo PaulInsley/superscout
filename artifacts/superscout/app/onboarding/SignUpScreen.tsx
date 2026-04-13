@@ -41,6 +41,7 @@ export default function SignUpScreen({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
 
   const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const isValidPassword = password.length >= 8;
@@ -90,6 +91,12 @@ export default function SignUpScreen({
           console.error("[SuperScout] User profile request failed:", e?.message);
         }
 
+        if (result.needsVerification) {
+          setVerificationSent(true);
+          setLoading(false);
+          return;
+        }
+
         onSignUpComplete(result.userId);
         return;
       }
@@ -112,6 +119,31 @@ export default function SignUpScreen({
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <View style={styles.content}>
+        {verificationSent ? (
+          <View style={styles.headerArea}>
+            <Feather name="mail" size={48} color={colors.accent} />
+            <Text style={[styles.title, { color: colors.primaryForeground }]}>
+              Check your email
+            </Text>
+            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+              We sent a verification link to {email.trim().toLowerCase()}. Tap the link, then come back and sign in.
+            </Text>
+            <Pressable
+              style={[styles.submitButton, { backgroundColor: colors.accent, marginTop: 24 }]}
+              onPress={() => {
+                setVerificationSent(false);
+                setIsSignIn(true);
+                setError(null);
+                setPassword("");
+              }}
+            >
+              <Text style={[styles.submitText, { color: colors.primary }]}>
+                Sign In
+              </Text>
+            </Pressable>
+          </View>
+        ) : (
+        <>
         <View style={styles.headerArea}>
           <Feather name="shield" size={40} color={colors.accent} />
           <Text style={[styles.title, { color: colors.primaryForeground }]}>
@@ -236,6 +268,8 @@ export default function SignUpScreen({
             {isSignIn ? "Sign Up" : "Sign In"}
           </Text>
         </Pressable>
+        </>
+        )}
       </View>
     </KeyboardAvoidingView>
   );

@@ -18,13 +18,14 @@ export async function getAuthenticatedUserId(): Promise<string | null> {
 export async function signUp(
   email: string,
   password: string,
-): Promise<{ userId: string | null; error: string | null }> {
+): Promise<{ userId: string | null; error: string | null; needsVerification: boolean }> {
   try {
     const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) return { userId: null, error: error.message };
-    return { userId: data.user?.id ?? null, error: null };
+    if (error) return { userId: null, error: error.message, needsVerification: false };
+    const hasSession = !!data.session;
+    return { userId: data.user?.id ?? null, error: null, needsVerification: !hasSession };
   } catch (e: any) {
-    return { userId: null, error: e?.message ?? "Sign up failed" };
+    return { userId: null, error: e?.message ?? "Sign up failed", needsVerification: false };
   }
 }
 
