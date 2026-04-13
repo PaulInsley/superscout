@@ -1375,6 +1375,40 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
     } else {
       res.json(result);
     }
+
+    if (supabase && currentGw) {
+      (async () => {
+        try {
+          const { data: userRow } = await supabase
+            .from("users")
+            .select("id")
+            .eq("fpl_manager_id", parseInt(managerId, 10))
+            .limit(1)
+            .single();
+          if (!userRow) return;
+          const expiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
+          const { error: cacheErr } = await supabase
+            .from("pre_generated_recommendations")
+            .upsert(
+              {
+                user_id: userRow.id,
+                gameweek: currentGw,
+                decision_type: "transfer",
+                vibe: vibe ?? "expert",
+                response_json: result,
+                generated_at: new Date().toISOString(),
+                expires_at: expiresAt,
+              },
+              { onConflict: "user_id,gameweek,decision_type,vibe" },
+            );
+          if (cacheErr) {
+            req.log.warn({ err: cacheErr }, "Failed to cache transfer advice");
+          } else {
+            req.log.info({ gameweek: currentGw, vibe }, "Cached transfer advice for future requests");
+          }
+        } catch {}
+      })();
+    }
   } catch (error: any) {
     const isTimeout = error?.status === 408 || error?.code === "ETIMEDOUT" || error?.message?.includes("timed out") || error?.message?.includes("timeout");
     const msg = isTimeout

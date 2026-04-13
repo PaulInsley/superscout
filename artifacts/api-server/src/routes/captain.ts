@@ -375,7 +375,36 @@ NEVER imply low ownership is automatically better. If a differential pick has 3+
       }
     }
 
-    res.json({ ...parsed, source: "live" });
+    const liveResult = { ...parsed, source: "live" };
+    res.json(liveResult);
+
+    if (clientUserId && gameweek) {
+      const supabase = getSupabase();
+      if (supabase) {
+        const expiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
+        supabase
+          .from("pre_generated_recommendations")
+          .upsert(
+            {
+              user_id: clientUserId,
+              gameweek,
+              decision_type: "captain",
+              vibe: vibe ?? "expert",
+              response_json: parsed,
+              generated_at: new Date().toISOString(),
+              expires_at: expiresAt,
+            },
+            { onConflict: "user_id,gameweek,decision_type,vibe" },
+          )
+          .then(({ error: cacheErr }) => {
+            if (cacheErr) {
+              req.log.warn({ err: cacheErr }, "Failed to cache captain picks");
+            } else {
+              req.log.info({ gameweek, vibe }, "Cached captain picks for future requests");
+            }
+          });
+      }
+    }
   } catch (error: any) {
     if (error?.status === 408 || error?.code === "ETIMEDOUT" || error?.message?.includes("timed out") || error?.message?.includes("timeout")) {
       req.log.warn({ err: error }, "Claude API timeout during captain picks");
