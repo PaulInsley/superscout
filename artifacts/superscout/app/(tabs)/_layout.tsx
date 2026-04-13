@@ -1,13 +1,17 @@
 import { BlurView } from "expo-blur";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
-import { Tabs } from "expo-router";
+import * as Notifications from "expo-notifications";
+import { Tabs, useRouter } from "expo-router";
 import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import { SymbolView } from "expo-symbols";
 import { Feather } from "@expo/vector-icons";
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
+
+const VALID_TABS = ["captain", "transfers", "banter", "card", "squad", "settings", "index"] as const;
+type ValidTab = (typeof VALID_TABS)[number];
 
 // IMPORTANT: iOS 26 uses NativeTabs for native tabs with liquid glass support.
 // NativeTabs intentionally does NOT use custom design tokens — liquid glass
@@ -182,6 +186,37 @@ function ClassicTabLayout() {
 }
 
 export default function TabLayout() {
+  const router = useRouter();
+  const responseListener = useRef<Notifications.EventSubscription | null>(null);
+
+  useEffect(() => {
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        const data = response.notification.request.content.data;
+        const target = data?.screen as string | undefined;
+        if (target && VALID_TABS.includes(target as ValidTab)) {
+          router.navigate(`/(tabs)/${target}` as any);
+        }
+      },
+    );
+
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response) {
+        const data = response.notification.request.content.data;
+        const target = data?.screen as string | undefined;
+        if (target && VALID_TABS.includes(target as ValidTab)) {
+          router.navigate(`/(tabs)/${target}` as any);
+        }
+      }
+    });
+
+    return () => {
+      if (responseListener.current) {
+        responseListener.current.remove();
+      }
+    };
+  }, [router]);
+
   if (isLiquidGlassAvailable()) {
     return <NativeTabLayout />;
   }
