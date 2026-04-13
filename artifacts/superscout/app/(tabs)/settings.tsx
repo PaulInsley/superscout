@@ -12,7 +12,6 @@ import {
   View,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import * as Sentry from "@sentry/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -1111,36 +1110,6 @@ export default function SettingsScreen() {
                 Sign Out
               </Text>
             </View>
-          </Pressable>
-
-          {/* TODO: TEMPORARY — remove after Sentry verification */}
-          <Pressable
-            onPress={() => {
-              const err = new Error("TEST SENTRY CRASH — remove this button after verification");
-              Sentry.captureException(err);
-              Alert.alert("Sentry Test", "Error sent to Sentry via captureException. Check your dashboard.");
-            }}
-            style={({ pressed }) => [
-              styles.settingRow,
-              { opacity: pressed ? 0.5 : 1, borderColor: "#f97316", borderWidth: 1, borderRadius: 8, marginTop: 8 },
-            ]}
-          >
-            <View style={styles.settingRowInner}>
-              <Feather
-                name="alert-triangle"
-                size={18}
-                color="#f97316"
-                style={styles.settingIcon}
-              />
-              <Text style={[styles.settingLabel, { color: "#f97316" }]}>
-                Test Sentry Crash (TEMP)
-              </Text>
-            </View>
-            <Feather
-              name="chevron-right"
-              size={18}
-              color={colors.mutedForeground}
-            />
           </Pressable>
 
           <Pressable
