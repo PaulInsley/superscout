@@ -32,9 +32,7 @@ function extractJSON(text: string): unknown | null {
   }
   try {
     return JSON.parse(cleaned);
-  } catch {
-    // fallback
-  }
+  } catch (_) { /* JSON parse fallback — try nested extraction */ }
   let depth = 0;
   let start = -1;
   for (let i = 0; i < cleaned.length; i++) {
@@ -46,9 +44,7 @@ function extractJSON(text: string): unknown | null {
       if (depth === 0 && start >= 0) {
         try {
           return JSON.parse(cleaned.substring(start, i + 1));
-        } catch {
-          // keep looking
-        }
+        } catch (_) { /* keep scanning */ }
       }
     }
   }
@@ -184,8 +180,8 @@ async function generateCaptainPicks(
         TTL.USER,
       );
       break;
-    } catch {
-      // try next
+    } catch (err) {
+      console.warn(`[PreGenerate] captain picks fetch failed for GW ${gw}:`, err);
     }
   }
   if (!picksData) return null;
@@ -457,8 +453,8 @@ async function generateTransferAdvice(
         TTL.USER,
       );
       break;
-    } catch {
-      // try next
+    } catch (err) {
+      console.warn(`[PreGenerate] transfer picks fetch failed for GW attempt:`, err);
     }
   }
   if (!picksData) return null;
@@ -966,7 +962,8 @@ router.get("/pre-generated/:gameweek", async (req: Request, res: Response) => {
         const nextEvent = bootstrap.events.find((e) => e.is_next);
         const currentEvent = bootstrap.events.find((e) => e.is_current);
         gw = nextEvent?.id ?? currentEvent?.id ?? 1;
-      } catch {
+      } catch (err) {
+        console.warn("[PreGenerate] bootstrap fetch for GW detection failed:", err);
         res.json({ found: false });
         return;
       }
@@ -1010,7 +1007,9 @@ router.get("/pre-generated/:gameweek", async (req: Request, res: Response) => {
         "/bootstrap-static/",
         TTL.STATIC,
       );
-    } catch {}
+    } catch (err) {
+      console.warn("[PreGenerate] bootstrap fetch for staleness check failed:", err);
+    }
 
     if (bootstrap) {
       const responseJson = data.response_json as Record<string, unknown>;

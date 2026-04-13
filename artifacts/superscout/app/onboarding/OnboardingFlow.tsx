@@ -32,15 +32,15 @@ export default function OnboardingFlow({ onComplete }: Props) {
     if (id && name) {
       setTeamName(name);
       setManagerId(id);
-      AsyncStorage.setItem(MANAGER_ID_KEY, String(id)).catch(() => {});
-      AsyncStorage.setItem(TEAM_NAME_KEY, name).catch(() => {});
+      AsyncStorage.setItem(MANAGER_ID_KEY, String(id)).catch((err: unknown) => console.warn("[Onboarding] manager ID save failed:", err));
+      AsyncStorage.setItem(TEAM_NAME_KEY, name).catch((err: unknown) => console.warn("[Onboarding] team name save failed:", err));
     }
     setStep(2);
   };
 
   const handleVibeSelect = (v: "expert" | "critic" | "fanboy") => {
     setVibe(v);
-    AsyncStorage.setItem(PERSONA_KEY, v).catch(() => {});
+    AsyncStorage.setItem(PERSONA_KEY, v).catch((err: unknown) => console.warn("[Onboarding] persona save failed:", err));
     setStep(3);
   };
 
@@ -52,22 +52,24 @@ export default function OnboardingFlow({ onComplete }: Props) {
   const handleSignInSkipToMain = async () => {
     try {
       await AsyncStorage.setItem(ONBOARDING_COMPLETE_KEY, "true");
-    } catch {}
+    } catch (err) {
+      console.warn("[Onboarding] failed to save onboarding complete:", err);
+    }
     onComplete();
   };
 
   const handleBeginnerCheck = (beginner: boolean) => {
     setIsBeginner(beginner);
-    AsyncStorage.setItem(BEGINNER_KEY, beginner ? "true" : "false").catch(() => {});
+    AsyncStorage.setItem(BEGINNER_KEY, beginner ? "true" : "false").catch((err: unknown) => console.warn("[Onboarding] beginner flag save failed:", err));
     if (beginner) {
-      AsyncStorage.setItem("superscout_beginner_rounds", "0").catch(() => {});
-      AsyncStorage.setItem("superscout_beginner_lessons", "").catch(() => {});
+      AsyncStorage.setItem("superscout_beginner_rounds", "0").catch((err: unknown) => console.warn("[Onboarding] beginner rounds save failed:", err));
+      AsyncStorage.setItem("superscout_beginner_lessons", "").catch((err: unknown) => console.warn("[Onboarding] beginner lessons save failed:", err));
     }
     setStep(5);
   };
 
   const handleFinish = () => {
-    AsyncStorage.setItem(ONBOARDING_COMPLETE_KEY, "true").catch(() => {});
+    AsyncStorage.setItem(ONBOARDING_COMPLETE_KEY, "true").catch((err: unknown) => console.warn("[Onboarding] completion flag save failed:", err));
 
     import("@/services/auth")
       .then(({ getAuthenticatedUserId }) => getAuthenticatedUserId())
@@ -89,7 +91,7 @@ export default function OnboardingFlow({ onComplete }: Props) {
           }),
         });
       })
-      .catch(() => {});
+      .catch((err: unknown) => console.warn("[Onboarding] profile sync failed:", err));
 
     onComplete();
   };

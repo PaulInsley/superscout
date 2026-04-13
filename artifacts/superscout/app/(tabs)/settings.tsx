@@ -89,7 +89,7 @@ export default function SettingsScreen() {
           setCurrentVibe(val);
         }
       })
-      .catch(() => {});
+      .catch((err: unknown) => console.warn("[Settings] persona load failed:", err));
   }, []);
 
   useEffect(() => {
@@ -97,12 +97,16 @@ export default function SettingsScreen() {
       try {
         const stored = await AsyncStorage.getItem("superscout_notif_prefs");
         if (stored) setNotifPrefs(JSON.parse(stored));
-      } catch {}
+      } catch (err) {
+        console.warn("[Settings] failed to load notif prefs:", err);
+      }
       try {
         const Notifications = await import("expo-notifications");
         const { status } = await Notifications.getPermissionsAsync();
         setNotifPermissionGranted(status === "granted");
-      } catch {}
+      } catch (err) {
+        console.warn("[Settings] failed to check notif permissions:", err);
+      }
     };
     loadNotifPrefs();
   }, []);
@@ -120,7 +124,9 @@ export default function SettingsScreen() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: userId, preferences: updated }),
       });
-    } catch {}
+    } catch (err) {
+      console.warn("[Settings] failed to sync notif prefs to server:", err);
+    }
   }, [notifPrefs]);
 
   const loadSavedLeagues = useCallback(async () => {
@@ -134,7 +140,9 @@ export default function SettingsScreen() {
         setSavedLeagues(data.leagues ?? []);
         setSelectedLeagueIds(new Set((data.leagues ?? []).map((l: SavedLeague) => Number(l.mini_league_id))));
       }
-    } catch {}
+    } catch (err) {
+      console.warn("[Settings] failed to load saved leagues:", err);
+    }
   }, []);
 
   useEffect(() => {
@@ -150,7 +158,8 @@ export default function SettingsScreen() {
     try {
       const leagues = await fetchManagerLeagues(managerId);
       setAvailableLeagues(leagues);
-    } catch {
+    } catch (err) {
+      console.warn("[Settings] failed to fetch available leagues:", err);
       setAvailableLeagues([]);
     } finally {
       setLeaguesLoading(false);
@@ -209,7 +218,7 @@ export default function SettingsScreen() {
     setCurrentVibe(v);
     setShowVibePicker(false);
 
-    AsyncStorage.setItem(PERSONA_KEY, v).catch(() => {});
+    AsyncStorage.setItem(PERSONA_KEY, v).catch((err: unknown) => console.warn("[Settings] persona save failed:", err));
 
     supabase.auth
       .getUser()
@@ -221,7 +230,7 @@ export default function SettingsScreen() {
             .eq("id", user.id);
         }
       })
-      .catch(() => {});
+      .catch((err: unknown) => console.warn("[Settings] vibe DB sync failed:", err));
   };
 
   const handleFPLConnect = async (

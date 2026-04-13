@@ -95,7 +95,7 @@ export default function TransferAdvisorScreen() {
             return effectiveVibe as "expert" | "critic" | "fanboy";
           });
         }
-      }).catch(() => {});
+      }).catch((err: unknown) => console.warn("[Transfers] vibe load failed:", err));
     }, [isPro]),
   );
 
@@ -304,8 +304,8 @@ export default function TransferAdvisorScreen() {
           })),
         }),
       });
-    } catch {
-      // silent
+    } catch (err) {
+      console.warn("[Transfers] silent recommendation log failed:", err);
     }
   };
 

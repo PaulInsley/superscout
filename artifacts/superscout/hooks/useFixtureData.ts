@@ -90,7 +90,7 @@ export function useFixtureData(): FixtureDataState | null {
       });
     }
 
-    loadingPromise.then((s) => setState(s)).catch(() => {});
+    loadingPromise.then((s) => setState(s)).catch((err) => console.warn("[useFixtureData] load failed:", err));
   }, []);
 
   return state;

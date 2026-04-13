@@ -25,9 +25,12 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 // ---------------------------------------------------------------------------
 // Simple password auth via cookie
 // ---------------------------------------------------------------------------
+import crypto from "crypto";
+
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || null;
 const COOKIE_NAME = 'ss_admin_auth';
-const COOKIE_VALUE = ADMIN_PASSWORD ? Buffer.from(ADMIN_PASSWORD).toString('base64') : '';
+const SESSION_MAX_AGE = 4 * 60 * 60 * 1000;
+const activeSessions = new Map<string, { authenticatedAt: number }>();
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MS = 15 * 60 * 1000;
@@ -63,7 +66,15 @@ function clearAttempts(ip: string): void {
 }
 
 function isAuthenticated(req: Request): boolean {
-  return req.cookies?.[COOKIE_NAME] === COOKIE_VALUE;
+  const token = req.signedCookies?.[COOKIE_NAME];
+  if (!token) return false;
+  const session = activeSessions.get(token);
+  if (!session) return false;
+  if (Date.now() - session.authenticatedAt > SESSION_MAX_AGE) {
+    activeSessions.delete(token);
+    return false;
+  }
+  return true;
 }
 
 function requireAuth(req: Request, res: Response, next: NextFunction): void {
@@ -103,11 +114,14 @@ router.post('/api/login', (req: Request, res: Response) => {
   const { password } = req.body || {};
   if (password === ADMIN_PASSWORD) {
     clearAttempts(ip);
-    res.cookie(COOKIE_NAME, COOKIE_VALUE, {
+    const sessionToken = crypto.randomBytes(32).toString("hex");
+    activeSessions.set(sessionToken, { authenticatedAt: Date.now() });
+    res.cookie(COOKIE_NAME, sessionToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: 'lax',
-      maxAge: 24 * 60 * 60 * 1000,
+      signed: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: SESSION_MAX_AGE,
     });
     res.json({ success: true });
   } else {
@@ -122,7 +136,9 @@ router.post('/api/login', (req: Request, res: Response) => {
   }
 });
 
-router.post('/api/logout', (_req: Request, res: Response) => {
+router.post('/api/logout', (req: Request, res: Response) => {
+  const token = req.signedCookies?.[COOKIE_NAME];
+  if (token) activeSessions.delete(token);
   res.clearCookie(COOKIE_NAME);
   res.json({ success: true });
 });

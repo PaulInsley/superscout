@@ -4,6 +4,8 @@ import { getCached, cacheKey, TTL, setCache } from "../lib/fplCache";
 import { fetchFromFpl } from "../lib/fplRateLimiter";
 import { VIBE_PROMPTS } from "../lib/vibes";
 import { getSupabase } from "../lib/supabase";
+import { validateBody } from "../lib/validateRequest";
+import { banterLeaguesSchema } from "../schemas/banter";
 
 const router = Router();
 
@@ -38,7 +40,7 @@ function extractJSON(text: string): unknown | null {
   }
   try {
     return JSON.parse(cleaned);
-  } catch {}
+  } catch (_) { /* JSON parse fallback — try nested extraction */ }
   let depth = 0;
   let start = -1;
   for (let i = 0; i < cleaned.length; i++) {
@@ -48,7 +50,7 @@ function extractJSON(text: string): unknown | null {
     } else if (cleaned[i] === "}" || cleaned[i] === "]") {
       depth--;
       if (depth === 0 && start >= 0) {
-        try { return JSON.parse(cleaned.slice(start, i + 1)); } catch {}
+        try { return JSON.parse(cleaned.slice(start, i + 1)); } catch (_) { /* keep scanning */ }
       }
     }
   }
@@ -180,14 +182,17 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
         `/entry/${managerId}/event/${gw}/picks/`,
         TTL.USER,
       );
-    } catch {
+    } catch (err) {
+      req.log.warn({ err, managerId, gw }, "[Banter] current GW picks fetch failed, trying previous");
       try {
         userPicks = await fetchCachedData<any>(
           cacheKey("picks", String(managerId), String(gw - 1)),
           `/entry/${managerId}/event/${gw - 1}/picks/`,
           TTL.USER,
         );
-      } catch {}
+      } catch (err2) {
+        req.log.warn({ err: err2, managerId }, "[Banter] previous GW picks fetch also failed");
+      }
     }
 
     const userSquadNames: string[] = [];
@@ -304,7 +309,8 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
             }
           }
         }
-      } catch {
+      } catch (err) {
+        req.log.warn({ err, rivalEntry: rival.entry, gw }, "[Banter] rival current picks failed, trying previous");
         try {
           const rivalPicks = await fetchCachedData<any>(
             cacheKey("picks", String(rival.entry), String(gw - 1)),
@@ -320,7 +326,7 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
               }
             }
           }
-        } catch { rivalNotSet = true; }
+        } catch (err2) { req.log.warn({ err: err2 }, "[Banter] rival previous picks also failed"); rivalNotSet = true; }
       }
 
       const sharedPlayers = userSquadNames.filter((p) => rivalSquadNames.includes(p));
@@ -421,7 +427,7 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/banter/leagues", async (req: Request, res: Response) => {
+router.post("/banter/leagues", validateBody(banterLeaguesSchema), async (req: Request, res: Response) => {
   try {
     const supabase = getSupabase();
     if (!supabase) {
@@ -430,16 +436,6 @@ router.post("/banter/leagues", async (req: Request, res: Response) => {
     }
 
     const { user_id, leagues } = req.body;
-
-    if (!user_id || !Array.isArray(leagues)) {
-      res.status(400).json({ error: "Missing user_id or leagues array" });
-      return;
-    }
-
-    if (leagues.length > 3) {
-      res.status(400).json({ error: "Maximum 3 leagues allowed" });
-      return;
-    }
 
     const { error: deleteErr } = await supabase
       .from("mini_league_context")

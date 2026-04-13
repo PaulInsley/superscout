@@ -291,7 +291,7 @@ export default function ConnectFPLScreen({ onNext }: Props) {
                 .from("consent_events")
                 .insert({ consent_type: "privacy_accepted", consent_given: true })
                 .then(() => {})
-                .catch(() => {});
+                .catch((err: unknown) => console.warn("[ConnectFPL] consent insert failed:", err));
               onNext(validatedId, teamName);
             }}
             disabled={!privacyAccepted}
@@ -317,7 +317,7 @@ export default function ConnectFPLScreen({ onNext }: Props) {
                 .from("consent_events")
                 .insert({ consent_type: "privacy_accepted", consent_given: true })
                 .then(() => {})
-                .catch(() => {});
+                .catch((err: unknown) => console.warn("[ConnectFPL] consent insert failed:", err));
             }
             onNext(null, null);
           }}

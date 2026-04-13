@@ -258,7 +258,9 @@ export default function CardScreen() {
             }),
           });
         }
-      } catch {}
+      } catch (err) {
+        console.warn("[Card] share tracking failed:", err);
+      }
     }
   }, [captureCard, cardData]);
 

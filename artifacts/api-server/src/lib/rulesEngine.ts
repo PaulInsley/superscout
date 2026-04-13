@@ -48,7 +48,8 @@ export function getRulesContext(gameweek?: number): string {
   if (!cachedRules && !cachedStrategy) {
     try {
       loadRules(currentSport);
-    } catch {
+    } catch (err) {
+      console.warn("[RulesEngine] loadRules failed:", err);
       return "";
     }
   }

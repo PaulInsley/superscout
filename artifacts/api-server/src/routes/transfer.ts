@@ -11,6 +11,8 @@ import {
 import { analyseGameweek } from "../lib/gameweekAnalysis";
 import { getSupabase } from "../lib/supabase";
 import { extractCaptainPicks, buildCaptainContextPrompt } from "../lib/crossCheck";
+import { validateBody } from "../lib/validateRequest";
+import { transferAdviceSchema } from "../schemas/transfer";
 
 const router = Router();
 
@@ -122,9 +124,7 @@ function extractJSON(text: string): unknown | null {
   }
   try {
     return JSON.parse(cleaned);
-  } catch {
-    // fallback
-  }
+  } catch (_) { /* JSON parse fallback — try nested extraction */ }
   let depth = 0;
   let start = -1;
   for (let i = 0; i < cleaned.length; i++) {
@@ -136,9 +136,7 @@ function extractJSON(text: string): unknown | null {
       if (depth === 0 && start >= 0) {
         try {
           return JSON.parse(cleaned.substring(start, i + 1));
-        } catch {
-          // keep looking
-        }
+        } catch (_) { /* keep scanning */ }
       }
     }
   }
@@ -519,7 +517,7 @@ function sanitiseCommentary(
   });
 }
 
-router.post("/transfer-advice", async (req: Request, res: Response) => {
+router.post("/transfer-advice", validateBody(transferAdviceSchema), async (req: Request, res: Response) => {
   const isSSE = (req.headers.accept ?? "").includes("text/event-stream");
 
   function sendStage(stage: string, data?: Record<string, unknown>) {
@@ -540,16 +538,7 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
   try {
     const { manager_id, vibe, skip_cache: skipCache } = req.body;
 
-    if (!manager_id || !vibe) {
-      sendError(400, { error: "Missing manager_id or vibe" });
-      return;
-    }
-
     const vibePrompt = VIBE_PROMPTS[vibe];
-    if (!vibePrompt) {
-      sendError(400, { error: "Invalid vibe" });
-      return;
-    }
 
     if (isSSE) {
       res.writeHead(200, {
@@ -696,8 +685,8 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
               calculateFreeTransfers(freshHistory, currentGw) - pendingXfers.length,
               0,
             );
-          } catch {
-            req.log.warn("Could not fetch fresh data for cache validation — skipping bank/FT check");
+          } catch (err) {
+            req.log.warn({ err }, "Could not fetch fresh data for cache validation — skipping bank/FT check");
           }
 
           const staleness = checkStaleness(responseJson, bootstrap.elements as FPLPlayer[], cacheRow.generated_at, req.log, liveBank, liveFreeTransfers);
@@ -765,8 +754,8 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
           TTL.USER,
         );
         break;
-      } catch {
-        req.log.warn({ managerId, gw }, "No picks for gameweek, trying previous");
+      } catch (err) {
+        req.log.warn({ err, managerId, gw }, "No picks for gameweek, trying previous");
       }
     }
 

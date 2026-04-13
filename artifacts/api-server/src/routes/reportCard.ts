@@ -9,6 +9,8 @@ import {
   type TransferScoreInput,
   type PerformanceScoreInput,
 } from "../services/reportcard/fpl-scoring";
+import { validateBody } from "../lib/validateRequest";
+import { reportCardGenerateSchema } from "../schemas/reportCard";
 
 const router = Router();
 const FPL_BASE_URL = "https://fantasy.premierleague.com/api";
@@ -48,6 +50,7 @@ async function fetchFplJson<T>(path: string): Promise<T> {
 
 router.post(
   "/report-card/generate/:gameweek",
+  validateBody(reportCardGenerateSchema),
   async (req: Request, res: Response) => {
     try {
       const gw = parseInt(String(req.params.gameweek), 10);
@@ -78,7 +81,9 @@ router.post(
           .limit(1)
           .single();
         if (userRow?.id) userId = userRow.id;
-      } catch {}
+      } catch (err) {
+        req.log.warn({ err, managerId }, "[ReportCard] user lookup failed");
+      }
 
       if (!userId) {
         req.log.warn({ managerId, gw }, "No user found for manager_id");
@@ -275,7 +280,9 @@ router.post(
           `/entry/${managerId}/event/${gw - 1}/picks/`,
         );
         previousRank = prevPicks.entry_history.overall_rank;
-      } catch {}
+      } catch (err) {
+        req.log.warn({ err, gw }, "[ReportCard] previous GW rank lookup failed");
+      }
 
       const currentRank = userPicks.entry_history.overall_rank;
       const rankMovement = previousRank
@@ -409,7 +416,9 @@ router.get(
           .limit(1)
           .single();
         if (userRow?.id) userId = userRow.id;
-      } catch {}
+      } catch (err) {
+        req.log.warn({ err }, "[ReportCard] user lookup for GET failed");
+      }
 
       if (!userId) {
         res.status(404).json({ error: "User not found" });

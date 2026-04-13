@@ -87,7 +87,8 @@ export async function registerTokenWithServer(
       return true;
     }
     return false;
-  } catch {
+  } catch (err) {
+    console.warn("[PushNotifications] registerForPushNotifications failed:", err);
     return false;
   }
 }

@@ -167,8 +167,8 @@ async function tryFetchPicks(
     try {
       const picks = await fetchPicks(managerId, gw);
       return { picks, gameweek: gw };
-    } catch {
-      console.log("[SuperScout] No picks for GW", gw, "- trying next...");
+    } catch (err) {
+      console.warn("[SuperScout] No picks for GW", gw, "- trying next:", err);
     }
   }
   return null;
@@ -271,7 +271,8 @@ export async function fetchCaptainCandidates(
   let fixtures: FPLFixture[];
   try {
     fixtures = await fetchFixtures();
-  } catch {
+  } catch (err) {
+    console.warn("[FPL API] fixture fetch failed:", err);
     return { candidates: [], gameweek: targetGw, deadlineTime: targetDeadline, noSquadData: true };
   }
 

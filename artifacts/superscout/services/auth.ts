@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/react-native";
 import { supabase } from "./supabase";
 
 export async function getAuthenticatedUserId(): Promise<string | null> {
@@ -5,12 +6,19 @@ export async function getAuthenticatedUserId(): Promise<string | null> {
     const {
       data: { session },
     } = await supabase.auth.getSession();
-    if (session?.user?.id) return session.user.id;
+    if (session?.user?.id) {
+      Sentry.setUser({ id: session.user.id, email: session.user.email });
+      return session.user.id;
+    }
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    if (user?.id) {
+      Sentry.setUser({ id: user.id, email: user.email });
+    }
     return user?.id ?? null;
-  } catch {
+  } catch (err) {
+    console.warn("[Auth] getAuthenticatedUserId failed:", err);
     return null;
   }
 }
@@ -60,5 +68,8 @@ export async function resetPassword(
 export async function signOut(): Promise<void> {
   try {
     await supabase.auth.signOut();
-  } catch {}
+    Sentry.setUser(null);
+  } catch (err) {
+    console.warn("[Auth] signOut failed:", err);
+  }
 }

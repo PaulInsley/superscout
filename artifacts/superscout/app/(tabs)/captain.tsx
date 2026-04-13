@@ -90,7 +90,7 @@ export default function CaptainPickerScreen() {
             return effectiveVibe as "expert" | "critic" | "fanboy";
           });
         }
-      }).catch(() => {});
+      }).catch((err: unknown) => console.warn("[Captain] vibe load failed:", err));
     }, [isPro]),
   );
 
@@ -218,7 +218,9 @@ export default function CaptainPickerScreen() {
               return;
             }
           }
-        } catch {}
+        } catch (err) {
+          console.warn("[Captain] pre-generated cache lookup failed:", err);
+        }
       }
 
       const response = await fetch(`${apiBase}/captain-picks`, {
@@ -318,8 +320,8 @@ export default function CaptainPickerScreen() {
           })),
         }),
       });
-    } catch {
-      // silent
+    } catch (err) {
+      console.warn("[Captain] silent recommendation log failed:", err);
     }
   };
 

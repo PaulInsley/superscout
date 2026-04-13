@@ -45,8 +45,8 @@ router.post("/process-decisions/:gameweek", async (req: Request, res: Response) 
           }
         }
       }
-    } catch {
-      req.log.warn("Could not verify deadline, proceeding anyway");
+    } catch (err) {
+      req.log.warn({ err }, "Could not verify deadline, proceeding anyway");
     }
 
     const [captainResult, transferResult] = await Promise.all([
@@ -109,8 +109,8 @@ router.post("/process-decisions/:gameweek", async (req: Request, res: Response) 
             userFplMap.set(u.id, u.fpl_team_id);
           }
         }
-      } catch {
-        req.log.warn("Could not fetch user FPL IDs from users table");
+      } catch (err) {
+        req.log.warn({ err }, "Could not fetch user FPL IDs from users table");
       }
     }
 
@@ -123,8 +123,8 @@ router.post("/process-decisions/:gameweek", async (req: Request, res: Response) 
         };
         bootstrapElements = bootstrap.elements ?? [];
       }
-    } catch {
-      req.log.warn("Failed to fetch bootstrap data, will use fallback player names");
+    } catch (err) {
+      req.log.warn({ err }, "Failed to fetch bootstrap data, will use fallback player names");
     }
 
     const playerNameMap = new Map<number, string>();

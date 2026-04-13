@@ -37,7 +37,9 @@ async function getCurrentGameweek(): Promise<number | null> {
         setCache(key, data, TTL.STATIC);
         events = data.events;
       }
-    } catch {}
+    } catch (err) {
+      console.warn("[Streaks] bootstrap fetch failed:", err);
+    }
   }
 
   if (!events) return null;

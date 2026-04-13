@@ -27,7 +27,9 @@ export function useManagerId(): ManagerIdState {
       ]);
       setManagerId(id ? Number(id) : null);
       setTeamName(name);
-    } catch {}
+    } catch (err) {
+      console.warn("[useManagerId] hydrate failed:", err);
+    }
     setLoading(false);
   }, []);
 
@@ -39,8 +41,8 @@ export function useManagerId(): ManagerIdState {
     setManagerId(id);
     setTeamName(name);
 
-    await AsyncStorage.setItem(MANAGER_ID_KEY, String(id)).catch(() => {});
-    await AsyncStorage.setItem(TEAM_NAME_KEY, name).catch(() => {});
+    await AsyncStorage.setItem(MANAGER_ID_KEY, String(id)).catch((err: unknown) => console.warn("[useManagerId] save ID failed:", err));
+    await AsyncStorage.setItem(TEAM_NAME_KEY, name).catch((err: unknown) => console.warn("[useManagerId] save name failed:", err));
 
     try {
       const userId = await getAuthenticatedUserId();
@@ -52,15 +54,17 @@ export function useManagerId(): ManagerIdState {
           body: JSON.stringify({ user_id: userId, fpl_manager_id: String(id) }),
         });
       }
-    } catch {}
+    } catch (err) {
+      console.warn("[useManagerId] setManager profile sync failed:", err);
+    }
   }, []);
 
   const clearManager = useCallback(async () => {
     setManagerId(null);
     setTeamName(null);
 
-    await AsyncStorage.removeItem(MANAGER_ID_KEY).catch(() => {});
-    await AsyncStorage.removeItem(TEAM_NAME_KEY).catch(() => {});
+    await AsyncStorage.removeItem(MANAGER_ID_KEY).catch((err: unknown) => console.warn("[useManagerId] remove ID failed:", err));
+    await AsyncStorage.removeItem(TEAM_NAME_KEY).catch((err: unknown) => console.warn("[useManagerId] remove name failed:", err));
 
     try {
       const userId = await getAuthenticatedUserId();
@@ -72,7 +76,9 @@ export function useManagerId(): ManagerIdState {
           body: JSON.stringify({ user_id: userId, fpl_manager_id: null }),
         });
       }
-    } catch {}
+    } catch (err) {
+      console.warn("[useManagerId] clearManager profile sync failed:", err);
+    }
   }, []);
 
   return { managerId, teamName, loading, setManager, clearManager, refresh: hydrate };

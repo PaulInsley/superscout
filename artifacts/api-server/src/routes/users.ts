@@ -1,9 +1,11 @@
 import { Router, type Request, type Response } from "express";
 import { getSupabase } from "../lib/supabase";
+import { validateBody } from "../lib/validateRequest";
+import { userProfileSchema } from "../schemas/users";
 
 const router = Router();
 
-router.post("/users/profile", async (req: Request, res: Response) => {
+router.post("/users/profile", validateBody(userProfileSchema), async (req: Request, res: Response) => {
   try {
     const supabase = getSupabase();
     if (!supabase) {
@@ -12,11 +14,6 @@ router.post("/users/profile", async (req: Request, res: Response) => {
     }
 
     const { user_id, email, fpl_manager_id, default_persona, onboarding_completed, is_beginner, beginner_rounds_completed, beginner_lessons_seen } = req.body;
-
-    if (!user_id) {
-      res.status(400).json({ error: "Missing user_id" });
-      return;
-    }
 
     const updates: Record<string, unknown> = {};
     if (email) updates.email = email;

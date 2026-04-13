@@ -9,7 +9,8 @@ export async function trackStreakActivity(
     if (!userId) return null;
 
     return await markActive(userId, sport);
-  } catch {
+  } catch (err) {
+    console.warn("[trackActivity] failed:", err);
     return null;
   }
 }

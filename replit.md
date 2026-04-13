@@ -45,7 +45,9 @@ A dynamic rules engine loads and caches sport-specific rules, injecting them int
 - **Auto-Pull Decisions**: Post-deadline process to automatically compare actual user captain choices with SuperScout recommendations.
 - **Pre-Generation Pipeline**: Caches AI recommendations per user/vibe/gameweek, with staleness checks to ensure data freshness.
 - **Admin Dashboard**: Web-based admin panel for browsing Supabase tables and running custom queries, protected by password authentication.
-- **API Security**: Implements Helmet security headers and two-tier rate limiting for AI generation and data endpoints.
+- **API Security**: Implements Helmet security headers, two-tier rate limiting for AI generation and data endpoints, and Zod schema validation on all POST/PUT routes via `validateBody()` middleware.
+- **Error Observability**: All catch blocks log meaningful warnings with context (no silent failures). Sentry crash reporting integrated on mobile with user context.
+- **Test Suite**: Vitest test suite with 46 tests across 10 files covering Zod schemas, validation middleware, cache utilities, and JSON extraction.
 
 ### UI/UX & Interaction
 The UI features expandable `ChoiceCard.tsx` components, consistent design using reusable components, and `ProgressLoadingIndicator.tsx` for enhanced user experience during long AI operations. The app primarily uses a dark theme and centrally manages Manager ID access.

@@ -2,6 +2,8 @@ import { Router, type Request, type Response } from "express";
 import { getSupabase } from "../lib/supabase";
 import { getCached, cacheKey, TTL } from "../lib/fplCache";
 import { fetchFromFpl } from "../lib/fplRateLimiter";
+import { validateBody } from "../lib/validateRequest";
+import { registerTokenSchema, sendNotificationSchema, sendBatchSchema, updatePreferencesSchema } from "../schemas/notifications";
 
 const router = Router();
 
@@ -159,12 +161,13 @@ async function sendExpoPush(
     });
     const result = await res.json();
     return result?.data?.status === "ok";
-  } catch {
+  } catch (err) {
+    console.warn("[Notifications] sendExpoPush failed:", err);
     return false;
   }
 }
 
-router.post("/notifications/register-token", async (req: Request, res: Response) => {
+router.post("/notifications/register-token", validateBody(registerTokenSchema), async (req: Request, res: Response) => {
   try {
     const supabase = getSupabase();
     if (!supabase) {
@@ -173,10 +176,6 @@ router.post("/notifications/register-token", async (req: Request, res: Response)
     }
 
     const { user_id, token } = req.body;
-    if (!user_id || !token) {
-      res.status(400).json({ error: "Missing user_id or token" });
-      return;
-    }
 
     const { error } = await supabase
       .from("users")
@@ -196,7 +195,7 @@ router.post("/notifications/register-token", async (req: Request, res: Response)
   }
 });
 
-router.post("/notifications/send", async (req: Request, res: Response) => {
+router.post("/notifications/send", validateBody(sendNotificationSchema), async (req: Request, res: Response) => {
   try {
     const supabase = getSupabase();
     if (!supabase) {
@@ -208,23 +207,8 @@ router.post("/notifications/send", async (req: Request, res: Response) => {
       user_id,
       notification_type,
       gameweek,
-      vars = {},
-    } = req.body as {
-      user_id: string;
-      notification_type: NotificationType;
-      gameweek: number;
-      vars?: Record<string, string | number>;
-    };
-
-    if (!user_id || !notification_type || !gameweek) {
-      res.status(400).json({ error: "Missing required fields" });
-      return;
-    }
-
-    if (!TEMPLATES[notification_type]) {
-      res.status(400).json({ error: "Invalid notification type" });
-      return;
-    }
+      vars,
+    } = req.body;
 
     const sentCount = await getNotificationCount(user_id, gameweek);
     if (sentCount >= MAX_PER_GW) {
@@ -296,7 +280,7 @@ router.post("/notifications/send", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/notifications/send-batch", async (req: Request, res: Response) => {
+router.post("/notifications/send-batch", validateBody(sendBatchSchema), async (req: Request, res: Response) => {
   try {
     const supabase = getSupabase();
     if (!supabase) {
@@ -304,16 +288,7 @@ router.post("/notifications/send-batch", async (req: Request, res: Response) => 
       return;
     }
 
-    const { notification_type, gameweek, vars = {} } = req.body as {
-      notification_type: NotificationType;
-      gameweek: number;
-      vars?: Record<string, string | number>;
-    };
-
-    if (!notification_type || !gameweek) {
-      res.status(400).json({ error: "Missing required fields" });
-      return;
-    }
+    const { notification_type, gameweek, vars } = req.body;
 
     const { data: users } = await supabase
       .from("users")
@@ -420,7 +395,7 @@ router.get("/notifications/preferences/:user_id", async (req: Request, res: Resp
   }
 });
 
-router.put("/notifications/preferences", async (req: Request, res: Response) => {
+router.put("/notifications/preferences", validateBody(updatePreferencesSchema), async (req: Request, res: Response) => {
   try {
     const supabase = getSupabase();
     if (!supabase) {
@@ -429,10 +404,6 @@ router.put("/notifications/preferences", async (req: Request, res: Response) => 
     }
 
     const { user_id, preferences } = req.body;
-    if (!user_id || !preferences) {
-      res.status(400).json({ error: "Missing user_id or preferences" });
-      return;
-    }
 
     const { error } = await supabase
       .from("users")

@@ -16,7 +16,8 @@ export async function fetchReportCard(
     if (!resp.ok) return null;
     const data = await resp.json();
     return data.report ?? null;
-  } catch {
+  } catch (err) {
+    console.warn("[reportCard] fetchExistingReportCard failed:", err);
     return null;
   }
 }
@@ -35,7 +36,8 @@ export async function generateReportCard(
     if (!resp.ok) return null;
     const data = await resp.json();
     return data.report ?? null;
-  } catch {
+  } catch (err) {
+    console.warn("[reportCard] generateReportCard failed:", err);
     return null;
   }
 }

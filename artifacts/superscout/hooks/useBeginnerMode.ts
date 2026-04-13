@@ -41,7 +41,8 @@ export function useBeginnerMode() {
         : [];
 
       setState({ isBeginner, roundsCompleted, lessonsSeen, loading: false });
-    } catch {
+    } catch (err) {
+      console.warn("[useBeginnerMode] hydrate failed:", err);
       setState((prev) => ({ ...prev, loading: false }));
     }
   };
@@ -75,7 +76,9 @@ export function useBeginnerMode() {
           }),
         });
       }
-    } catch {}
+    } catch (err) {
+      console.warn("[useBeginnerMode] setBeginnerFlag sync failed:", err);
+    }
   }, []);
 
   const dismissLesson = useCallback(
@@ -108,7 +111,9 @@ export function useBeginnerMode() {
             }),
           });
         }
-      } catch {}
+      } catch (err) {
+        console.warn("[useBeginnerMode] dismissLesson sync failed:", err);
+      }
 
       return isGraduating;
     },
@@ -127,7 +132,9 @@ export function useBeginnerMode() {
           .update({ is_beginner: false })
           .eq("id", user.id);
       }
-    } catch {}
+    } catch (err) {
+      console.warn("[useBeginnerMode] graduate sync failed:", err);
+    }
   }, []);
 
   const resetCoaching = useCallback(async () => {
@@ -153,7 +160,9 @@ export function useBeginnerMode() {
           })
           .eq("id", user.id);
       }
-    } catch {}
+    } catch (err) {
+      console.warn("[useBeginnerMode] resetCoaching sync failed:", err);
+    }
   }, []);
 
   const getNextLesson = useCallback(

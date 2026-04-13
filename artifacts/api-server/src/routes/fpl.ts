@@ -61,8 +61,8 @@ function checkForLiveMatches(key: string, data: unknown): void {
       const hasLive = fixtures.some((f) => f.started === true && f.finished === false);
       setLiveMatchActive(hasLive);
     }
-  } catch {
-    // ignore
+  } catch (err) {
+    console.warn("[FPL] live match status check failed:", err);
   }
 }
 

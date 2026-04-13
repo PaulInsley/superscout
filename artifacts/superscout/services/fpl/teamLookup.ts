@@ -25,7 +25,8 @@ export async function fetchTeamName(
 
     const data = await response.json();
     return data.name ?? null;
-  } catch {
+  } catch (err) {
+    console.warn("[teamLookup] failed:", err);
     return null;
   }
 }

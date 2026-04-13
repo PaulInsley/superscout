@@ -44,7 +44,8 @@ async function getBootstrapData(): Promise<{ elements: FPLElement[]; teamMap: Ma
         data = await resp.json() as BootstrapData;
         setCache(key, data, TTL.STATIC);
       }
-    } catch {
+    } catch (err) {
+      console.warn("[DecisionLog] bootstrap fetch failed:", err);
     }
   }
 

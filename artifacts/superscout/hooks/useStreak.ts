@@ -29,11 +29,14 @@ export function useStreak(sport: string = "fpl") {
       const data = await fetchStreak(userId, sport);
       setStreak(data);
       await AsyncStorage.setItem(STREAK_CACHE_KEY, JSON.stringify(data));
-    } catch {
+    } catch (err) {
+      console.warn("[useStreak] fetch failed, trying cache:", err);
       try {
         const cached = await AsyncStorage.getItem(STREAK_CACHE_KEY);
         if (cached) setStreak(JSON.parse(cached));
-      } catch {}
+      } catch (cacheErr) {
+        console.warn("[useStreak] cache read also failed:", cacheErr);
+      }
     } finally {
       setLoading(false);
     }
@@ -64,7 +67,8 @@ export function useStreak(sport: string = "fpl") {
       }
 
       return result;
-    } catch {
+    } catch (err) {
+      console.warn("[useStreak] recordActivity failed:", err);
       return null;
     }
   }, [getUserId, sport, streak]);

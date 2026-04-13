@@ -76,7 +76,7 @@ export default function BanterScreen() {
             });
           }
         })
-        .catch(() => {});
+        .catch((err: unknown) => console.warn("[Banter] vibe load failed:", err));
     }, [isPro]),
   );
 
@@ -190,8 +190,10 @@ export default function BanterScreen() {
           },
           shared_via: Platform.OS === "web" ? "clipboard" : "share_sheet",
         }),
-      }).catch(() => {});
-    } catch {}
+      }).catch((err: unknown) => console.warn("[Banter] share tracking failed:", err));
+    } catch (err) {
+      console.warn("[Banter] handleShare failed:", err);
+    }
   };
 
   if (managerLoading) {

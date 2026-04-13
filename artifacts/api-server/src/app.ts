@@ -59,7 +59,7 @@ app.use(cors({
     }
   }
 }));
-app.use(cookieParser());
+app.use(cookieParser(process.env.COOKIE_SECRET || "superscout-dev-secret"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

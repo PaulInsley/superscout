@@ -4,6 +4,8 @@ import { getCached, setCache, cacheKey, TTL } from "../lib/fplCache";
 import { fetchFromFpl } from "../lib/fplRateLimiter";
 import { VIBE_PROMPTS } from "../lib/vibes";
 import { getSupabase } from "../lib/supabase";
+import { validateBody } from "../lib/validateRequest";
+import { squadCardGenerateSchema, squadCardShareSchema } from "../schemas/squadCard";
 
 const router = Router();
 
@@ -106,21 +108,12 @@ function inferFormation(starters: SquadCardPlayer[]): string {
   return `${def}-${mid}-${fwd}`;
 }
 
-router.post("/squad-card", async (req: Request, res: Response) => {
+router.post("/squad-card", validateBody(squadCardGenerateSchema), async (req: Request, res: Response) => {
   try {
     const { manager_id, vibe, gameweek: requestedGw } = req.body;
 
-    if (!manager_id) {
-      res.status(400).json({ error: "Missing manager_id" });
-      return;
-    }
-
     const vibeKey = vibe || "expert";
     const vibePrompt = VIBE_PROMPTS[vibeKey];
-    if (!vibePrompt) {
-      res.status(400).json({ error: "Invalid vibe" });
-      return;
-    }
 
     const { players, teams, events } = await getBootstrapData();
     const playerMap = new Map(players.map(p => [p.id, p]));
@@ -149,7 +142,8 @@ router.post("/squad-card", async (req: Request, res: Response) => {
     let managerInfo: { name: string; summary_overall_points: number | null; summary_overall_rank: number | null };
     try {
       managerInfo = await fetchFromFpl(`/entry/${manager_id}/`) as typeof managerInfo;
-    } catch {
+    } catch (err) {
+      req.log.warn({ err, manager_id }, "[SquadCard] manager lookup failed");
       res.status(404).json({ error: "manager_not_found", message: "Could not find that FPL manager." });
       return;
     }
@@ -161,7 +155,8 @@ router.post("/squad-card", async (req: Request, res: Response) => {
     };
     try {
       picksData = await fetchFromFpl(`/entry/${manager_id}/event/${targetGw}/picks/`) as typeof picksData;
-    } catch {
+    } catch (err) {
+      req.log.warn({ err, manager_id, targetGw }, "[SquadCard] picks fetch failed");
       res.status(404).json({ error: "no_picks", message: "No squad data found for this gameweek." });
       return;
     }
@@ -176,7 +171,8 @@ router.post("/squad-card", async (req: Request, res: Response) => {
         liveData = await fetchFromFpl(`/event/${targetGw}/live/`) as typeof liveData;
         setCache(liveKey, liveData, TTL.SEMI_LIVE);
       }
-    } catch {
+    } catch (err) {
+      req.log.warn({ err, targetGw }, "[SquadCard] live data fetch failed");
       res.status(500).json({ error: "live_data_error", message: "Could not load live points data." });
       return;
     }
@@ -231,7 +227,9 @@ router.post("/squad-card", async (req: Request, res: Response) => {
       if (prevGw) {
         previousRank = prevGw.overall_rank;
       }
-    } catch {}
+    } catch (err) {
+      req.log.warn({ err, manager_id }, "[SquadCard] previous rank lookup failed");
+    }
 
     let rankChange: number | null = null;
     let rankDirection: "up" | "down" | "same" | "new" = "new";
@@ -299,7 +297,9 @@ IMPORTANT: Return ONLY the quip text. No quotes, no preamble, no explanation. Ju
             .limit(1)
             .single();
           if (userRow?.id) userId = userRow.id;
-        } catch {}
+        } catch (err) {
+          req.log.warn({ err, manager_id }, "[SquadCard] user lookup for DB save failed");
+        }
 
         if (userId) {
           const { data: cardRow } = await supabase.from("squad_cards").insert({
@@ -359,7 +359,7 @@ IMPORTANT: Return ONLY the quip text. No quotes, no preamble, no explanation. Ju
   }
 });
 
-router.post("/squad-card/share", async (req: Request, res: Response) => {
+router.post("/squad-card/share", validateBody(squadCardShareSchema), async (req: Request, res: Response) => {
   try {
     const supabase = getSupabase();
     if (!supabase) {
@@ -368,14 +368,6 @@ router.post("/squad-card/share", async (req: Request, res: Response) => {
     }
 
     const { card_id, gameweek, platform, user_id } = req.body;
-    if (!card_id && !gameweek) {
-      res.status(400).json({ error: "Missing card_id or gameweek" });
-      return;
-    }
-    if (!user_id) {
-      res.status(400).json({ error: "Missing user_id" });
-      return;
-    }
 
     const dbPlatforms = ["twitter", "whatsapp", "imessage", "instagram", "clipboard", "facebook", "other"];
     const sharePlatform = dbPlatforms.includes(platform) ? platform : null;

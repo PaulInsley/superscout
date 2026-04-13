@@ -48,7 +48,9 @@ export default function BanterCard({ card, onShare }: Props) {
     } else {
       try {
         await Share.share({ message: shareText });
-      } catch {}
+      } catch (err) {
+        console.warn("[BanterCard] share failed:", err);
+      }
     }
 
     onShare?.(card);

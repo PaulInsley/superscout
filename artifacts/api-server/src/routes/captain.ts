@@ -11,6 +11,8 @@ import {
 import { analyseGameweek } from "../lib/gameweekAnalysis";
 import { getSupabase } from "../lib/supabase";
 import { extractTransferOutPlayers, buildTransferContextPrompt } from "../lib/crossCheck";
+import { validateBody } from "../lib/validateRequest";
+import { captainPicksSchema } from "../schemas/captain";
 
 loadRules("fpl");
 
@@ -61,8 +63,7 @@ function extractJSON(text: string): unknown | null {
 
   try {
     return JSON.parse(cleaned);
-  } catch {
-  }
+  } catch (_) { /* JSON parse fallback — try nested extraction */ }
 
   let depth = 0;
   let start = -1;
@@ -75,8 +76,7 @@ function extractJSON(text: string): unknown | null {
       if (depth === 0 && start >= 0) {
         try {
           return JSON.parse(cleaned.substring(start, i + 1));
-        } catch {
-        }
+        } catch (_) { /* keep scanning */ }
       }
     }
   }
@@ -161,20 +161,11 @@ function checkCaptainStaleness(
   return { stale: false };
 }
 
-router.post("/captain-picks", async (req: Request, res: Response) => {
+router.post("/captain-picks", validateBody(captainPicksSchema), async (req: Request, res: Response) => {
   try {
     const { vibe, context, user_id: clientUserId, skip_cache: skipCache } = req.body;
 
-    if (!vibe || !context) {
-      res.status(400).json({ error: "Missing vibe or context" });
-      return;
-    }
-
     const vibePrompt = VIBE_PROMPTS[vibe];
-    if (!vibePrompt) {
-      res.status(400).json({ error: "Invalid vibe" });
-      return;
-    }
 
     const gwMatch = context.match(/GAMEWEEK:\s*(\d+)/i);
     const gameweek = gwMatch ? parseInt(gwMatch[1], 10) : undefined;
@@ -187,8 +178,8 @@ router.post("/captain-picks", async (req: Request, res: Response) => {
         fetchCachedData<BootstrapData>(cacheKey("bootstrap-static"), "/bootstrap-static/", TTL.STATIC),
         fetchCachedData<FPLFixture[]>(cacheKey("fixtures"), "/fixtures/", TTL.STATIC),
       ]);
-    } catch {
-      req.log.warn("Could not fetch FPL data for hallucination check — skipping");
+    } catch (err) {
+      req.log.warn({ err }, "Could not fetch FPL data for hallucination check — skipping");
     }
 
     if (skipCache) {

@@ -61,7 +61,8 @@ export default function ReportCardSheet({
       } else {
         setError("Could not generate your report card. The gameweek may not be finished yet.");
       }
-    } catch {
+    } catch (err) {
+      console.warn("[ReportCard] load failed:", err);
       setError("Something went wrong loading your report card.");
     } finally {
       setLoading(false);
@@ -92,7 +93,8 @@ export default function ReportCardSheet({
           await Sharing.shareAsync(uri);
         }
       }
-    } catch {
+    } catch (err) {
+      console.warn("[ReportCard] share failed:", err);
     } finally {
       setSharing(false);
     }

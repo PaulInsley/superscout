@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/react-native";
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -26,6 +27,14 @@ import OnboardingFlow, {
   ONBOARDING_COMPLETE_KEY,
 } from "./onboarding/OnboardingFlow";
 import SignInScreen from "./onboarding/SignInScreen";
+import NotificationConsentScreen from "@/components/NotificationConsentScreen";
+
+Sentry.init({
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || "",
+  debug: __DEV__,
+  enabled: !__DEV__,
+  tracesSampleRate: 0.2,
+});
 
 SplashScreen.preventAutoHideAsync();
 
@@ -37,7 +46,7 @@ try {
 
 const queryClient = new QueryClient();
 
-type AppScreen = "loading" | "onboarding" | "signIn" | "main";
+type AppScreen = "loading" | "onboarding" | "signIn" | "notificationConsent" | "main";
 
 function RootLayoutNav() {
   return (
@@ -47,7 +56,7 @@ function RootLayoutNav() {
   );
 }
 
-export default function RootLayout() {
+function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -67,7 +76,8 @@ export default function RootLayout() {
       }
       const { data: { session } } = await supabase.auth.getSession();
       setScreen(session ? "main" : "signIn");
-    } catch {
+    } catch (err) {
+      console.warn("[Layout] route refresh failed:", err);
       setScreen("onboarding");
     }
   }, []);
@@ -98,26 +108,40 @@ export default function RootLayout() {
 
   const handleOnboardingComplete = async () => {
     await refreshRoute();
-    try {
-      const granted = await requestPushPermissions();
-      if (granted) {
-        const token = await getExpoPushToken();
-        if (token) {
-          const domain = process.env.EXPO_PUBLIC_DOMAIN;
-          if (domain) {
-            const { getAuthenticatedUserId } = await import("@/services/auth");
-            const authUserId = await getAuthenticatedUserId();
-            if (authUserId) {
-              await registerTokenWithServer(
-                `https://${domain}/api`,
-                authUserId,
-                token,
-              );
+    const consentShown = await AsyncStorage.getItem("notification_consent_shown");
+    if (consentShown !== "true") {
+      setScreen("notificationConsent");
+      return;
+    }
+  };
+
+  const handleNotificationConsent = async (enabled: boolean) => {
+    await AsyncStorage.setItem("notification_consent_shown", "true");
+    if (enabled) {
+      try {
+        const granted = await requestPushPermissions();
+        if (granted) {
+          const token = await getExpoPushToken();
+          if (token) {
+            const domain = process.env.EXPO_PUBLIC_DOMAIN;
+            if (domain) {
+              const { getAuthenticatedUserId } = await import("@/services/auth");
+              const authUserId = await getAuthenticatedUserId();
+              if (authUserId) {
+                await registerTokenWithServer(
+                  `https://${domain}/api`,
+                  authUserId,
+                  token,
+                );
+              }
             }
           }
         }
+      } catch (err) {
+        console.warn("[RootLayout] push notification setup failed:", err);
       }
-    } catch {}
+    }
+    await refreshRoute();
   };
 
   const handleSignInSuccess = () => {
@@ -143,6 +167,12 @@ export default function RootLayout() {
                   onGoToSignUp={handleGoToSignUp}
                 />
               )}
+              {screen === "notificationConsent" && (
+                <NotificationConsentScreen
+                  onEnable={() => handleNotificationConsent(true)}
+                  onSkip={() => handleNotificationConsent(false)}
+                />
+              )}
               {screen === "main" && <RootLayoutNav />}
             </GestureHandlerRootView>
           </SubscriptionProvider>
@@ -151,3 +181,5 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+export default Sentry.wrap(RootLayout);

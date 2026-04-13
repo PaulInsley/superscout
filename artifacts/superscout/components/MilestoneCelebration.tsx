@@ -99,7 +99,9 @@ export default function MilestoneCelebration({
           });
         }
       }
-    } catch {}
+    } catch (err) {
+      console.warn("[MilestoneCelebration] share failed:", err);
+    }
   };
 
   return (
