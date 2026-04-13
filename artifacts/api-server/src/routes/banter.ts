@@ -202,15 +202,21 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
       }
     }
 
-    const allBanterCards: BanterCard[] = [];
-    let rivalsProcessed = 0;
     const MAX_RIVALS = 3;
-
     const isDev = process.env.NODE_ENV === "development";
-    const hasRealLeagues = leagues && leagues.length > 0;
+
+    interface RivalTask {
+      rival: { entry: number; rank: number; total: number; entry_name: string; relationship: string };
+      userRank: number;
+      userPoints: number;
+      leagueName: string;
+      leagueType: string;
+    }
+
+    const rivalTasks: RivalTask[] = [];
 
     for (const league of (leagues ?? [])) {
-      if (rivalsProcessed >= MAX_RIVALS) break;
+      if (rivalTasks.length >= MAX_RIVALS) break;
 
       const leagueType = league.league_type ?? "classic";
       const leagueId = league.mini_league_id;
@@ -244,168 +250,65 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
       const userRank = userEntry.rank ?? 0;
       const userPoints = userEntry.total ?? userEntry.points_for ?? 0;
 
-      const rivals: Array<{ entry: number; rank: number; total: number; entry_name: string; relationship: string }> = [];
-
       const sorted = [...results].sort((a: any, b: any) => (a.rank ?? 0) - (b.rank ?? 0));
       const userIndex = sorted.findIndex((r: any) => Number(r.entry) === managerId);
 
       if (userIndex > 0) {
         const above = sorted[userIndex - 1];
-        rivals.push({
-          entry: above.entry,
-          rank: above.rank,
-          total: above.total ?? above.points_for ?? 0,
-          entry_name: above.entry_name,
-          relationship: "directly above you",
-        });
+        rivalTasks.push({ rival: { entry: above.entry, rank: above.rank, total: above.total ?? above.points_for ?? 0, entry_name: above.entry_name, relationship: "directly above you" }, userRank, userPoints, leagueName: league.mini_league_name ?? "Mini-League", leagueType });
       }
-
       if (userIndex < sorted.length - 1) {
         const below = sorted[userIndex + 1];
-        rivals.push({
-          entry: below.entry,
-          rank: below.rank,
-          total: below.total ?? below.points_for ?? 0,
-          entry_name: below.entry_name,
-          relationship: "directly below you",
-        });
+        rivalTasks.push({ rival: { entry: below.entry, rank: below.rank, total: below.total ?? below.points_for ?? 0, entry_name: below.entry_name, relationship: "directly below you" }, userRank, userPoints, leagueName: league.mini_league_name ?? "Mini-League", leagueType });
       }
-
       if (userRank > 3 && sorted.length > 0) {
         const leader = sorted[0];
-        if (leader.entry !== managerId && !rivals.some((r) => r.entry === leader.entry)) {
-          rivals.push({
-            entry: leader.entry,
-            rank: leader.rank,
-            total: leader.total ?? leader.points_for ?? 0,
-            entry_name: leader.entry_name,
-            relationship: "league leader",
-          });
-        }
-      }
-
-      for (const rival of rivals) {
-        if (rivalsProcessed >= MAX_RIVALS) break;
-
-        let rivalSquadNames: string[] = [];
-        let rivalCaptainName: string | null = null;
-        let rivalNotSet = false;
-
-        try {
-          const rivalPicks = await fetchCachedData<any>(
-            cacheKey("picks", String(rival.entry), String(gw)),
-            `/entry/${rival.entry}/event/${gw}/picks/`,
-            TTL.USER,
-          );
-          if (rivalPicks?.picks) {
-            for (const pick of rivalPicks.picks) {
-              const player = playerMap.get(pick.element);
-              if (player) {
-                rivalSquadNames.push(player.web_name);
-                if (pick.is_captain) rivalCaptainName = player.web_name;
-              }
-            }
-          }
-        } catch {
-          try {
-            const rivalPicks = await fetchCachedData<any>(
-              cacheKey("picks", String(rival.entry), String(gw - 1)),
-              `/entry/${rival.entry}/event/${gw - 1}/picks/`,
-              TTL.USER,
-            );
-            if (rivalPicks?.picks) {
-              for (const pick of rivalPicks.picks) {
-                const player = playerMap.get(pick.element);
-                if (player) {
-                  rivalSquadNames.push(player.web_name);
-                  if (pick.is_captain) rivalCaptainName = player.web_name;
-                }
-              }
-            }
-          } catch {
-            rivalNotSet = true;
-          }
-        }
-
-        const sharedPlayers = userSquadNames.filter((p) => rivalSquadNames.includes(p));
-        const userDifferentials = userSquadNames.filter((p) => !rivalSquadNames.includes(p));
-        const rivalDifferentials = rivalSquadNames.filter((p) => !userSquadNames.includes(p));
-
-        const pointsGap = userPoints - rival.total;
-        const pointsGapText = pointsGap > 0
-          ? `${pointsGap} points ahead of ${rival.entry_name}`
-          : pointsGap < 0
-            ? `${Math.abs(pointsGap)} points behind ${rival.entry_name}`
-            : `Level on points with ${rival.entry_name}`;
-
-        const banterPrompt = buildBanterPrompt({
-          vibe: String(vibe),
-          userCaptain: userCaptainName,
-          rivalCaptain: rivalCaptainName,
-          rivalTeamName: rival.entry_name,
-          rivalRank: rival.rank,
-          userRank,
-          pointsGap,
-          sharedPlayers,
-          userDifferentials,
-          rivalDifferentials,
-          relationship: rival.relationship,
-          leagueType,
-          leagueName: league.mini_league_name ?? "Mini-League",
-          rivalNotSet,
-        });
-
-        try {
-          const client = getClient();
-          const vibeSystemPrompt = VIBE_PROMPTS[String(vibe) as keyof typeof VIBE_PROMPTS] ?? VIBE_PROMPTS.expert;
-
-          const response = await client.messages.create({
-            model: "claude-sonnet-4-6",
-            max_tokens: 800,
-            system: `${vibeSystemPrompt}\n\nYou generate mini-league banter between FPL managers. Respond ONLY with valid JSON.`,
-            messages: [{ role: "user", content: banterPrompt }],
-          });
-
-          const text = response.content[0]?.type === "text" ? response.content[0].text : "";
-          const parsed = extractJSON(text) as BanterCard | null;
-
-          if (parsed) {
-            allBanterCards.push({
-              ...parsed,
-              rival_team_name: rival.entry_name,
-              rival_rank: rival.rank,
-              points_gap: pointsGap,
-              points_gap_text: pointsGapText,
-              league_name: league.mini_league_name ?? "Mini-League",
-              league_type: leagueType,
-            });
-            rivalsProcessed++;
-          }
-        } catch (err) {
-          req.log.error({ err, rivalEntry: rival.entry }, "Banter generation failed for rival");
+        if (leader.entry !== managerId && !rivalTasks.some((t) => t.rival.entry === leader.entry)) {
+          rivalTasks.push({ rival: { entry: leader.entry, rank: leader.rank, total: leader.total ?? leader.points_for ?? 0, entry_name: leader.entry_name, relationship: "league leader" }, userRank, userPoints, leagueName: league.mini_league_name ?? "Mini-League", leagueType });
         }
       }
     }
 
-    if (isDev && allBanterCards.length === 0) {
-      req.log.info("DEV MODE fallback: Real leagues produced 0 cards, using dummy rivals");
-
+    if (isDev && rivalTasks.length === 0) {
+      req.log.info("DEV MODE fallback: Real leagues produced 0 rivals, using dummy rivals");
       const dummyRivals = [
         { entry: 4, rank: 1, total: 2100, entry_name: "Who Got Erling?", relationship: "league leader" as const },
         { entry: 167, rank: 2, total: 2050, entry_name: "The Salah Soldiers", relationship: "directly above you" as const },
         { entry: 372, rank: 4, total: 1950, entry_name: "Pep's Fraudulence", relationship: "directly below you" as const },
       ];
-      const devUserRank = 3;
-      const devUserPoints = 2000;
+      for (const r of dummyRivals) {
+        rivalTasks.push({ rival: r, userRank: 3, userPoints: 2000, leagueName: "Dev Banter League", leagueType: "classic" });
+      }
+    }
 
-      for (const rival of dummyRivals) {
-        let rivalSquadNames: string[] = [];
-        let rivalCaptainName: string | null = null;
-        let rivalNotSet = false;
+    const tasks = rivalTasks.slice(0, MAX_RIVALS);
+
+    async function generateBanterCard(task: RivalTask): Promise<BanterCard | null> {
+      const { rival, userRank, userPoints, leagueName, leagueType } = task;
+      let rivalSquadNames: string[] = [];
+      let rivalCaptainName: string | null = null;
+      let rivalNotSet = false;
+
+      try {
+        const rivalPicks = await fetchCachedData<any>(
+          cacheKey("picks", String(rival.entry), String(gw)),
+          `/entry/${rival.entry}/event/${gw}/picks/`,
+          TTL.USER,
+        );
+        if (rivalPicks?.picks) {
+          for (const pick of rivalPicks.picks) {
+            const player = playerMap.get(pick.element);
+            if (player) {
+              rivalSquadNames.push(player.web_name);
+              if (pick.is_captain) rivalCaptainName = player.web_name;
+            }
+          }
+        }
+      } catch {
         try {
           const rivalPicks = await fetchCachedData<any>(
-            cacheKey("picks", String(rival.entry), String(gw)),
-            `/entry/${rival.entry}/event/${gw}/picks/`,
+            cacheKey("picks", String(rival.entry), String(gw - 1)),
+            `/entry/${rival.entry}/event/${gw - 1}/picks/`,
             TTL.USER,
           );
           if (rivalPicks?.picks) {
@@ -417,70 +320,100 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
               }
             }
           }
-        } catch {
-          try {
-            const rivalPicks = await fetchCachedData<any>(
-              cacheKey("picks", String(rival.entry), String(gw - 1)),
-              `/entry/${rival.entry}/event/${gw - 1}/picks/`,
-              TTL.USER,
-            );
-            if (rivalPicks?.picks) {
-              for (const pick of rivalPicks.picks) {
-                const player = playerMap.get(pick.element);
-                if (player) {
-                  rivalSquadNames.push(player.web_name);
-                  if (pick.is_captain) rivalCaptainName = player.web_name;
-                }
-              }
-            }
-          } catch { rivalNotSet = true; }
-        }
-        const sharedPlayers = userSquadNames.filter((p) => rivalSquadNames.includes(p));
-        const userDifferentials = userSquadNames.filter((p) => !rivalSquadNames.includes(p));
-        const rivalDifferentials = rivalSquadNames.filter((p) => !userSquadNames.includes(p));
-        const pointsGap = devUserPoints - rival.total;
-        const pointsGapText = pointsGap > 0
-          ? `${pointsGap} points ahead of ${rival.entry_name}`
-          : pointsGap < 0
-            ? `${Math.abs(pointsGap)} points behind ${rival.entry_name}`
-            : `Level on points with ${rival.entry_name}`;
-        const banterPrompt = buildBanterPrompt({
-          vibe: String(vibe), userCaptain: userCaptainName, rivalCaptain: rivalCaptainName,
-          rivalTeamName: rival.entry_name, rivalRank: rival.rank, userRank: devUserRank, pointsGap,
-          sharedPlayers, userDifferentials, rivalDifferentials, relationship: rival.relationship,
-          leagueType: "classic", leagueName: "Dev Banter League", rivalNotSet,
-        });
-        try {
-          const client = getClient();
-          const vibeSystemPrompt = VIBE_PROMPTS[String(vibe) as keyof typeof VIBE_PROMPTS] ?? VIBE_PROMPTS.expert;
-          const response = await client.messages.create({
-            model: "claude-sonnet-4-6", max_tokens: 800,
-            system: `${vibeSystemPrompt}\n\nYou generate mini-league banter between FPL managers. Respond ONLY with valid JSON.`,
-            messages: [{ role: "user", content: banterPrompt }],
-          });
-          const text = response.content[0]?.type === "text" ? response.content[0].text : "";
-          const parsed = extractJSON(text) as BanterCard | null;
-          if (parsed) {
-            allBanterCards.push({
-              ...parsed, rival_team_name: rival.entry_name, rival_rank: rival.rank,
-              points_gap: pointsGap, points_gap_text: pointsGapText,
-              league_name: "Dev Banter League", league_type: "classic",
-            });
-          }
-        } catch (err) {
-          req.log.error({ err, rivalEntry: rival.entry }, "Dev fallback banter generation failed");
-        }
+        } catch { rivalNotSet = true; }
       }
+
+      const sharedPlayers = userSquadNames.filter((p) => rivalSquadNames.includes(p));
+      const userDifferentials = userSquadNames.filter((p) => !rivalSquadNames.includes(p));
+      const rivalDifferentials = rivalSquadNames.filter((p) => !userSquadNames.includes(p));
+      const pointsGap = userPoints - rival.total;
+      const pointsGapText = pointsGap > 0
+        ? `${pointsGap} points ahead of ${rival.entry_name}`
+        : pointsGap < 0
+          ? `${Math.abs(pointsGap)} points behind ${rival.entry_name}`
+          : `Level on points with ${rival.entry_name}`;
+
+      const banterPrompt = buildBanterPrompt({
+        vibe: String(vibe), userCaptain: userCaptainName, rivalCaptain: rivalCaptainName,
+        rivalTeamName: rival.entry_name, rivalRank: rival.rank, userRank, pointsGap,
+        sharedPlayers, userDifferentials, rivalDifferentials, relationship: rival.relationship,
+        leagueType, leagueName, rivalNotSet,
+      });
+
+      const client = getClient();
+      const vibeSystemPrompt = VIBE_PROMPTS[String(vibe) as keyof typeof VIBE_PROMPTS] ?? VIBE_PROMPTS.expert;
+      const response = await client.messages.create({
+        model: "claude-sonnet-4-6", max_tokens: 800,
+        system: `${vibeSystemPrompt}\n\nYou generate mini-league banter between FPL managers. Respond ONLY with valid JSON.`,
+        messages: [{ role: "user", content: banterPrompt }],
+      });
+      const text = response.content[0]?.type === "text" ? response.content[0].text : "";
+      const parsed = extractJSON(text) as BanterCard | null;
+      if (!parsed) return null;
+      return {
+        ...parsed,
+        rival_team_name: rival.entry_name,
+        rival_rank: rival.rank,
+        points_gap: pointsGap,
+        points_gap_text: pointsGapText,
+        league_name: leagueName,
+        league_type: leagueType,
+      };
+    }
+
+    const cardResults = await Promise.allSettled(tasks.map((t) => generateBanterCard(t)));
+    const allBanterCards: BanterCard[] = [];
+    for (const r of cardResults) {
+      if (r.status === "fulfilled" && r.value) allBanterCards.push(r.value);
     }
 
     const result = {
       gameweek: gw,
       banter_cards: allBanterCards,
       no_leagues: false,
-      ...(isDev && { dev_mode: true }),
+      ...(isDev && rivalTasks.length > 0 && !leagues?.length && { dev_mode: true }),
     };
 
     res.json(result);
+
+    if (allBanterCards.length > 0) {
+      (async () => {
+        try {
+          const expiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
+          const now = new Date().toISOString();
+          const { data: existing } = await supabase
+            .from("pre_generated_recommendations")
+            .select("id")
+            .eq("user_id", String(user_id))
+            .eq("gameweek", gw)
+            .eq("decision_type", "banter")
+            .eq("vibe", String(vibe))
+            .limit(1);
+
+          if (existing && existing.length > 0) {
+            await supabase
+              .from("pre_generated_recommendations")
+              .update({ response_json: result, generated_at: now, expires_at: expiresAt })
+              .eq("id", existing[0].id);
+          } else {
+            await supabase
+              .from("pre_generated_recommendations")
+              .insert({
+                user_id: String(user_id),
+                gameweek: gw,
+                decision_type: "banter",
+                vibe: String(vibe),
+                response_json: result,
+                generated_at: now,
+                expires_at: expiresAt,
+              });
+          }
+          req.log.info({ gameweek: gw, cards: allBanterCards.length }, "Cached banter for future requests");
+        } catch (cacheErr) {
+          req.log.warn({ err: cacheErr }, "Failed to cache banter");
+        }
+      })();
+    }
   } catch (error) {
     req.log.error({ err: error }, "Banter route failed");
     res.status(500).json({ error: "Banter generation failed" });
