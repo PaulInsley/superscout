@@ -381,28 +381,43 @@ NEVER imply low ownership is automatically better. If a differential pick has 3+
     if (clientUserId && gameweek) {
       const supabase = getSupabase();
       if (supabase) {
-        const expiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
-        supabase
-          .from("pre_generated_recommendations")
-          .upsert(
-            {
-              user_id: clientUserId,
-              gameweek,
-              decision_type: "captain",
-              vibe: vibe ?? "expert",
-              response_json: parsed,
-              generated_at: new Date().toISOString(),
-              expires_at: expiresAt,
-            },
-            { onConflict: "user_id,gameweek,decision_type,vibe" },
-          )
-          .then(({ error: cacheErr }) => {
-            if (cacheErr) {
-              req.log.warn({ err: cacheErr }, "Failed to cache captain picks");
+        (async () => {
+          try {
+            const expiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
+            const now = new Date().toISOString();
+
+            const { data: existing } = await supabase
+              .from("pre_generated_recommendations")
+              .select("id")
+              .eq("user_id", clientUserId)
+              .eq("gameweek", gameweek)
+              .eq("decision_type", "captain")
+              .eq("vibe", vibe ?? "expert")
+              .limit(1);
+
+            if (existing && existing.length > 0) {
+              await supabase
+                .from("pre_generated_recommendations")
+                .update({ response_json: parsed, generated_at: now, expires_at: expiresAt })
+                .eq("id", existing[0].id);
             } else {
-              req.log.info({ gameweek, vibe }, "Cached captain picks for future requests");
+              await supabase
+                .from("pre_generated_recommendations")
+                .insert({
+                  user_id: clientUserId,
+                  gameweek,
+                  decision_type: "captain",
+                  vibe: vibe ?? "expert",
+                  response_json: parsed,
+                  generated_at: now,
+                  expires_at: expiresAt,
+                });
             }
-          });
+            req.log.info({ gameweek, vibe }, "Cached captain picks for future requests");
+          } catch (cacheErr) {
+            req.log.warn({ err: cacheErr }, "Failed to cache captain picks");
+          }
+        })();
       }
     }
   } catch (error: any) {

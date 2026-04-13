@@ -1404,26 +1404,39 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
             .single();
           if (!userRow) return;
           const expiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
-          const { error: cacheErr } = await supabase
+          const now = new Date().toISOString();
+
+          const { data: existing } = await supabase
             .from("pre_generated_recommendations")
-            .upsert(
-              {
+            .select("id")
+            .eq("user_id", userRow.id)
+            .eq("gameweek", currentGw)
+            .eq("decision_type", "transfer")
+            .eq("vibe", vibe ?? "expert")
+            .limit(1);
+
+          if (existing && existing.length > 0) {
+            await supabase
+              .from("pre_generated_recommendations")
+              .update({ response_json: result, generated_at: now, expires_at: expiresAt })
+              .eq("id", existing[0].id);
+          } else {
+            await supabase
+              .from("pre_generated_recommendations")
+              .insert({
                 user_id: userRow.id,
                 gameweek: currentGw,
                 decision_type: "transfer",
                 vibe: vibe ?? "expert",
                 response_json: result,
-                generated_at: new Date().toISOString(),
+                generated_at: now,
                 expires_at: expiresAt,
-              },
-              { onConflict: "user_id,gameweek,decision_type,vibe" },
-            );
-          if (cacheErr) {
-            req.log.warn({ err: cacheErr }, "Failed to cache transfer advice");
-          } else {
-            req.log.info({ gameweek: currentGw, vibe }, "Cached transfer advice for future requests");
+              });
           }
-        } catch {}
+          req.log.info({ gameweek: currentGw, vibe }, "Cached transfer advice for future requests");
+        } catch (cacheErr) {
+          req.log.warn({ err: cacheErr }, "Failed to cache transfer advice");
+        }
       })();
     }
   } catch (error: any) {
