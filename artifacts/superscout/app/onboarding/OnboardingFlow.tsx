@@ -66,20 +66,16 @@ export default function OnboardingFlow({ onComplete }: Props) {
     setStep(5);
   };
 
-  const handleFinish = async () => {
-    try {
-      await AsyncStorage.setItem(ONBOARDING_COMPLETE_KEY, "true");
-    } catch {
-      console.error("[Onboarding] Failed to save completion state to AsyncStorage");
-    }
+  const handleFinish = () => {
+    AsyncStorage.setItem(ONBOARDING_COMPLETE_KEY, "true").catch(() => {});
 
-    try {
-      const { getAuthenticatedUserId } = await import("@/services/auth");
-      const userId = await getAuthenticatedUserId();
-      if (userId) {
+    import("@/services/auth")
+      .then(({ getAuthenticatedUserId }) => getAuthenticatedUserId())
+      .then((userId) => {
+        if (!userId) return;
         const domain = process.env.EXPO_PUBLIC_DOMAIN;
         const apiBase = `https://${domain}/api`;
-        await fetch(`${apiBase}/users/profile`, {
+        return fetch(`${apiBase}/users/profile`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -92,10 +88,8 @@ export default function OnboardingFlow({ onComplete }: Props) {
             beginner_lessons_seen: isBeginner ? "" : undefined,
           }),
         });
-      }
-    } catch {
-      console.error("[Onboarding] Failed to update user profile via API");
-    }
+      })
+      .catch(() => {});
 
     onComplete();
   };
