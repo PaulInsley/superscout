@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
+import * as Sentry from "@sentry/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -1115,7 +1116,9 @@ export default function SettingsScreen() {
           {/* TODO: TEMPORARY — remove after Sentry verification */}
           <Pressable
             onPress={() => {
-              throw new Error("TEST SENTRY CRASH — remove this button after verification");
+              const err = new Error("TEST SENTRY CRASH — remove this button after verification");
+              Sentry.captureException(err);
+              Alert.alert("Sentry Test", "Error sent to Sentry via captureException. Check your dashboard.");
             }}
             style={({ pressed }) => [
               styles.settingRow,
