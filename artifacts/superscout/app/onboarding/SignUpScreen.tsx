@@ -13,7 +13,7 @@ import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
-import { signUp, signIn } from "@/services/auth";
+import { signUp, signIn, resetPassword } from "@/services/auth";
 
 function getApiBaseUrl(): string {
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
@@ -42,10 +42,26 @@ export default function SignUpScreen({
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [verificationSent, setVerificationSent] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const isValidPassword = password.length >= 8;
   const canSubmit = isValidEmail && isValidPassword && !loading;
+
+  const handleResetPassword = async () => {
+    if (!isValidEmail || resetLoading) return;
+    setResetLoading(true);
+    setError(null);
+    const result = await resetPassword(email.trim().toLowerCase());
+    if (result.error) {
+      setError(result.error);
+      setResetLoading(false);
+      return;
+    }
+    setResetSent(true);
+    setResetLoading(false);
+  };
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -119,19 +135,22 @@ export default function SignUpScreen({
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <View style={styles.content}>
-        {verificationSent ? (
+        {verificationSent || resetSent ? (
           <View style={styles.headerArea}>
             <Feather name="mail" size={48} color={colors.accent} />
             <Text style={[styles.title, { color: colors.primaryForeground }]}>
               Check your email
             </Text>
             <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-              We sent a verification link to {email.trim().toLowerCase()}. Tap the link, then come back and sign in.
+              {resetSent
+                ? `We sent a password reset link to ${email.trim().toLowerCase()}. Tap the link to set a new password, then come back and sign in.`
+                : `We sent a verification link to ${email.trim().toLowerCase()}. Tap the link, then come back and sign in.`}
             </Text>
             <Pressable
               style={[styles.submitButton, { backgroundColor: colors.accent, marginTop: 24 }]}
               onPress={() => {
                 setVerificationSent(false);
+                setResetSent(false);
                 setIsSignIn(true);
                 setError(null);
                 setPassword("");
@@ -250,6 +269,14 @@ export default function SignUpScreen({
               </Text>
             )}
           </Pressable>
+
+          {isSignIn && (
+            <Pressable onPress={handleResetPassword} disabled={resetLoading || !isValidEmail}>
+              <Text style={[styles.forgotText, { color: isValidEmail ? colors.accent : colors.mutedForeground }]}>
+                {resetLoading ? "Sending..." : "Forgot password?"}
+              </Text>
+            </Pressable>
+          )}
         </View>
 
         <Pressable
@@ -373,5 +400,11 @@ const styles = StyleSheet.create({
   toggleLink: {
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
+  },
+  forgotText: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+    textAlign: "center",
+    marginTop: 12,
   },
 });
