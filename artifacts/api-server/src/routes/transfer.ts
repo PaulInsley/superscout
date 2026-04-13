@@ -157,6 +157,7 @@ function calculateFreeTransfers(history: FPLHistory, currentGw: number): number 
 
   let freeTransfers = 1;
   const sorted = [...history.current].sort((a, b) => a.event - b.event);
+  const firstGw = sorted[0]?.event;
 
   for (const gw of sorted) {
     const used = gw.event_transfers;
@@ -164,7 +165,9 @@ function calculateFreeTransfers(history: FPLHistory, currentGw: number): number 
       (c) => c.event === gw.event && (c.name === "wildcard" || c.name === "freehit")
     );
 
-    if (wasWildcard) {
+    if (gw.event === firstGw) {
+      freeTransfers = 1;
+    } else if (wasWildcard) {
       freeTransfers = 1;
     } else {
       freeTransfers = Math.min(freeTransfers - used + 1, 5);
@@ -791,20 +794,20 @@ router.post("/transfer-advice", async (req: Request, res: Response) => {
     const freeTransfers = Math.max(baseFreeTransfers - pendingTransfers.length, 0);
     const chipsRemaining = getChipsRemaining(historyData, currentGw);
 
-    if (pendingTransfers.length > 0) {
-      req.log.info(
-        {
-          pendingCount: pendingTransfers.length,
-          baseBankPicks: baseBankFromPicks,
-          baseBankEntry: baseBankFromEntry,
-          pendingBankDelta,
-          adjustedBank: bank,
-          baseFreeTransfers,
-          adjustedFreeTransfers: freeTransfers,
-        },
-        "Adjusted bank/FT for pending transfers",
-      );
-    }
+    req.log.info(
+      {
+        baseBankPicks: baseBankFromPicks,
+        baseBankEntry: baseBankFromEntry,
+        pendingBankDelta,
+        finalBank: bank,
+        baseFreeTransfers,
+        finalFreeTransfers: freeTransfers,
+        pendingCount: pendingTransfers.length,
+        historyGws: historyData.current?.length ?? 0,
+        firstGw: historyData.current?.[0]?.event,
+      },
+      "Bank/FT calculation",
+    );
 
     if (Math.abs(baseBankFromPicks - baseBankFromEntry) > 0.1 && baseBankFromEntry > 0) {
       req.log.warn(
