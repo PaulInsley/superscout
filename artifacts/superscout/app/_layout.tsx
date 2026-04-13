@@ -64,6 +64,7 @@ function RootLayout() {
 
   const [screen, setScreen] = useState<AppScreen>("loading");
   const initialLoadDone = useRef(false);
+  const signInHydrating = useRef(false);
 
   const refreshRoute = useCallback(async () => {
     try {
@@ -92,7 +93,7 @@ function RootLayout() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      if (initialLoadDone.current) {
+      if (initialLoadDone.current && !signInHydrating.current) {
         refreshRoute();
       }
     });
@@ -142,7 +143,19 @@ function RootLayout() {
     await refreshRoute();
   };
 
-  const handleSignInSuccess = () => {
+  const handleSignInSuccess = async () => {
+    signInHydrating.current = true;
+    try {
+      const { getAuthenticatedUserId, loadUserProfile } = await import("@/services/auth");
+      const userId = await getAuthenticatedUserId();
+      if (userId) {
+        await loadUserProfile(userId);
+      }
+    } catch (err) {
+      console.warn("[Layout] profile load after sign-in failed:", err);
+    } finally {
+      signInHydrating.current = false;
+    }
     refreshRoute();
   };
 

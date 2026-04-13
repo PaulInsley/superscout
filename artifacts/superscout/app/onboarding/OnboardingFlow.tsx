@@ -73,9 +73,14 @@ export default function OnboardingFlow({ onComplete }: Props) {
 
   const handleSignInSkipToMain = async () => {
     try {
+      const { getAuthenticatedUserId, loadUserProfile } = await import("@/services/auth");
+      const userId = await getAuthenticatedUserId();
+      if (userId) {
+        await loadUserProfile(userId);
+      }
       await AsyncStorage.setItem(ONBOARDING_COMPLETE_KEY, "true");
     } catch (err) {
-      console.warn("[Onboarding] failed to save onboarding complete:", err);
+      console.warn("[Onboarding] sign-in skip to main failed:", err);
     }
     onComplete();
   };

@@ -77,4 +77,43 @@ router.post(
   },
 );
 
+router.get("/users/profile/:userId", async (req: Request, res: Response) => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(req.params.userId)) {
+    res.status(400).json({ error: "Invalid user ID format" });
+    return;
+  }
+  try {
+    const supabase = getSupabaseForRequest(req);
+    if (!supabase) {
+      res.status(503).json({ error: "Database not configured" });
+      return;
+    }
+
+    const { userId } = req.params;
+
+    const { data, error } = await supabase
+      .from("users")
+      .select("id, fpl_manager_id, default_persona, onboarding_completed")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (error) {
+      req.log.error({ err: error, userId }, "User profile fetch failed");
+      res.status(500).json({ error: "Failed to fetch profile" });
+      return;
+    }
+
+    if (!data) {
+      res.status(404).json({ error: "Profile not found" });
+      return;
+    }
+
+    res.json({ profile: data });
+  } catch (err) {
+    req.log.error({ err }, "User profile fetch failed");
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
 export default router;
