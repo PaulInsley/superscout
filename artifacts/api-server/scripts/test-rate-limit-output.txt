@@ -1,0 +1,43 @@
+=== Rate Limiter Verification ===
+Endpoint: http://localhost:8080/api/captain-picks
+Rate limit threshold: 20 req/min
+Total requests to send: 25
+Method: POST (concurrent burst to trigger rate limiter)
+
+Note: Non-429 responses confirm the request passed through the
+rate limiter and reached the route handler. The handler response
+status itself is irrelevant to rate limit verification.
+
+  Request # 1: PASSED RATE LIMITER → route handler returned 200
+  Request # 2: PASSED RATE LIMITER → route handler returned 200
+  Request # 3: PASSED RATE LIMITER → route handler returned 200
+  Request # 4: PASSED RATE LIMITER → route handler returned 200
+  Request # 5: PASSED RATE LIMITER → route handler returned 200
+  Request # 6: PASSED RATE LIMITER → route handler returned 200
+  Request # 7: PASSED RATE LIMITER → route handler returned 200
+  Request # 8: PASSED RATE LIMITER → route handler returned 200
+  Request # 9: PASSED RATE LIMITER → route handler returned 200
+  Request #10: PASSED RATE LIMITER → route handler returned 200
+  Request #11: PASSED RATE LIMITER → route handler returned 200
+  Request #12: PASSED RATE LIMITER → route handler returned 200
+  Request #13: PASSED RATE LIMITER → route handler returned 200
+  Request #14: PASSED RATE LIMITER → route handler returned 200
+  Request #15: PASSED RATE LIMITER → route handler returned 200
+  Request #16: PASSED RATE LIMITER → route handler returned 200
+  Request #17: PASSED RATE LIMITER → route handler returned 200
+  Request #18: PASSED RATE LIMITER → route handler returned 200
+  Request #19: PASSED RATE LIMITER → route handler returned 200
+  Request #20: PASSED RATE LIMITER → route handler returned 200
+  Request #21: BLOCKED BY RATE LIMITER (429)
+  Request #22: BLOCKED BY RATE LIMITER (429)
+  Request #23: BLOCKED BY RATE LIMITER (429)
+  Request #24: BLOCKED BY RATE LIMITER (429)
+  Request #25: BLOCKED BY RATE LIMITER (429)
+
+--- Summary ---
+Total requests:              25
+Passed through rate limiter: 20
+Blocked by rate limiter:     5
+
+✓ PASS — Rate limiter correctly enforced the 20 req/min threshold.
+  20 requests passed through; 5 were blocked with 429.
