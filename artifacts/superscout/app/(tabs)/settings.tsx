@@ -22,6 +22,7 @@ import { useSubscription } from "@/lib/revenuecat";
 import { useBeginnerMode } from "@/hooks/useBeginnerMode";
 import { supabase } from "@/services/supabase";
 import { getAuthenticatedUserId, signOut as authSignOut } from "@/services/auth";
+import { scheduleNotification } from "@/services/notifications/pushNotificationService";
 import { fetchManagerLeagues } from "@/services/fpl/api";
 import config from "@/constants/config";
 import ChooseVibeScreen, {
@@ -1027,9 +1028,20 @@ export default function SettingsScreen() {
             <Pressable
               onPress={async () => {
                 try {
-                  const { scheduleNotification } = await import(
-                    "@/services/notifications/pushNotificationService"
-                  );
+                  const Notifs = await import("expo-notifications");
+                  const { status: existing } = await Notifs.getPermissionsAsync();
+                  let finalStatus = existing;
+                  if (existing !== "granted") {
+                    const { status } = await Notifs.requestPermissionsAsync();
+                    finalStatus = status;
+                  }
+                  if (finalStatus !== "granted") {
+                    Alert.alert(
+                      "Permissions Required",
+                      "Please enable notifications for SuperScout in your device settings.",
+                    );
+                    return;
+                  }
                   const fire = new Date(Date.now() + 10_000);
                   await scheduleNotification(
                     "SuperScout",
@@ -1039,6 +1051,7 @@ export default function SettingsScreen() {
                   );
                   Alert.alert("Scheduled", "Test notification in 10 seconds — put your phone down!");
                 } catch (e: any) {
+                  console.error("[Notifications] Test failed:", e);
                   Alert.alert("Error", e?.message ?? "Could not schedule notification");
                 }
               }}

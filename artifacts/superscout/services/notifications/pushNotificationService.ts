@@ -99,7 +99,11 @@ export async function sendLocalNotification(
 ): Promise<void> {
   await Notifications.scheduleNotificationAsync({
     content: { title, body, data },
-    trigger: null,
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: 1,
+      repeats: false,
+    },
   });
 }
 
@@ -114,9 +118,15 @@ export async function scheduleNotification(
     Math.floor((triggerDate.getTime() - Date.now()) / 1000),
   );
 
+  const triggerInput: Notifications.NotificationTriggerInput = {
+    type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+    seconds: secondsFromNow,
+    repeats: false,
+  };
+
   const id = await Notifications.scheduleNotificationAsync({
     content: { title, body, data },
-    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: secondsFromNow },
+    trigger: triggerInput,
   });
   return id;
 }
