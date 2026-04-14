@@ -245,10 +245,10 @@ export async function fetchCaptainCandidates(managerId: number): Promise<Captain
     return { candidates: [], gameweek, deadlineTime, noSquadData: true };
   }
 
-  const isDeadlinePassed =
-    currentEvent && !currentEvent.finished && new Date(currentEvent.deadline_time) < new Date();
-  const targetGw = isDeadlinePassed && nextEvent ? nextEvent.id : gameweek;
-  const targetDeadline = isDeadlinePassed && nextEvent ? nextEvent.deadline_time : deadlineTime;
+  const shouldAdvance =
+    currentEvent && (currentEvent.finished || new Date(currentEvent.deadline_time) < new Date());
+  const targetGw = shouldAdvance && nextEvent ? nextEvent.id : gameweek;
+  const targetDeadline = shouldAdvance && nextEvent ? nextEvent.deadline_time : deadlineTime;
 
   const playerMap = buildPlayerMap(bootstrapData.elements);
   const teamMap = new Map(bootstrapData.teams.map((t) => [t.id, t]));
@@ -303,7 +303,7 @@ export async function fetchCaptainCandidates(managerId: number): Promise<Captain
   const activeChip = picksResult.picks.active_chip ?? null;
 
   let currentCaptain: string | null = null;
-  if (isDeadlinePassed) {
+  if (shouldAdvance) {
     const captainPick = picksResult.picks.picks.find((p) => p.is_captain);
     if (captainPick) {
       const player = playerMap.get(captainPick.element);
@@ -365,7 +365,7 @@ export async function fetchCaptainCandidates(managerId: number): Promise<Captain
     candidates,
     gameweek: targetGw,
     deadlineTime: targetDeadline,
-    ...(isDeadlinePassed && { deadlinePassed: true, currentCaptain }),
+    ...(shouldAdvance && { deadlinePassed: true, currentCaptain }),
     ...(activeChip && { activeChip }),
     ...(gwType !== "normal" && {
       gwType,

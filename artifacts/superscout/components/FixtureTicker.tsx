@@ -3,12 +3,12 @@ import { useColors } from "@/hooks/useColors";
 import { useFixtureData, getUpcomingFixtures } from "@/hooks/useFixtureData";
 import type { FixtureInfo } from "@/hooks/useFixtureData";
 
-const FDR_COLORS: Record<number, string> = {
-  1: "#4CAF7D",
-  2: "#4CAF7D",
-  3: "#E5A825",
-  4: "#E84C4C",
-  5: "#E84C4C",
+const FDR_COLORS: Record<number, { bg: string; text: string }> = {
+  1: { bg: "#00875A", text: "#FFFFFF" },
+  2: { bg: "#A3F5C1", text: "#1A1A1A" },
+  3: { bg: "#E7E7E7", text: "#555555" },
+  4: { bg: "#FF6B6B", text: "#FFFFFF" },
+  5: { bg: "#80132B", text: "#FFFFFF" },
 };
 
 interface FixtureTickerProps {
@@ -17,13 +17,16 @@ interface FixtureTickerProps {
 }
 
 function FixturePill({ fixture, compact }: { fixture: FixtureInfo; compact?: boolean }) {
-  const bg = FDR_COLORS[fixture.fdr] ?? "#888";
+  const fdr = FDR_COLORS[fixture.fdr] ?? { bg: "#888", text: "#fff" };
   return (
-    <View style={[compact ? compactStyles.pill : styles.pill, { backgroundColor: bg }]}>
-      <Text style={compact ? compactStyles.pillTeam : styles.pillTeam}>
+    <View style={[compact ? compactStyles.pill : styles.pill, { backgroundColor: fdr.bg }]}>
+      <Text style={[compact ? compactStyles.pillGw : styles.pillGw, { color: fdr.text }]}>
+        {fixture.event}
+      </Text>
+      <Text style={[compact ? compactStyles.pillTeam : styles.pillTeam, { color: fdr.text }]}>
         {fixture.opponentShortName}
       </Text>
-      <Text style={compact ? compactStyles.pillVenue : styles.pillVenue}>
+      <Text style={[compact ? compactStyles.pillVenue : styles.pillVenue, { color: fdr.text }]}>
         {fixture.isHome ? "h" : "a"}
       </Text>
     </View>
@@ -32,14 +35,19 @@ function FixturePill({ fixture, compact }: { fixture: FixtureInfo; compact?: boo
 
 function DgwPill({ fixtures, compact }: { fixtures: FixtureInfo[]; compact?: boolean }) {
   const worstFdr = Math.max(...fixtures.map((f) => f.fdr));
-  const bg = FDR_COLORS[worstFdr] ?? "#888";
+  const fdr = FDR_COLORS[worstFdr] ?? { bg: "#888", text: "#fff" };
   const label = fixtures.map((f) => f.opponentShortName).join("/");
   return (
-    <View style={[compact ? compactStyles.dgwPill : styles.dgwPill, { backgroundColor: bg }]}>
-      <Text style={compact ? compactStyles.dgwTeam : styles.dgwTeam} numberOfLines={1}>
+    <View style={[compact ? compactStyles.dgwPill : styles.dgwPill, { backgroundColor: fdr.bg }]}>
+      <Text style={[compact ? compactStyles.pillGw : styles.pillGw, { color: fdr.text }]}>
+        {fixtures[0].event}
+      </Text>
+      <Text style={[compact ? compactStyles.dgwTeam : styles.dgwTeam, { color: fdr.text }]} numberOfLines={1}>
         {label}
       </Text>
-      <Text style={compact ? compactStyles.dgwLabel : styles.dgwLabel}>DGW</Text>
+      <Text style={[compact ? compactStyles.pillVenue : styles.pillVenue, { color: fdr.text }]}>
+        {fixtures[0].isHome ? "h" : "a"}
+      </Text>
     </View>
   );
 }
@@ -108,43 +116,42 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   pill: {
-    width: 44,
-    paddingVertical: 4,
+    flex: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 2,
     borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
+    minHeight: 46,
+  },
+  pillGw: {
+    fontSize: 8,
+    fontWeight: "500",
+    opacity: 0.7,
+    marginBottom: 1,
   },
   pillTeam: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "700",
-    color: "#fff",
-    letterSpacing: 0.3,
   },
   pillVenue: {
-    fontSize: 9,
-    fontWeight: "500",
-    color: "rgba(255,255,255,0.8)",
-    marginTop: -1,
+    fontSize: 8,
+    fontWeight: "400",
+    opacity: 0.7,
+    marginTop: 1,
   },
   dgwPill: {
-    width: 52,
-    paddingVertical: 3,
+    flex: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 2,
     borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
+    minHeight: 46,
   },
   dgwTeam: {
     fontSize: 9,
     fontWeight: "700",
-    color: "#fff",
-    letterSpacing: 0.2,
-  },
-  dgwLabel: {
-    fontSize: 7,
-    fontWeight: "700",
-    color: "rgba(255,255,255,0.7)",
-    letterSpacing: 0.5,
-    marginTop: -1,
   },
 });
 
@@ -155,45 +162,44 @@ const compactStyles = StyleSheet.create({
   },
   row: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    gap: 4,
   },
   pill: {
-    width: 35,
-    paddingVertical: 3,
-    borderRadius: 5,
+    flex: 1,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
+    minHeight: 40,
+  },
+  pillGw: {
+    fontSize: 7,
+    fontWeight: "500",
+    opacity: 0.7,
+    marginBottom: 1,
   },
   pillTeam: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "700",
-    color: "#fff",
-    letterSpacing: 0.2,
   },
   pillVenue: {
-    fontSize: 8,
-    fontWeight: "500",
-    color: "rgba(255,255,255,0.8)",
-    marginTop: -1,
+    fontSize: 7,
+    fontWeight: "400",
+    opacity: 0.7,
+    marginTop: 1,
   },
   dgwPill: {
-    width: 42,
-    paddingVertical: 2,
-    borderRadius: 5,
+    flex: 1,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
+    minHeight: 40,
   },
   dgwTeam: {
     fontSize: 8,
     fontWeight: "700",
-    color: "#fff",
-    letterSpacing: 0.1,
-  },
-  dgwLabel: {
-    fontSize: 6,
-    fontWeight: "700",
-    color: "rgba(255,255,255,0.7)",
-    letterSpacing: 0.4,
-    marginTop: -1,
   },
 });
