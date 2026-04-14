@@ -9,12 +9,12 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const FDR_COLORS: Record<number, { bg: string; text: string }> = {
-  1: { bg: "#257D5A", text: "#FFFFFF" },
-  2: { bg: "#01F780", text: "#1A1A1A" },
-  3: { bg: "#B0B0B0", text: "#1A1A1A" },
-  4: { bg: "#FF1751", text: "#FFFFFF" },
-  5: { bg: "#80132B", text: "#FFFFFF" },
+const FDR_COLORS: Record<number, { bg: string; text: string; border: string }> = {
+  1: { bg: "#257D5A", text: "#FFFFFF", border: "#1B5C42" },
+  2: { bg: "#01F780", text: "#1A1A1A", border: "#00C966" },
+  3: { bg: "#E0E0E0", text: "#444444", border: "#BFBFBF" },
+  4: { bg: "#FF1751", text: "#FFFFFF", border: "#D4103F" },
+  5: { bg: "#80132B", text: "#FFFFFF", border: "#5C0D1F" },
 };
 
 const COLORS = {
@@ -78,9 +78,9 @@ function DgwDot() {
 }
 
 function FixtureCell({ fixture }: { fixture: FixtureInfo }) {
-  const fdr = FDR_COLORS[fixture.fdr] ?? { bg: "#888", text: "#fff" };
+  const fdr = FDR_COLORS[fixture.fdr] ?? { bg: "#888", text: "#fff", border: "#666" };
   return (
-    <View style={[styles.fixtureCell, { backgroundColor: fdr.bg }]}>
+    <View style={[styles.fixtureCell, { backgroundColor: fdr.bg, borderColor: fdr.border }]}>
       <Text style={[styles.fixtureCellGw, { color: fdr.text }]}>
         {fixture.event}
       </Text>
@@ -150,7 +150,7 @@ function FixtureStrip({ teamShortName }: { teamShortName: string }) {
         <View style={styles.fdrGradient}>
           <View style={[styles.fdrSegment, { backgroundColor: "#257D5A", borderTopLeftRadius: 3, borderBottomLeftRadius: 3 }]} />
           <View style={[styles.fdrSegment, { backgroundColor: "#01F780" }]} />
-          <View style={[styles.fdrSegment, { backgroundColor: "#B0B0B0" }]} />
+          <View style={[styles.fdrSegment, { backgroundColor: "#E0E0E0" }]} />
           <View style={[styles.fdrSegment, { backgroundColor: "#FF1751" }]} />
           <View style={[styles.fdrSegment, { backgroundColor: "#80132B", borderTopRightRadius: 3, borderBottomRightRadius: 3 }]} />
         </View>
@@ -554,6 +554,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     minHeight: 46,
     justifyContent: "center",
+    borderWidth: 1,
   },
   fixtureCellGw: {
     fontSize: 8,
