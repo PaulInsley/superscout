@@ -101,6 +101,7 @@ export default function FixtureTicker({ teamShortName, compact }: FixtureTickerP
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     marginTop: 4,
     marginBottom: 2,
   },
@@ -157,6 +158,7 @@ const styles = StyleSheet.create({
 
 const compactStyles = StyleSheet.create({
   container: {
+    flex: 1,
     marginTop: 3,
     marginBottom: 1,
   },
