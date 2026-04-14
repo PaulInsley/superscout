@@ -30,7 +30,7 @@ A dynamic rules engine loads and caches sport-specific rules, injecting them int
 
 ### Key Features
 - **Captain Picker**: AI-powered captain recommendations with lineup optimization and confidence badges.
-- **Transfer Advisor**: AI-driven transfer advice with streaming support and robust error handling.
+- **Transfer Advisor**: AI-driven transfer advice with streaming support, robust error handling, and optimized response times (~12s warm-cache via parallelized FPL fetches, compressed AI prompts, position-grouped candidates, and graceful package validation that strips invalid swaps instead of dropping whole packages).
 - **Gameweek Analysis**: Utility for detecting blank and double gameweeks, providing context to AI prompts.
 - **Squad Card Generator**: Allows users to create shareable gameweek squad cards with AI-generated commentary.
 - **RevenueCat Subscription System**: Implements a three-tier subscription model (Free, Pro Monthly, Season Pass) with feature gating and subscription event logging.

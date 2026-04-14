@@ -610,20 +610,38 @@ router.post(
 
       lap("cache_clear_done");
 
-      const [bootstrap, managerInfo] = await Promise.all([
-        fetchCachedData<BootstrapData>(
-          cacheKey("bootstrap-static"),
-          "/bootstrap-static/",
-          TTL.STATIC,
-        ),
-        fetchCachedData<{
-          started_event: number;
-          entered_events?: number[];
-          last_deadline_bank: number;
-          last_deadline_value: number;
-          last_deadline_total_transfers: number;
-        }>(cacheKey("entry", managerId), `/entry/${managerId}/`, TTL.USER),
-      ]);
+      const bootstrapPromise = fetchCachedData<BootstrapData>(
+        cacheKey("bootstrap-static"),
+        "/bootstrap-static/",
+        TTL.STATIC,
+      );
+      const managerInfoPromise = fetchCachedData<{
+        started_event: number;
+        entered_events?: number[];
+        last_deadline_bank: number;
+        last_deadline_value: number;
+        last_deadline_total_transfers: number;
+      }>(cacheKey("entry", managerId), `/entry/${managerId}/`, TTL.USER);
+      const fixturesPromise = fetchCachedData<FPLFixture[]>(
+        cacheKey("fixtures"),
+        "/fixtures/",
+        TTL.STATIC,
+      );
+      const transferHistoryPromise = fetchCachedData<FPLTransfer[]>(
+        cacheKey("transfers", managerId),
+        `/entry/${managerId}/transfers/`,
+        TTL.USER,
+      );
+      const historyPromise = fetchCachedData<FPLHistory>(
+        cacheKey("history", managerId),
+        `/entry/${managerId}/history/`,
+        TTL.USER,
+      );
+      void fixturesPromise.catch(() => {});
+      void transferHistoryPromise.catch(() => {});
+      void historyPromise.catch(() => {});
+
+      const [bootstrap, managerInfo] = await Promise.all([bootstrapPromise, managerInfoPromise]);
       lap("bootstrap_and_entry_fetched");
 
       const currentEvent = bootstrap.events.find((e) => e.is_current);
@@ -815,33 +833,35 @@ router.post(
       if (picksGw > 1) gwsToTry.push(picksGw - 1);
       if (picksGw > 2) gwsToTry.push(picksGw - 2);
 
-      const parallelDataPromise = Promise.all([
-        fetchCachedData<FPLFixture[]>(cacheKey("fixtures"), "/fixtures/", TTL.STATIC),
-        fetchCachedData<FPLTransfer[]>(
-          cacheKey("transfers", managerId),
-          `/entry/${managerId}/transfers/`,
-          TTL.USER,
-        ),
-        fetchCachedData<FPLHistory>(
-          cacheKey("history", managerId),
-          `/entry/${managerId}/history/`,
-          TTL.USER,
-        ),
-      ]);
-
-      let picksData: FPLPicksResponse | null = null;
-      for (const gw of gwsToTry) {
-        try {
-          picksData = await fetchCachedData<FPLPicksResponse>(
-            cacheKey("picks", managerId, String(gw)),
-            `/entry/${managerId}/event/${gw}/picks/`,
-            TTL.USER,
-          );
-          break;
-        } catch (err) {
-          req.log.warn({ err, managerId, gw }, "No picks for gameweek, trying previous");
+      const picksPromise = (async (): Promise<FPLPicksResponse | null> => {
+        for (const gw of gwsToTry) {
+          try {
+            return await fetchCachedData<FPLPicksResponse>(
+              cacheKey("picks", managerId, String(gw)),
+              `/entry/${managerId}/event/${gw}/picks/`,
+              TTL.USER,
+            );
+          } catch (err) {
+            req.log.warn({ err, managerId, gw }, "No picks for gameweek, trying previous");
+          }
         }
-      }
+        return null;
+      })();
+
+      const chipCheckPromise = fetchCachedData<{ active_chip: string | null }>(
+        cacheKey("picks-chip", managerId, String(currentGw)),
+        `/entry/${managerId}/event/${currentGw}/picks/`,
+        TTL.USER,
+      ).catch(() => null);
+
+      const [picksData, fixtures, transferHistory, historyData, picksForChipCheck] =
+        await Promise.all([
+          picksPromise,
+          fixturesPromise,
+          transferHistoryPromise,
+          historyPromise,
+          chipCheckPromise,
+        ]);
 
       if (!picksData) {
         sendError(400, {
@@ -851,11 +871,8 @@ router.post(
         return;
       }
 
-      lap("picks_fetched");
+      lap("all_fpl_data_fetched");
       sendStage("market");
-
-      const [fixtures, transferHistory, historyData] = await parallelDataPromise;
-      lap("fpl_parallel_data_fetched");
 
       const playerMap = new Map(bootstrap.elements.map((p) => [p.id, p]));
       const teamMap = new Map(bootstrap.teams.map((t) => [t.id, t]));
@@ -1028,29 +1045,51 @@ router.post(
       const diverseCandidates: typeof candidates = [];
       const byPos: Record<number, typeof candidates> = { 1: [], 2: [], 3: [], 4: [] };
       for (const c of candidates) byPos[c.player.element_type]?.push(c);
-      const minPerPos = 4;
+      const minPerPos = 3;
       for (const posPlayers of Object.values(byPos)) {
         diverseCandidates.push(...posPlayers.slice(0, minPerPos));
       }
       for (const c of candidates) {
-        if (diverseCandidates.length >= 30) break;
+        if (diverseCandidates.length >= 20) break;
         if (!diverseCandidates.includes(c)) diverseCandidates.push(c);
       }
 
-      const candidatesSummary = diverseCandidates
-        .slice(0, 20)
-        .map((c) => {
-          const pos = POSITION_MAP[c.player.element_type] ?? "UNK";
-          return `- ${c.player.web_name} (${pos}, ${c.team.short_name}) £${(c.player.now_cost / 10).toFixed(1)}m | Form: ${c.player.form} | Pts: ${c.player.total_points} | Own: ${c.player.selected_by_percent}% | FDR: ${c.upcomingFdr.join(",")}`;
-        })
+      const clubCountsForFilter: Record<string, number> = {};
+      for (const p of squadWithDetails) {
+        clubCountsForFilter[p.team] = (clubCountsForFilter[p.team] || 0) + 1;
+      }
+      const fullClubsSet = new Set(
+        Object.entries(clubCountsForFilter)
+          .filter(([, count]) => count >= 3)
+          .map(([team]) => team),
+      );
+
+      const filteredCandidates = diverseCandidates.filter(
+        (c) => !fullClubsSet.has(c.team.short_name),
+      );
+
+      const posGroups: Record<string, string[]> = { GKP: [], DEF: [], MID: [], FWD: [] };
+      for (const c of filteredCandidates) {
+        const pos = POSITION_MAP[c.player.element_type] ?? "UNK";
+        if (posGroups[pos] && posGroups[pos].length < 5) {
+          posGroups[pos].push(
+            `${c.player.web_name}(${c.team.short_name})£${(c.player.now_cost / 10).toFixed(1)}m F:${c.player.form} P:${c.player.total_points} O:${c.player.selected_by_percent}% FDR:${c.upcomingFdr.join(",")}`,
+          );
+        }
+      }
+      const candidatesSummary = Object.entries(posGroups)
+        .filter(([, players]) => players.length > 0)
+        .map(([pos, players]) => `[${pos}] ${players.join(" | ")}`)
         .join("\n");
 
       const squadSummary = squadWithDetails
         .map(
           (p) =>
-            `- ${p.name} (${p.position}, ${p.team}) | Price: £${p.price.toFixed(1)}m | Sell: £${p.sellingPrice.toFixed(1)}m | Form: ${p.form} | Pts: ${p.totalPoints} | Own: ${p.ownershipPct}% | vs ${p.opponent} | FDR: ${p.fdr} | Status: ${p.status}${p.isBench ? " [BENCH]" : ""}`,
+            `${p.name}(${p.position},${p.team})£${p.price.toFixed(1)}m S:£${p.sellingPrice.toFixed(1)}m F:${p.form} P:${p.totalPoints} O:${p.ownershipPct}% vs${p.opponent} FDR:${p.fdr} ${p.status}${p.isBench ? " B" : ""}`,
         )
         .join("\n");
+
+      const fullClubs = Array.from(fullClubsSet);
 
       const rulesContext = getRulesContext(currentGw);
 
@@ -1070,11 +1109,6 @@ router.post(
 
       lap("squad_and_candidates_built");
 
-      const picksForChipCheck = await fetchCachedData<{ active_chip: string | null }>(
-        cacheKey("picks-chip", managerId, String(currentGw)),
-        `/entry/${managerId}/event/${currentGw}/picks/`,
-        TTL.USER,
-      ).catch(() => null);
       const liveActiveChip = picksForChipCheck?.active_chip ?? null;
 
       const activeChip = historyData.chips.find((c) => c.event === currentGw);
@@ -1088,120 +1122,51 @@ router.post(
       let recommendationCount: string;
 
       if (isChipMode) {
-        modeInstructions = `MODE: FULL SQUAD OVERHAUL (${isWildcardActive ? "Wildcard" : "Free Hit"} available)
-The manager has a ${isWildcardActive ? "Wildcard" : "Free Hit"} chip available. Recommend comprehensive squad restructure packages.
-Each recommendation should be a PACKAGE of 3-6 coordinated transfers that work together as a strategy.
-Every package needs a creative package_name (e.g. "The Premium Triple-Up", "Fixture Swing", "Template Reset").
-Show how the transfers combine for maximum impact. Budget constraint applies across ALL transfers in the package.
-Each package MUST have a DIFFERENT strategic focus — e.g. one premium-heavy, one differential, one fixture-based rotation.`;
+        modeInstructions = `${isWildcardActive ? "Wildcard" : "Free Hit"} active. Recommend PACKAGES of 3-5 transfers with creative package_name, different strategic focus each.`;
         recommendationCount =
-          "Return exactly 3 to 4 restructure packages, each with a distinctly different strategy";
+          "Return exactly 3 recs: 2 packages + 1 hold";
       } else if (freeTransfers >= 4) {
-        modeInstructions = `MODE: RESTRUCTURE (${freeTransfers} free transfers banked)
-The manager has ${freeTransfers} free transfers — this is a major restructure opportunity.
-
-You MUST return ALL of the following (this is non-negotiable):
-1. PACKAGE A: A restructure package using 2-${Math.min(freeTransfers, 4)} free transfers with one strategic theme.
-2. PACKAGE B: A DIFFERENT restructure package using 2-${Math.min(freeTransfers, 4)} free transfers with a contrasting strategic theme.
-3. OPTIONAL PACKAGE C: If there's a third viable strategy, include it.
-4. ONE best individual swap — the single most impactful one-for-one transfer.
-5. ONE hold option — explaining why banking transfers could be the smart play.
-
-Example strategic themes for packages (pick different ones for each):
-   - Defensive overhaul (upgrade/rotate defenders for upcoming fixtures)
-   - Attacking upgrade (bring in premium or in-form attackers/midfielders)
-   - Fixture swing (target teams with easy upcoming runs across multiple positions)
-   - Budget rebalance (sideways moves to free funds for a future premium upgrade)
-   - Differential play (low-ownership picks for mini-league gains)
-
-Even with a tight budget, lateral moves (same-price swaps) and downgrades-to-fund-upgrades are valid package strategies. Do NOT skip packages just because the budget is low.
-Do NOT return only 1 package + 1 hold. The user MUST have at least 2 distinct packages to compare.
-Each package needs a creative package_name.`;
+        modeInstructions = `${freeTransfers} FT banked — restructure opportunity. Return: 1 package (2-${Math.min(freeTransfers, 4)} transfers, creative package_name) + 1 best individual swap + 1 hold.`;
         recommendationCount =
-          "Return exactly 4 to 5 recommendations: 2-3 packages + 1 individual swap + 1 hold option";
+          "Return exactly 3 recs: 1 package + 1 swap + 1 hold";
       } else if (freeTransfers >= 2) {
-        modeInstructions = `MODE: MIXED (${freeTransfers} free transfers available)
-The manager has ${freeTransfers} free transfers. You MUST return ALL of the following:
-1. ONE OR TWO multi-transfer packages (using 2+ free transfers). Each package needs a creative package_name (e.g. "The Double Switch", "Attack Refresh") and a different strategic angle.
-2. ONE OR TWO individual swap options — single player-for-player trades.
-3. ONE hold option if holding transfers makes strategic sense.
-
-Packages should show how the moves work together. Individual swaps should each target a different problem in the squad.`;
+        modeInstructions = `${freeTransfers} FT. Return: 1 package (creative package_name) + 1 individual swap + 1 hold.`;
         recommendationCount =
-          "Return exactly 4 to 5 recommendations: 1-2 packages + 1-2 individual swaps + 1 hold option";
+          "Return exactly 3 recs: 1 package + 1 swap + 1 hold";
       } else {
-        modeInstructions = `MODE: INDIVIDUAL SWAPS (${freeTransfers} free transfer${freeTransfers === 1 ? "" : "s"})
-The manager has ${freeTransfers} free transfer${freeTransfers === 1 ? "" : "s"}. Recommend individual player swaps only.
-Each recommendation is a single player OUT / player IN swap.
-If the user has 0 free transfers, every suggestion costs a 4-point hit.
-Include 1 hold option if holding transfers makes strategic sense.`;
-        recommendationCount = "Return 3 to 4 transfer options + 1 hold option";
+        modeInstructions = `${freeTransfers} FT. Individual swaps only.${freeTransfers === 0 ? " Every transfer costs -4pts." : ""}`;
+        recommendationCount = "Return exactly 3 recs: 2 swaps + 1 hold";
       }
 
-      const transferInstructions = `You are generating transfer recommendations for this FPL manager. Analyse their squad, upcoming fixtures, budget, and available free transfers.
-
-${modeInstructions}
-
+      const transferInstructions = `Generate transfer recommendations. ${modeInstructions}
 ${recommendationCount}.
 
-VALIDATION RULES:
-- The buy player's price must not exceed the user's budget (£${bank.toFixed(1)}m) plus the sell player's selling price
-- The transfer must not result in 4+ players from the same club (R1.03)
-- Maintain position counts: 2 GK, 5 DEF, 5 MID, 3 FWD (R1.04)
-- Do not recommend buying injured players (chance_of_playing = 0)
-- Factor in sell price formula: user keeps 50% of price rises, rounded down (R3.06)
-- For packages: validate the ENTIRE package together — budget, club limits, and position counts must be valid after ALL transfers in the package are applied
-- POINT HIT RULE: The manager has exactly ${freeTransfers} free transfer${freeTransfers === 1 ? "" : "s"}. Any recommendation that uses MORE transfers than this costs -4 points PER EXTRA transfer. You MUST set total_hit_cost accurately. For example, if the manager has 1 free transfer and you recommend a 2-player package, total_hit_cost = 4. If you recommend a 3-player package, total_hit_cost = 8. Factor this cost into your expected_points_gain calculations and commentary.
-- If holding transfers makes sense, include a "hold" option
+RULES: Buy price ≤ budget(£${bank.toFixed(1)}m)+sell price. Max 3 per club. POSITION LOCK: only swap within same position group — [GKP]→GKP, [DEF]→DEF, [MID]→MID, [FWD]→FWD. No injured players. ${freeTransfers} FT — extra transfers cost -4pts each, set hit_cost accurately. Last rec must be hold (is_hold_recommendation:true).
 
-ALWAYS include a hold option as the LAST recommendation with is_hold_recommendation: true — 'Do nothing' is valid advice.
+COMMENTARY: upside/risk/case about player_in only, 1-2 sentences each. No cross-references. Different player_in per rec. Use exact web_name. One rec: is_superscout_pick:true.
 
-CRITICAL COUNT REQUIREMENT: ${recommendationCount}. Do NOT return fewer recommendations than specified. The user needs multiple genuine choices.
+PACKAGES: is_package:true, package_name, transfers[], total_net_cost, total_hit_cost, uses_free_transfers, total_expected_points_gain_3gw.
+SWAPS: player_out, player_in, player_out_team, player_in_team, player_out_selling_price, player_in_price, net_cost, uses_free_transfer, hit_cost, expected_points_gain_3gw.
+Both: confidence(BANKER|CALCULATED_RISK|BOLD_PUNT), upside, risk, case, is_superscout_pick, is_hold_recommendation.
 
-COMMENTARY RULES:
-- upside/risk/case must focus on player_in only. Do NOT discuss player_out.
-- Each card is shown in isolation. Never reference other recommendations.
-- Every recommendation must have a different player_in. No duplicates.
-- Use exact web_name from squad/candidate data (e.g. "Cunha", "B.Fernandes").
-- Exactly one recommendation: is_superscout_pick: true.
-- Last recommendation: is_hold_recommendation: true.
+JSON only. {"gameweek":${currentGw},"free_transfers":${freeTransfers},"budget_remaining":${bank.toFixed(1)},"recommendations":[...]}`;
 
-For PACKAGES: is_package: true, package_name, transfers array, total_net_cost, total_hit_cost, uses_free_transfers, total_expected_points_gain_3gw.
-For INDIVIDUAL swaps: player_out, player_in, player_out_team, player_in_team, player_out_selling_price, player_in_price, net_cost, uses_free_transfer, hit_cost, expected_points_gain_3gw.
-Both types: confidence (BANKER|CALCULATED_RISK|BOLD_PUNT), upside, risk, case, is_superscout_pick, is_hold_recommendation.
+      const context = `GW${currentGw} DL:${deadline} FT:${freeTransfers} Bank:£${bank.toFixed(1)}m Chips:${chipsRemaining.length > 0 ? chipsRemaining.join(",") : "none"}
 
-Respond with valid JSON only — no markdown, no backticks.
-
-JSON structure:
-{"gameweek":${currentGw},"free_transfers":${freeTransfers},"budget_remaining":${bank.toFixed(1)},"recommendations":[...]}
-}`;
-
-      const context = `GAMEWEEK: ${currentGw}
-DEADLINE: ${deadline}
-FREE TRANSFERS: ${freeTransfers}
-BUDGET IN BANK: £${bank.toFixed(1)}m
-CHIPS REMAINING: ${chipsRemaining.length > 0 ? chipsRemaining.join(", ") : "none"}
-
-YOUR SQUAD (15 players):
+SQUAD:
 ${squadSummary}
 
-TOP TRANSFER TARGETS (pre-filtered by form, fixtures, value):
+TARGETS:
 ${candidatesSummary}
 
-${transferInstructions}
-
-FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Returning fewer is a failure. Each recommendation must be a distinct strategic option.`;
+${transferInstructions}`;
 
       let chipPrompt = "";
       if (isTripleCaptainActive) {
-        chipPrompt =
-          "TRIPLE CAPTAIN ACTIVE: The manager has activated Triple Captain this gameweek. Captain choice is paramount — focus transfer recommendations on enabling the best possible captain option. If the squad already has a strong TC target, the hold option may be optimal.";
+        chipPrompt = "TC ACTIVE: Focus on enabling best captain option.";
       } else if (isBenchBoostActive) {
-        chipPrompt =
-          "BENCH BOOST ACTIVE: The manager has activated Bench Boost. ALL 15 players score this gameweek, including bench players. Prioritise transfers that upgrade weak bench options — every player matters. Flag bench players with blanks or tough fixtures as priority sells.";
+        chipPrompt = "BB ACTIVE: All 15 score — upgrade weak bench players.";
       }
-
-      lap("chip_check_done");
 
       let captainContextPrompt = "";
       const supabaseCross = getSupabaseForRequest(req);
@@ -1252,8 +1217,7 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
         gwAnalysisPrompt,
         chipPrompt,
         captainContextPrompt,
-        `IMPORTANT: You MUST respond with valid JSON only. No markdown, no backticks, no preamble.`,
-        `CRITICAL PERSONA REQUIREMENT: Write the "case" field in your assigned persona voice.`,
+        `JSON only. Write "case" in persona voice.`,
       ]
         .filter(Boolean)
         .join("\n\n");
@@ -1263,10 +1227,10 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
       sendStage("ai");
       req.log.info("AI generation started");
 
-      const client = getClient(45000);
+      const client = getClient(30000);
       const message = await client.messages.create({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 4000,
+        max_tokens: 2500,
         temperature: 0.3,
         system: systemPrompt,
         messages: [{ role: "user", content: context }],
@@ -1383,12 +1347,18 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
           player_out_selling_price?: number;
           player_in_price?: number;
         }>,
-      ): boolean {
+      ): Array<{
+        player_out?: string;
+        player_in?: string;
+        player_out_selling_price?: number;
+        player_in_price?: number;
+      }> | null {
         if (!transfers || transfers.length === 0) {
           req.log.warn("Package validation: empty transfers array");
-          return false;
+          return null;
         }
 
+        const validSwaps: typeof transfers = [];
         let runningBudget = bank;
         const simSquad = [...squadWithDetails];
 
@@ -1397,7 +1367,8 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
           const inName = String(swap.player_in ?? "");
 
           if (!validateSingleSwap(outName, inName, simSquad, runningBudget)) {
-            return false;
+            req.log.warn({ playerOut: outName, playerIn: inName }, "Swap dropped from package by validation");
+            continue;
           }
 
           const playerOut = simSquad.find((p) => p.name.toLowerCase() === outName.toLowerCase());
@@ -1423,28 +1394,20 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
               };
             }
           }
+          validSwaps.push(swap);
         }
 
-        const posCounts: Record<string, number> = {};
-        for (const p of simSquad) {
-          posCounts[p.position] = (posCounts[p.position] ?? 0) + 1;
-        }
-        const validCounts =
-          (posCounts["GKP"] ?? 0) === 2 &&
-          (posCounts["DEF"] ?? 0) === 5 &&
-          (posCounts["MID"] ?? 0) === 5 &&
-          (posCounts["FWD"] ?? 0) === 3;
-        if (!validCounts) {
-          req.log.warn({ posCounts }, "Package validation: invalid position counts");
-          return false;
+        if (validSwaps.length === 0) {
+          req.log.warn("Package validation: no valid swaps remain");
+          return null;
         }
 
         if (runningBudget < -0.1) {
           req.log.warn({ runningBudget }, "Package validation: over budget");
-          return false;
+          return null;
         }
 
-        return true;
+        return validSwaps;
       }
 
       req.log.info(
@@ -1456,7 +1419,7 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
         if (rec.is_hold_recommendation) return true;
 
         if (rec.is_package && Array.isArray(rec.transfers)) {
-          const valid = validatePackage(
+          const validSwaps = validatePackage(
             rec.transfers as Array<{
               player_out?: string;
               player_in?: string;
@@ -1464,9 +1427,23 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
               player_in_price?: number;
             }>,
           );
-          if (!valid)
+          if (!validSwaps) {
             req.log.warn({ packageName: rec.package_name }, "Package dropped by validation");
-          return valid;
+            return false;
+          }
+          const recObj = rec as Record<string, unknown>;
+          recObj.transfers = validSwaps;
+          let totalNet = 0;
+          let totalHit = 0;
+          for (let i = 0; i < validSwaps.length; i++) {
+            const s = validSwaps[i];
+            totalNet += (s.player_in_price ?? 0) - (s.player_out_selling_price ?? 0);
+            totalHit += i >= freeTransfers ? 4 : 0;
+          }
+          recObj.total_net_cost = Math.round(totalNet * 10) / 10;
+          recObj.total_hit_cost = totalHit;
+          recObj.uses_free_transfers = Math.min(validSwaps.length, freeTransfers);
+          return true;
         }
 
         const valid = validateSingleSwap(
@@ -1518,7 +1495,7 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
       }
 
       const nonHoldCount = halChecked.filter((r) => !r.is_hold_recommendation).length;
-      if (nonHoldCount < 2) {
+      if (nonHoldCount < 1) {
         req.log.warn(
           { remaining: nonHoldCount },
           "Too few transfer recs after hallucination check — retrying",
@@ -1536,7 +1513,7 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
 
         const retryMessage = await client.messages.create({
           model: "claude-haiku-4-5-20251001",
-          max_tokens: 4000,
+          max_tokens: 2500,
           temperature: 0.3,
           system: retrySystemPrompt,
           messages: [{ role: "user", content: context }],
@@ -1549,7 +1526,7 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
             const retryValidated = retryParsed.recommendations.filter((rec) => {
               if (rec.is_hold_recommendation) return true;
               if (rec.is_package && Array.isArray(rec.transfers)) {
-                return validatePackage(
+                const validSwaps = validatePackage(
                   rec.transfers as Array<{
                     player_out?: string;
                     player_in?: string;
@@ -1557,6 +1534,20 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
                     player_in_price?: number;
                   }>,
                 );
+                if (!validSwaps) return false;
+                const recObj = rec as Record<string, unknown>;
+                recObj.transfers = validSwaps;
+                let totalNet = 0;
+                let totalHit = 0;
+                for (let i = 0; i < validSwaps.length; i++) {
+                  const s = validSwaps[i];
+                  totalNet += (s.player_in_price ?? 0) - (s.player_out_selling_price ?? 0);
+                  totalHit += i >= freeTransfers ? 4 : 0;
+                }
+                recObj.total_net_cost = Math.round(totalNet * 10) / 10;
+                recObj.total_hit_cost = totalHit;
+                recObj.uses_free_transfers = Math.min(validSwaps.length, freeTransfers);
+                return true;
               }
               return validateSingleSwap(
                 String(rec.player_out ?? ""),
