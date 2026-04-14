@@ -236,6 +236,24 @@ function TagPill({ label, bg, color }: { label: string; bg: string; color: strin
   );
 }
 
+function BoldText({ text, style }: { text: string; style: any }) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return (
+    <Text style={style}>
+      {parts.map((part, i) => {
+        if (part.startsWith("**") && part.endsWith("**")) {
+          return (
+            <Text key={i} style={{ fontFamily: "Inter_600SemiBold" }}>
+              {part.slice(2, -2)}
+            </Text>
+          );
+        }
+        return part;
+      })}
+    </Text>
+  );
+}
+
 function stripQuotes(text: string): string {
   let s = text.trim();
   while ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
@@ -288,7 +306,7 @@ export default function TransferCardV2({
     ? recommendation.transfers?.[0]?.player_in_form ?? null
     : (recommendation.player_in_form ?? null);
   const formValue = rawForm ? parseFloat(String(rawForm)) : null;
-  const displayForm = formValue !== null && formValue > 0 && formValue <= 12 ? formValue.toFixed(1) : null;
+  const displayForm = formValue !== null && formValue > 0 ? formValue.toFixed(1) : null;
 
   const projectionWindow = recommendation.projection_window ?? (isFreeTransfer ? 3 : 5);
   const breakevenGw = recommendation.breakeven_gw ?? null;
@@ -457,7 +475,7 @@ export default function TransferCardV2({
       {expanded && (
         <View style={styles.coachingZone}>
           {recommendation.summary ? (
-            <Text style={styles.summaryText}>{recommendation.summary}</Text>
+            <BoldText text={recommendation.summary} style={styles.summaryText} />
           ) : null}
           <View style={styles.upsideRiskGrid}>
             <View style={styles.gridRow}>
@@ -706,8 +724,8 @@ const styles = StyleSheet.create({
   },
   dgwDotContainer: {
     position: "absolute",
-    top: -4,
-    right: -4,
+    top: -3,
+    right: -3,
     width: 12,
     height: 12,
     alignItems: "center",
@@ -720,7 +738,7 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: COLORS.indigo,
-    borderWidth: 1.5,
+    borderWidth: 2,
     borderColor: COLORS.fixtureBg,
   },
   fdrLegend: {
@@ -732,8 +750,10 @@ const styles = StyleSheet.create({
   },
   fdrLegendLabel: {
     fontSize: 9,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_600SemiBold",
     color: COLORS.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   fdrGradient: {
     flexDirection: "row",

@@ -1296,7 +1296,7 @@ CRITICAL COACHING TEXT RULES:
 
 PACKAGES: is_package:true, package_name, transfers[{player_out,player_in,player_out_team,player_in_team,player_out_selling_price,player_in_price}], total_net_cost, total_hit_cost, uses_free_transfers.
 SWAPS: player_out, player_in, player_out_team, player_in_team, player_out_selling_price, player_in_price, net_cost, uses_free_transfer, hit_cost.
-Both: summary, confidence(BANKER|CALCULATED_RISK|BOLD_PUNT), upside, risk, case, is_superscout_pick, is_hold_recommendation.
+Both: summary(1-2 sentence coaching headline — wrap the single most important phrase in **double asterisks** for bold), confidence(BANKER|CALCULATED_RISK|BOLD_PUNT), upside, risk, case, is_superscout_pick, is_hold_recommendation.
 NOTE: Do NOT include expected_points_gain fields — impact is calculated server-side.
 
 JSON only. {"gameweek":${currentGw},"free_transfers":${freeTransfers},"budget_remaining":${bank.toFixed(1)},"recommendations":[...]}`;

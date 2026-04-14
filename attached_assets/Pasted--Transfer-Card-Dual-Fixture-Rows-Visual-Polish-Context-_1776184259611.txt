@@ -1,0 +1,135 @@
+# Transfer Card — Dual Fixture Rows + Visual Polish
+
+**Context:** The data layer is now fixed and verified (form values, impact calculation, coaching prompt, FDR mapping). This prompt is about the VISUAL side only. Do not change any of the data logic, calculation formulas, or coaching prompt rules — those are locked in and working.
+
+**Design Reference:** The design mockup HTML file (index.html) previously provided is the pixel-level reference. Use the “Proposed” column only. Ignore the “Current” column.
+
+-----
+
+## Change 1: Show BOTH players’ fixtures
+
+This is the biggest visual change. Replace the single fixture row with two labelled rows — one for the IN player and one for the OUT player. The whole point of a transfer card is a comparison. The user needs to see both fixture runs side by side.
+
+**Layout:**
+
+```
+NEXT 5 FIXTURES                    🔵 Plays twice
+
+Guéhi · MCI   IN
+[33 BHA h] [34 — ] [35 EVE a] [36 BRE h] [37 BOU a]
+──────────────────────────────────────────────────────
+Saliba · ARS   OUT
+[33 MCI a] [34 NEW h] [35 FUL h] [36 WHU a] [37 BUR h]
+
+              Easy ████████████ Hard
+```
+
+**Rules:**
+
+- IN player row is always on top. OUT player row is always on the bottom.
+- Thin 1px divider (#F3F4F6) between the two rows.
+- Each row has exactly 5 cells — one per gameweek. No exceptions.
+- Blank gameweeks show “—” with background #F3F4F6 and text colour #9CA3AF.
+- DGW cells show both opponents separated by “/” (e.g. “BHA/BUR”) with the indigo ping dot.
+- Each fixture cell is colour-coded by FDR using the existing (verified correct) colour mapping.
+- The “🔵 Plays twice” legend only appears when at least one fixture in that card has a DGW.
+
+**Player label styling:**
+
+```
+Container: font-size 10px, font-weight 600, color #6B7280, display flex, align-items center, gap 5px, margin-bottom 5px
+
+IN badge: font-size 8px, font-weight 700, uppercase, color #15803D, background #F0FDF4, padding 1px 5px, border-radius 3px
+
+OUT badge: font-size 8px, font-weight 700, uppercase, color #9CA3AF, background #F3F4F6, padding 1px 5px, border-radius 3px
+```
+
+**Data source:** You already have fixtures for the IN player. For the OUT player, look up their team ID from the `elements` array in bootstrap-static, then find their next 5 fixtures from the `fixtures` endpoint using the same logic. Use the correct FDR field (already verified in Problem 4 — `team_h_difficulty` when the player’s team is home, `team_a_difficulty` when away).
+
+-----
+
+## Change 2: DGW cell display
+
+When a player has two fixtures in one gameweek:
+
+```
+┌──────────┐
+│   33    🔵│
+│ BHA/BUR  │
+│    h     │
+└──────────┘
+```
+
+- Show both opponents separated by “/”
+- Indigo ping dot (8px, positioned absolute top: -3px, right: -3px, 2px solid border matching section background #FAFAF8)
+- Pulsing animation: box-shadow expanding 0 to 4px, indigo 40% opacity, 2s ease-in-out infinite
+- If the two fixtures have different h/a, show the first fixture’s h/a indicator
+- Cell should NOT be wider than other cells — the “/” format keeps it compact
+
+-----
+
+## Change 3: Coaching section expand/collapse defaults
+
+- **Card 1 (SuperScout Pick):** Coaching section defaults to EXPANDED — user sees coaching summary, upside/risk, and quote without tapping.
+- **All other cards:** Coaching section defaults to COLLAPSED — only the “Show coaching detail ▾” button is visible.
+- When expanded, button text changes to “Hide coaching detail ▴”
+- Use LayoutAnimation or Animated for smooth height transitions on expand/collapse
+
+-----
+
+## Change 4: Coaching summary paragraph
+
+The expanded coaching section should have this structure, top to bottom:
+
+1. **Coaching summary** — 1-2 sentence AI-generated headline. 14px, line-height 1.55. Key phrases in bold (font-weight 600). This gives the user enough to decide without reading further.
+1. **Upside/Risk grid** — 2-column layout (already exists, keep as-is)
+1. **Coach quote** — Indigo block (already exists, keep as-is)
+
+Check whether the AI prompt currently generates a `coaching_summary` field (or similar) separate from the upside/risk text. If not, add it to the AI prompt output schema as a required field:
+
+```
+coaching_summary: "1-2 sentence headline summarising why this transfer makes sense (or doesn't). Bold the most important phrase. Be specific — reference the key stat or fixture that drives the recommendation."
+```
+
+-----
+
+## Change 5: Fixture difficulty legend
+
+Below both fixture rows, centred:
+
+```
+Easy [gradient bar] Hard
+```
+
+- “Easy” and “Hard”: 9px, font-weight 600, uppercase, letter-spacing 0.5px, colour #9CA3AF
+- Gradient bar: 6px tall, max-width 120px, border-radius 3px
+- Linear gradient: #00875A → #A3F5C1 → #E7E7E7 → #FF6B6B → #80132B
+- One legend per card, positioned after the OUT player’s fixture row
+
+-----
+
+## What NOT to change
+
+- The header (swap identity + impact score) — working correctly
+- The tags row — working correctly
+- The impact calculation — verified and locked
+- The coaching prompt rules — verified and locked
+- The form value source — verified and locked
+- The FDR colour mapping — verified and locked
+- The nav bar — unchanged
+
+-----
+
+## Testing
+
+- Test on iPhone SE (375px) and iPhone Pro Max (430px)
+- Verify both fixture rows render with 5 cells each on narrow screens
+- Verify DGW “/” cells don’t overflow or break the row
+- Verify blank gameweek “—” cells appear correctly
+- Verify the expand/collapse animation is smooth, not jerky
+
+-----
+
+## Git Safety
+
+Do not run any destructive git operations (git reset –hard, orphan commits, force pushes rewriting history) without stopping and explaining the consequences first.
