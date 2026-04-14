@@ -574,6 +574,12 @@ router.post(
 
     try {
       const { manager_id, vibe, skip_cache: skipCache } = req.body;
+      const t_start = Date.now();
+      const lap = (label: string) => {
+        const elapsed = Date.now() - t_start;
+        req.log.info({ step: label, elapsed_ms: elapsed, since_start_ms: elapsed }, `⏱ ${label}`);
+        return elapsed;
+      };
 
       const vibePrompt = VIBE_PROMPTS[vibe];
 
@@ -602,6 +608,8 @@ router.post(
         req.log.info("skip_cache=true — cleared FPL data cache for manager");
       }
 
+      lap("cache_clear_done");
+
       const [bootstrap, managerInfo] = await Promise.all([
         fetchCachedData<BootstrapData>(
           cacheKey("bootstrap-static"),
@@ -616,6 +624,7 @@ router.post(
           last_deadline_total_transfers: number;
         }>(cacheKey("entry", managerId), `/entry/${managerId}/`, TTL.USER),
       ]);
+      lap("bootstrap_and_entry_fetched");
 
       const currentEvent = bootstrap.events.find((e) => e.is_current);
       const nextEvent = bootstrap.events.find((e) => e.is_next);
@@ -647,6 +656,7 @@ router.post(
         req.log.info("skip_cache=true — bypassing pre-generated cache for transfer advice");
       }
 
+      lap("pre_cache_lookup");
       const supabase = getSupabaseForRequest(req);
       if (!skipCache && supabase) {
         try {
@@ -793,6 +803,8 @@ router.post(
         }
       }
 
+      lap("cache_lookup_done");
+
       const picksGw =
         currentEvent && !currentEvent.finished
           ? currentEvent.id
@@ -839,9 +851,11 @@ router.post(
         return;
       }
 
+      lap("picks_fetched");
       sendStage("market");
 
       const [fixtures, transferHistory, historyData] = await parallelDataPromise;
+      lap("fpl_parallel_data_fetched");
 
       const playerMap = new Map(bootstrap.elements.map((p) => [p.id, p]));
       const teamMap = new Map(bootstrap.teams.map((t) => [t.id, t]));
@@ -1054,6 +1068,8 @@ router.post(
         );
       }
 
+      lap("squad_and_candidates_built");
+
       const picksForChipCheck = await fetchCachedData<{ active_chip: string | null }>(
         cacheKey("picks-chip", managerId, String(currentGw)),
         `/entry/${managerId}/event/${currentGw}/picks/`,
@@ -1185,6 +1201,8 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
           "BENCH BOOST ACTIVE: The manager has activated Bench Boost. ALL 15 players score this gameweek, including bench players. Prioritise transfers that upgrade weak bench options — every player matters. Flag bench players with blanks or tough fixtures as priority sells.";
       }
 
+      lap("chip_check_done");
+
       let captainContextPrompt = "";
       const supabaseCross = getSupabaseForRequest(req);
       if (supabaseCross) {
@@ -1240,6 +1258,8 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
         .filter(Boolean)
         .join("\n\n");
 
+      lap("captain_crosscheck_done");
+
       sendStage("ai");
       req.log.info("AI generation started");
 
@@ -1252,6 +1272,7 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
         messages: [{ role: "user", content: context }],
       });
 
+      lap("ai_generation_done");
       sendStage("validating");
       req.log.info(
         { stopReason: message.stop_reason, usage: message.usage },
@@ -1554,6 +1575,7 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
         }
       }
 
+      lap("validation_and_hallucination_done");
       req.log.info({ finalCount: halChecked.length }, "Hallucination check done");
 
       const seenSwaps = new Set<string>();
@@ -1647,7 +1669,8 @@ FINAL REMINDER — THIS IS MANDATORY: You MUST return ${recommendationCount}. Re
         ...(chipName && { active_chip: chipName }),
       };
 
-      req.log.info({ recCount: halChecked.length, isSSE }, "Response sent");
+      const totalMs = lap("response_ready");
+      req.log.info({ recCount: halChecked.length, isSSE, totalMs }, "Response sent");
 
       if (isSSE) {
         sendStage("done");
