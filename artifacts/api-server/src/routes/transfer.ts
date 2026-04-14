@@ -318,7 +318,8 @@ function calculateExpectedPoints(
   fixtureDetails: FixtureDetail[],
   numGws: number,
 ): number {
-  const form = parseFloat(player.form) || 0;
+  const rawForm = parseFloat(player.form) || 0;
+  const form = Math.min(rawForm, 12.0);
   const minutesProb = getMinutesProbability(player);
   let total = 0;
   const gws = fixtureDetails.slice(0, numGws);
@@ -1200,8 +1201,15 @@ router.post(
       for (const c of filteredCandidates) {
         const pos = POSITION_MAP[c.player.element_type] ?? "UNK";
         if (posGroups[pos] && posGroups[pos].length < 5) {
+          const candFixtures = getPlayerFixtureDetails(c.player.team, fixtures, bootstrap.teams, currentGw, 5);
+          const candFixStr = candFixtures.map((f) => {
+            if (f.isBlank) return `GW${f.event}:BLANK`;
+            const venue = f.isHome ? "h" : "a";
+            const dgw = f.isDgw ? "*DGW" : "";
+            return `GW${f.event}:vs ${f.opponent}(${venue})FDR${f.fdr}${dgw}`;
+          }).join(",");
           posGroups[pos].push(
-            `${c.player.web_name}(${c.team.short_name})£${(c.player.now_cost / 10).toFixed(1)}m F:${c.player.form} P:${c.player.total_points} O:${c.player.selected_by_percent}% FDR:${c.upcomingFdr.join(",")}`,
+            `${c.player.web_name} plays FOR ${c.team.short_name} £${(c.player.now_cost / 10).toFixed(1)}m F:${c.player.form} P:${c.player.total_points} O:${c.player.selected_by_percent}% [${candFixStr}]`,
           );
         }
       }
@@ -1217,9 +1225,9 @@ router.post(
             if (f.isBlank) return `GW${f.event}:BLANK`;
             const venue = f.isHome ? "h" : "a";
             const dgw = f.isDgw ? "*DGW" : "";
-            return `GW${f.event}:${f.opponent}(${venue})FDR${f.fdr}${dgw}`;
+            return `GW${f.event}:vs ${f.opponent}(${venue})FDR${f.fdr}${dgw}`;
           }).join(",");
-          return `${p.name}(${p.position},${p.team})£${p.price.toFixed(1)}m S:£${p.sellingPrice.toFixed(1)}m F:${p.form} P:${p.totalPoints} O:${p.ownershipPct}% ${p.status}${p.isBench ? " B" : ""} [${fixtureStr}]`;
+          return `${p.name} plays FOR ${p.team}(${p.position})£${p.price.toFixed(1)}m S:£${p.sellingPrice.toFixed(1)}m F:${p.form} P:${p.totalPoints} O:${p.ownershipPct}% ${p.status}${p.isBench ? " B" : ""} [${fixtureStr}]`;
         })
         .join("\n");
 
@@ -1277,7 +1285,14 @@ ${recommendationCount}.
 
 RULES: Buy price ≤ budget(£${bank.toFixed(1)}m)+sell price. Max 3 per club. POSITION LOCK: only swap within same position group — [GKP]→GKP, [DEF]→DEF, [MID]→MID, [FWD]→FWD. No injured players. ${freeTransfers} FT — extra transfers cost -4pts each, set hit_cost accurately. Last rec must be hold (is_hold_recommendation:true).
 
-COMMENTARY: summary(1-2 sentence headline why this move matters), upside/risk/case about player_in only, 1-2 sentences each. No cross-references. Different player_in per rec. Use exact web_name. One rec: is_superscout_pick:true. Reference the actual fixture opponents from the SQUAD data. Mention blank GWs and DGWs when relevant.
+COMMENTARY: summary(1-2 sentence headline why this move matters), upside/risk/case about player_in only, 1-2 sentences each. No cross-references. Different player_in per rec. Use exact web_name. One rec: is_superscout_pick:true.
+
+CRITICAL COACHING TEXT RULES:
+1. Each player "plays FOR" their team. The fixtures listed are OPPONENTS — teams they play AGAINST. NEVER say a player "faces" or "gets" their own team. Say "[player]'s team faces [opponent]" or "[player] has [opponent](h/a)".
+2. Use the exact form values shown (the F: field). Do not use total_points as form. Form is points-per-game over recent matches.
+3. If the IN player's form is lower than the OUT player's form, acknowledge this honestly. Do not write bullish text that ignores a form disadvantage.
+4. Reference actual fixture opponents, venues (h/a), and FDR from the data. Mention blank GWs and DGWs when relevant.
+5. Your summary, upside, risk, and case must be internally consistent. If the move has significant downsides, the risk field must reflect them honestly.
 
 PACKAGES: is_package:true, package_name, transfers[{player_out,player_in,player_out_team,player_in_team,player_out_selling_price,player_in_price}], total_net_cost, total_hit_cost, uses_free_transfers.
 SWAPS: player_out, player_in, player_out_team, player_in_team, player_out_selling_price, player_in_price, net_cost, uses_free_transfer, hit_cost.
@@ -1288,10 +1303,10 @@ JSON only. {"gameweek":${currentGw},"free_transfers":${freeTransfers},"budget_re
 
       const context = `GW${currentGw} DL:${deadline} FT:${freeTransfers} Bank:£${bank.toFixed(1)}m Chips:${chipsRemaining.length > 0 ? chipsRemaining.join(",") : "none"}
 
-SQUAD:
+YOUR SQUAD (each player "plays FOR" their team — fixtures are OPPONENTS they play AGAINST):
 ${squadSummary}
 
-TARGETS:
+TRANSFER TARGETS (each player "plays FOR" their team — fixtures are OPPONENTS they play AGAINST):
 ${candidatesSummary}
 
 ${transferInstructions}`;
@@ -1818,8 +1833,13 @@ ${transferInstructions}`;
           });
 
           enrichRec.transfers = enrichedTransfers;
-          enrichRec.computed_impact = Math.round((totalImpact - pkgHitCost) * 10) / 10;
+          const pkgImpact = Math.round((totalImpact - pkgHitCost) * 10) / 10;
+          enrichRec.computed_impact = pkgImpact;
           enrichRec.projection_window = pkgProjNForCalc;
+          const pkgThreshold = pkgProjNForCalc <= 3 ? 30 : 50;
+          if (Math.abs(pkgImpact) > pkgThreshold) {
+            console.warn(`[transfer] extreme impact: package "${rec.package_name}" impact=${pkgImpact} over ${pkgProjNForCalc}GWs (threshold=${pkgThreshold})`);
+          }
         } else {
           const inName = String(rec.player_in ?? "");
           const outName = String(rec.player_out ?? "");
@@ -1862,6 +1882,10 @@ ${transferInstructions}`;
           enrichRec.player_out_team_short = outTeam?.short_name ?? rec.player_out_team;
           enrichRec.computed_impact = netImpact;
           enrichRec.projection_window = projN;
+          const swapThreshold = projN <= 3 ? 30 : 50;
+          if (Math.abs(netImpact) > swapThreshold) {
+            console.warn(`[transfer] extreme impact: ${rec.player_out} → ${rec.player_in} impact=${netImpact} over ${projN}GWs (threshold=${swapThreshold})`);
+          }
 
           if (hitCost > 0 && rawImpact > 0) {
             const perGw = rawImpact / projN;
