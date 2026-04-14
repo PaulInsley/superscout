@@ -10,10 +10,10 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 const FDR_COLORS: Record<number, { bg: string; text: string }> = {
-  1: { bg: "#00875A", text: "#FFFFFF" },
-  2: { bg: "#A3F5C1", text: "#1A1A1A" },
-  3: { bg: "#E7E7E7", text: "#555555" },
-  4: { bg: "#FF6B6B", text: "#FFFFFF" },
+  1: { bg: "#257D5A", text: "#FFFFFF" },
+  2: { bg: "#00FF87", text: "#1A1A1A" },
+  3: { bg: "#CBCBCB", text: "#333333" },
+  4: { bg: "#FF1751", text: "#FFFFFF" },
   5: { bg: "#80132B", text: "#FFFFFF" },
 };
 
@@ -51,7 +51,7 @@ function DgwDot() {
 
   const scale = pulseAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [1, 1.6],
+    outputRange: [1, 1.8],
   });
 
   const ringOpacity = pulseAnim.interpolate({
@@ -60,7 +60,7 @@ function DgwDot() {
   });
 
   return (
-    <View style={{ width: 10, height: 10, alignItems: "center", justifyContent: "center" }}>
+    <View style={styles.dgwDotContainer}>
       <Animated.View
         style={{
           position: "absolute",
@@ -72,7 +72,7 @@ function DgwDot() {
           transform: [{ scale }],
         }}
       />
-      <View style={styles.dgwDot} />
+      <View style={styles.dgwDotCore} />
     </View>
   );
 }
@@ -132,8 +132,8 @@ function FixtureStrip({ teamShortName }: { teamShortName: string }) {
           if (isDgw) {
             return (
               <View key={`gw-${group[0].event}-${i}`} style={styles.fixtureCellWrapper}>
+                <FixtureCell fixture={{ ...group[0], opponentShortName: group.map(f => f.opponentShortName).join("/") }} />
                 <DgwDot />
-                <FixtureCell fixture={{ ...group[0], opponentShortName: group.map(f => f.opponentShortName).join("/") }} isDgw />
               </View>
             );
           }
@@ -148,10 +148,10 @@ function FixtureStrip({ teamShortName }: { teamShortName: string }) {
       <View style={styles.fdrLegend}>
         <Text style={styles.fdrLegendLabel}>Easy</Text>
         <View style={styles.fdrGradient}>
-          <View style={[styles.fdrSegment, { backgroundColor: "#00875A", borderTopLeftRadius: 3, borderBottomLeftRadius: 3 }]} />
-          <View style={[styles.fdrSegment, { backgroundColor: "#A3F5C1" }]} />
-          <View style={[styles.fdrSegment, { backgroundColor: "#E7E7E7" }]} />
-          <View style={[styles.fdrSegment, { backgroundColor: "#FF6B6B" }]} />
+          <View style={[styles.fdrSegment, { backgroundColor: "#257D5A", borderTopLeftRadius: 3, borderBottomLeftRadius: 3 }]} />
+          <View style={[styles.fdrSegment, { backgroundColor: "#00FF87" }]} />
+          <View style={[styles.fdrSegment, { backgroundColor: "#CBCBCB" }]} />
+          <View style={[styles.fdrSegment, { backgroundColor: "#FF1751" }]} />
           <View style={[styles.fdrSegment, { backgroundColor: "#80132B", borderTopRightRadius: 3, borderBottomRightRadius: 3 }]} />
         </View>
         <Text style={styles.fdrLegendLabel}>Hard</Text>
@@ -540,16 +540,20 @@ const styles = StyleSheet.create({
   fixtureCellRow: {
     flexDirection: "row",
     gap: 5,
+    alignItems: "stretch",
   },
   fixtureCellWrapper: {
     flex: 1,
     position: "relative",
+    overflow: "visible",
   },
   fixtureCell: {
     borderRadius: 6,
     paddingVertical: 6,
     paddingHorizontal: 2,
     alignItems: "center",
+    minHeight: 46,
+    justifyContent: "center",
   },
   fixtureCellGw: {
     fontSize: 8,
@@ -567,18 +571,24 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     marginTop: 1,
   },
-  dgwDot: {
+  dgwDotContainer: {
     position: "absolute",
-    top: -3,
-    right: -3,
+    top: -4,
+    right: -4,
+    width: 12,
+    height: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+    elevation: 10,
+  },
+  dgwDotCore: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: COLORS.indigo,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: COLORS.fixtureBg,
-    zIndex: 1,
-    elevation: 1,
   },
   fdrLegend: {
     flexDirection: "row",
