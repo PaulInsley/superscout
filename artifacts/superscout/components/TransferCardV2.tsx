@@ -262,9 +262,7 @@ export default function TransferCardV2({
 
   const pointsImpact = typeof recommendation.computed_impact === "number"
     ? recommendation.computed_impact
-    : isPackage
-      ? (recommendation.total_expected_points_gain_3gw ?? 0)
-      : (recommendation.expected_points_gain_3gw ?? 0);
+    : 0;
 
   const netCost = isPackage ? (recommendation.total_net_cost ?? 0) : (recommendation.net_cost ?? 0);
   const hitCost = isPackage ? (recommendation.total_hit_cost ?? 0) : (recommendation.hit_cost ?? 0);

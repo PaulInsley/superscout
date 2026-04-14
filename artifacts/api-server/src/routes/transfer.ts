@@ -307,13 +307,10 @@ function getPlayerFixtureDetails(
 }
 
 function getMinutesProbability(player: FPLPlayer): number {
-  if (player.chance_of_playing_next_round === 0) return 0;
-  if (player.chance_of_playing_next_round === 25) return 0.25;
-  if (player.chance_of_playing_next_round === 50) return 0.5;
-  if (player.chance_of_playing_next_round === 75) return 0.75;
-  if (player.minutes > 180) return 1.0;
-  if (player.minutes > 90) return 0.85;
-  return 0.7;
+  const cop = player.chance_of_playing_next_round;
+  if (cop === null || cop === undefined) return 1.0;
+  if (cop === 0) return 0;
+  return cop / 100;
 }
 
 function calculateExpectedPoints(
