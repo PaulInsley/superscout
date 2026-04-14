@@ -12,6 +12,7 @@ export interface TransferSwap {
   player_in: string;
   player_in_team: string;
   player_in_price?: number | null;
+  player_in_form?: string | null;
 }
 
 export interface TransferRecommendation {
@@ -21,11 +22,13 @@ export interface TransferRecommendation {
   player_in?: string | null;
   player_in_team?: string | null;
   player_in_price?: number | null;
+  player_in_form?: string | null;
   net_cost?: number | null;
   uses_free_transfer?: boolean;
   hit_cost?: number;
   expected_points_gain_3gw?: number;
   confidence: "BANKER" | "CALCULATED_RISK" | "BOLD_PUNT";
+  summary?: string | null;
   upside: string;
   risk: string;
   case: string;

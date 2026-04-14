@@ -1,0 +1,52 @@
+# Transfer Card — 4 Fixes
+
+## Fix 1: Coach Quote Double Quotes
+
+The coach quote block (the indigo-bordered vibe text at the bottom of the expanded card) is rendering with extra quotation marks. For example it shows:
+
+```
+""I don't know her.' Guéhi's been the best defender..."
+```
+
+There are redundant quote marks wrapping the AI output. Either the AI prompt is asking for quotes and the component is also adding them, or the AI is outputting them inconsistently. Fix:
+
+- Strip any leading/trailing quotation marks from the AI-generated coach quote before rendering
+- The indigo quote block already visually signals it’s a quote — no quotation marks needed at all
+- Do this in the component, not the AI prompt, so it’s resilient to whatever the AI returns
+
+## Fix 2: Missing Coaching Summary
+
+The transfer card spec has a **coaching summary** — a 1-2 sentence AI-generated paragraph that sits between the “Hide coaching detail” toggle and the Upside/Risk grid. It’s the headline that gives the user enough to decide without reading further.
+
+Currently the expanded card jumps straight from the toggle to UPSIDE. The summary paragraph is missing.
+
+Check whether the AI is generating a summary field in its response. If yes, it’s not being rendered — add it. If no, add it to the AI prompt as a required field. It should render at 14px, line-height 1.55, with key phrases in bold (font-weight 600).
+
+## Fix 3: Blank Gameweeks Missing from Fixture Row
+
+The fixture ticker shows NEXT 5 FIXTURES but skips blank gameweeks entirely. For example fixtures jump from GW33 to GW35 with no GW34 shown.
+
+If a team has a blank gameweek in the next 5, it should still appear in the row:
+
+- Show the GW number as normal
+- Show “BLANK” or “—” where the team abbreviation would be
+- Use a neutral grey background (#E7E7E7) with muted text
+- No home/away indicator needed for blanks
+
+The fixture row should always show the next 5 consecutive gameweeks, not the next 5 fixtures. Users need to see blanks — a blank gameweek is important information when deciding transfers.
+
+## Fix 4: Form Missing from Player Meta Line
+
+The header meta line under the IN player name should show:
+
+```
+TEAM · £price · Form X.X
+```
+
+Currently it only shows “TEAM · £price” — the Form value is missing. The form data is available from the FPL API bootstrap-static endpoint (the `form` field on each player element). Add it to the meta line.
+
+-----
+
+## Git Safety
+
+Do not run any destructive git operations (git reset –hard, orphan commits, force pushes rewriting history) without stopping and explaining the consequences first.

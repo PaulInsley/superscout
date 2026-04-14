@@ -78,6 +78,18 @@ function DgwDot() {
 }
 
 function FixtureCell({ fixture }: { fixture: FixtureInfo }) {
+  if (fixture.isBlank) {
+    return (
+      <View style={[styles.fixtureCell, { backgroundColor: "#F3F4F6", borderColor: "#D1D5DB" }]}>
+        <Text style={[styles.fixtureCellGw, { color: "#9CA3AF" }]}>
+          {fixture.event}
+        </Text>
+        <Text style={[styles.fixtureCellTeam, { color: "#9CA3AF", fontSize: 9 }]}>
+          BLANK
+        </Text>
+      </View>
+    );
+  }
   const fdr = FDR_COLORS[fixture.fdr] ?? { bg: "#888", text: "#fff", border: "#666" };
   return (
     <View style={[styles.fixtureCell, { backgroundColor: fdr.bg, borderColor: fdr.border }]}>
@@ -98,7 +110,7 @@ function FixtureStrip({ teamShortName }: { teamShortName: string }) {
   const fixtureData = useFixtureData();
   if (!fixtureData) return null;
 
-  const allFixtures = getUpcomingFixtures(teamShortName, fixtureData, 7);
+  const allFixtures = getUpcomingFixtures(teamShortName, fixtureData, 10);
   if (allFixtures.length === 0) return null;
 
   const grouped: FixtureInfo[][] = [];
@@ -117,7 +129,7 @@ function FixtureStrip({ teamShortName }: { teamShortName: string }) {
   return (
     <View style={styles.fixtureZone}>
       <View style={styles.fixtureHeader}>
-        <Text style={styles.fixtureHeaderLabel}>NEXT 5 FIXTURES</Text>
+        <Text style={styles.fixtureHeaderLabel}>NEXT 5 GAMEWEEKS</Text>
         {hasDgw && (
           <View style={styles.dgwIndicator}>
             <View style={styles.dgwIndicatorDot} />
@@ -168,6 +180,15 @@ function TagPill({ label, bg, color }: { label: string; bg: string; color: strin
   );
 }
 
+function stripQuotes(text: string): string {
+  let s = text.trim();
+  while ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+    s = s.slice(1, -1).trim();
+  }
+  s = s.replace(/^["'"']+/, "").replace(/["'"']+$/, "");
+  return s.trim();
+}
+
 interface TransferCardV2Props {
   recommendation: TransferRecommendation;
 }
@@ -203,6 +224,9 @@ export default function TransferCardV2({
   const playerInPrice = isPackage
     ? null
     : (recommendation.player_in_price ?? null);
+  const playerInForm = isPackage
+    ? recommendation.transfers?.[0]?.player_in_form ?? null
+    : (recommendation.player_in_form ?? null);
 
   const projectionWindow = isFreeTransfer ? 3 : 5;
   const breakevenGw = !isFreeTransfer && pointsImpact > 0
@@ -246,7 +270,7 @@ export default function TransferCardV2({
             </View>
           </View>
           <View style={styles.quoteBlock}>
-            <Text style={styles.quoteText}>"{recommendation.case}"</Text>
+            <Text style={styles.quoteText}>{stripQuotes(recommendation.case)}</Text>
           </View>
         </View>
       </View>
@@ -268,6 +292,7 @@ export default function TransferCardV2({
           <Text style={styles.headerMeta}>
             {playerInTeam}
             {typeof playerInPrice === "number" ? ` · £${playerInPrice.toFixed(1)}m` : ""}
+            {playerInForm ? ` · Form ${playerInForm}` : ""}
           </Text>
         </View>
 
@@ -355,6 +380,9 @@ export default function TransferCardV2({
 
       {expanded && (
         <View style={styles.coachingZone}>
+          {recommendation.summary ? (
+            <Text style={styles.summaryText}>{recommendation.summary}</Text>
+          ) : null}
           <View style={styles.upsideRiskGrid}>
             <View style={styles.gridRow}>
               <Text style={styles.upsideLabel}>UPSIDE</Text>
@@ -367,7 +395,7 @@ export default function TransferCardV2({
           </View>
 
           <View style={styles.quoteBlock}>
-            <Text style={styles.quoteText}>"{recommendation.case}"</Text>
+            <Text style={styles.quoteText}>{stripQuotes(recommendation.case)}</Text>
           </View>
         </View>
       )}
@@ -631,6 +659,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
     gap: 12,
+  },
+  summaryText: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    color: COLORS.text,
+    lineHeight: 22,
   },
   upsideRiskGrid: {
     gap: 10,

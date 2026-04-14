@@ -7,6 +7,7 @@ export interface FixtureInfo {
   isHome: boolean;
   fdr: number;
   event: number;
+  isBlank?: boolean;
 }
 
 interface FixtureDataState {
@@ -52,18 +53,39 @@ export function getUpcomingFixtures(
     )
     .sort((a, b) => (a.event ?? 0) - (b.event ?? 0));
 
-  const result: FixtureInfo[] = [];
+  const fixturesByGw = new Map<number, typeof upcoming>();
   for (const fix of upcoming) {
-    if (result.length >= count) break;
-    const isHome = fix.team_h === teamId;
-    const opponentId = isHome ? fix.team_a : fix.team_h;
-    const opponent = state.teams.get(opponentId);
-    result.push({
-      opponentShortName: opponent?.short_name ?? "???",
-      isHome,
-      fdr: isHome ? fix.team_h_difficulty : fix.team_a_difficulty,
-      event: fix.event!,
-    });
+    const gw = fix.event!;
+    if (!fixturesByGw.has(gw)) fixturesByGw.set(gw, []);
+    fixturesByGw.get(gw)!.push(fix);
+  }
+
+  const maxGw = Math.max(...Array.from(fixturesByGw.keys()), state.currentEvent);
+  const result: FixtureInfo[] = [];
+
+  for (let gw = state.currentEvent; gw <= maxGw && result.length < count; gw++) {
+    const gwFixtures = fixturesByGw.get(gw);
+    if (!gwFixtures || gwFixtures.length === 0) {
+      result.push({
+        opponentShortName: "—",
+        isHome: false,
+        fdr: 0,
+        event: gw,
+        isBlank: true,
+      });
+    } else {
+      for (const fix of gwFixtures) {
+        const isHome = fix.team_h === teamId;
+        const opponentId = isHome ? fix.team_a : fix.team_h;
+        const opponent = state.teams.get(opponentId);
+        result.push({
+          opponentShortName: opponent?.short_name ?? "???",
+          isHome,
+          fdr: isHome ? fix.team_h_difficulty : fix.team_a_difficulty,
+          event: fix.event!,
+        });
+      }
+    }
   }
 
   return result;

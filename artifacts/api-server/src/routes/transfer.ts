@@ -1143,11 +1143,11 @@ ${recommendationCount}.
 
 RULES: Buy price ≤ budget(£${bank.toFixed(1)}m)+sell price. Max 3 per club. POSITION LOCK: only swap within same position group — [GKP]→GKP, [DEF]→DEF, [MID]→MID, [FWD]→FWD. No injured players. ${freeTransfers} FT — extra transfers cost -4pts each, set hit_cost accurately. Last rec must be hold (is_hold_recommendation:true).
 
-COMMENTARY: upside/risk/case about player_in only, 1-2 sentences each. No cross-references. Different player_in per rec. Use exact web_name. One rec: is_superscout_pick:true.
+COMMENTARY: summary(1-2 sentence headline why this move matters), upside/risk/case about player_in only, 1-2 sentences each. No cross-references. Different player_in per rec. Use exact web_name. One rec: is_superscout_pick:true.
 
-PACKAGES: is_package:true, package_name, transfers[], total_net_cost, total_hit_cost, uses_free_transfers, total_expected_points_gain_3gw.
-SWAPS: player_out, player_in, player_out_team, player_in_team, player_out_selling_price, player_in_price, net_cost, uses_free_transfer, hit_cost, expected_points_gain_3gw.
-Both: confidence(BANKER|CALCULATED_RISK|BOLD_PUNT), upside, risk, case, is_superscout_pick, is_hold_recommendation.
+PACKAGES: is_package:true, package_name, transfers[{player_out,player_in,player_out_team,player_in_team,player_out_selling_price,player_in_price,player_in_form}], total_net_cost, total_hit_cost, uses_free_transfers, total_expected_points_gain_3gw.
+SWAPS: player_out, player_in, player_out_team, player_in_team, player_out_selling_price, player_in_price, player_in_form(string from F: field), net_cost, uses_free_transfer, hit_cost, expected_points_gain_3gw.
+Both: summary, confidence(BANKER|CALCULATED_RISK|BOLD_PUNT), upside, risk, case, is_superscout_pick, is_hold_recommendation.
 
 JSON only. {"gameweek":${currentGw},"free_transfers":${freeTransfers},"budget_remaining":${bank.toFixed(1)},"recommendations":[...]}`;
 
