@@ -16,7 +16,7 @@ import { useColors } from "@/hooks/useColors";
 import { useManagerId } from "@/hooks/useManagerId";
 import { useSubscription } from "@/lib/revenuecat";
 import { getAuthenticatedUserId } from "@/services/auth";
-import TransferCard from "@/components/TransferCard";
+import TransferCardV2 from "@/components/TransferCardV2";
 import BlurredCard from "@/components/BlurredCard";
 import Paywall from "@/components/Paywall";
 import ProgressLoadingIndicator from "@/components/ProgressLoadingIndicator";
@@ -486,29 +486,25 @@ export default function TransferAdvisorScreen() {
             <View style={styles.cardsContainer}>
               {isPro ? (
                 recommendations.map((rec, index) => (
-                  <TransferCard
+                  <TransferCardV2
                     key={
                       rec.is_hold_recommendation
                         ? "hold"
                         : `${rec.player_out}-${rec.player_in}-${index}`
                     }
                     recommendation={rec}
-                    isBeginner={beginner.isBeginner}
-                    vibe={vibe}
                   />
                 ))
               ) : (
                 <>
                   {recommendations.length > 0 && (
-                    <TransferCard
+                    <TransferCardV2
                       key={
                         recommendations[0].is_hold_recommendation
                           ? "hold"
                           : `${recommendations[0].player_out}-${recommendations[0].player_in}-0`
                       }
                       recommendation={recommendations[0]}
-                      isBeginner={beginner.isBeginner}
-                      vibe={vibe}
                     />
                   )}
                   {recommendations.slice(1).map((_, i) => (
