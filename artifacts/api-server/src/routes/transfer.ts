@@ -1295,6 +1295,7 @@ CRITICAL COACHING TEXT RULES:
 5. Your summary, upside, risk, and case must be internally consistent. If the move has significant downsides, the risk field must reflect them honestly.
 6. The case (coach quote) must be a complete sentence or sentences. Never start mid-thought or with a sentence fragment.
 7. ALL recommendations including hold (is_hold_recommendation:true) must include summary, upside, risk, and case fields. For hold recs, risk should address what could go wrong by waiting (e.g. price drops, injuries, missed fixture swings).
+8. Never use metaphors involving weapons, violence, or aggression. The Critic is sarcastic and teasing, not hostile — think pub banter, not confrontation. All vibes should feel fun and safe.
 
 PACKAGES: is_package:true, package_name, transfers[{player_out,player_in,player_out_team,player_in_team,player_out_selling_price,player_in_price}], total_net_cost, total_hit_cost, uses_free_transfers.
 SWAPS: player_out, player_in, player_out_team, player_in_team, player_out_selling_price, player_in_price, net_cost, uses_free_transfer, hit_cost.
