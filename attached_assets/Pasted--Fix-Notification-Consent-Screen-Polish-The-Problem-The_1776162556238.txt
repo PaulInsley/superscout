@@ -1,0 +1,39 @@
+# Fix: Notification Consent Screen — Polish
+
+## The Problem
+
+The notification consent screen (PECR compliance screen) has three UX issues:
+
+1. **Jerky loading** — the screen content doesn’t load smoothly. Elements appear to jump into position rather than rendering cleanly.
+1. **Icons load after text** — there’s a visible delay where the text appears first and the icons pop in a second later. This looks unfinished.
+1. **Button tap delay** — tapping the consent button doesn’t feel instant. There’s a noticeable lag before anything happens.
+
+## Fixes
+
+### 1. Prevent layout shift on load
+
+The icons are likely loading asynchronously (from a library or as images) which causes the layout to reflow once they arrive. Fix this by:
+
+- Setting explicit width and height on the icon containers so the layout is reserved before the icons render
+- If using an icon library (like lucide-react-native or expo-vector-icons), make sure the icons are bundled, not fetched at runtime
+- Wrap the screen content in a container that only renders once all elements are ready, or use a brief fade-in animation (200-300ms opacity transition) so the whole screen appears at once rather than piece by piece
+
+### 2. Match icon and text loading
+
+If the icons come from a different source than the text (e.g. an icon font that needs to load), preload the icon font at app startup rather than on this screen. Expo’s `Font.loadAsync` in the root layout is the standard approach — the notification screen shouldn’t be the first place these icons are needed.
+
+If the icons are already preloaded and this is just a rendering order issue, render the icons and text in the same component pass rather than in separate effects.
+
+### 3. Make the button feel instant
+
+- Add `activeOpacity={0.7}` (or equivalent) to the button so it visually responds to the tap immediately
+- If the button triggers an async action (like registering for push notifications), show the visual feedback first (button press animation) and then handle the async work. Don’t await the async call before showing the press state.
+- If there’s a navigation transition after the button press, use a quick fade or slide transition rather than waiting for the next screen to fully load before animating
+
+## General Principle
+
+Every screen transition in the app should feel smooth. If data needs to load, show a skeleton or fade in. Never let individual elements pop in one at a time — the whole screen should appear as a unit.
+
+## Git Safety
+
+Do not run any destructive git operations (git reset –hard, orphan commits, force pushes rewriting history) without stopping and explaining the consequences first.

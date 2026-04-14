@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, Animated } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -36,24 +36,39 @@ export default function NotificationConsentScreen({ onEnable, onDone, onSkip }: 
   const insets = useSafeAreaInsets();
   const [processing, setProcessing] = useState(false);
   const [done, setDone] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  const handleEnable = async () => {
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 280,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  const handleEnable = () => {
     if (processing || done) return;
     setProcessing(true);
-    try {
-      await onEnable();
+
+    const work = async () => {
+      try {
+        await onEnable();
+      } catch (err) {
+        console.warn("[NotificationConsent] enable failed:", err);
+      }
       setProcessing(false);
       setDone(true);
-      setTimeout(() => onDone(), 800);
-    } catch (err) {
-      console.warn("[NotificationConsent] enable failed:", err);
-      setProcessing(false);
-    }
+      setTimeout(() => onDone(), 600);
+    };
+    work();
   };
 
   return (
-    <View
-      style={[styles.container, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 20 }]}
+    <Animated.View
+      style={[
+        styles.container,
+        { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 20, opacity: fadeAnim },
+      ]}
     >
       <View style={styles.iconContainer}>
         <Ionicons name="notifications" size={48} color="#00ff87" />
@@ -65,7 +80,9 @@ export default function NotificationConsentScreen({ onEnable, onDone, onSkip }: 
       <View style={styles.list}>
         {NOTIFICATION_TYPES.map((item) => (
           <View key={item.label} style={styles.listItem}>
-            <Ionicons name={item.icon} size={22} color="#00ff87" style={styles.listIcon} />
+            <View style={styles.listIconWrap}>
+              <Ionicons name={item.icon} size={22} color="#00ff87" />
+            </View>
             <View style={styles.listText}>
               <Text style={styles.listLabel}>{item.label}</Text>
               <Text style={styles.listDetail}>{item.detail}</Text>
@@ -129,7 +146,7 @@ export default function NotificationConsentScreen({ onEnable, onDone, onSkip }: 
           <Text style={[styles.skipText, processing && { opacity: 0.4 }]}>Not now</Text>
         </Pressable>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -171,10 +188,13 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 16,
   },
-  listIcon: {
+  listIconWrap: {
+    width: 22,
+    height: 22,
     marginTop: 2,
     marginRight: 14,
-    width: 22,
+    alignItems: "center",
+    justifyContent: "center",
   },
   listText: {
     flex: 1,

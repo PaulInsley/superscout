@@ -9,6 +9,7 @@ import {
 import {
   SpaceGrotesk_700Bold,
 } from "@expo-google-fonts/space-grotesk";
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
@@ -64,6 +65,7 @@ function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
     SpaceGrotesk_700Bold,
+    ...Ionicons.font,
   });
 
   const [screen, setScreen] = useState<AppScreen>("loading");
