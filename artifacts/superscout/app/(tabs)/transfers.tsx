@@ -24,7 +24,7 @@ import CoachingCard from "@/components/CoachingCard";
 import { trackStreakActivity } from "@/services/streaks/trackActivity";
 import { useBeginnerMode } from "@/hooks/useBeginnerMode";
 import { GRADUATION_CONTENT } from "@/lib/coachingLessons";
-import type { TransferRecommendation } from "@/components/TransferCard";
+import type { TransferRecommendation } from "@/components/transferTypes";
 
 const PERSONA_KEY = "superscout_persona";
 

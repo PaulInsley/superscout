@@ -1,6 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Request } from "express";
-import { getSupabase } from "./supabase";
 
 export function getUserSupabase(accessToken: string): SupabaseClient | null {
   const url = process.env.SUPABASE_URL;
@@ -19,14 +18,7 @@ export function getSupabaseForRequest(req: Request): SupabaseClient | null {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith("Bearer ")) {
     const token = authHeader.slice(7);
-    const userClient = getUserSupabase(token);
-    if (userClient) return userClient;
+    return getUserSupabase(token);
   }
-  if (req.log) {
-    req.log.warn(
-      { path: req.path },
-      "[supabaseUser] No auth token — falling back to service-role client. Add Authorization header for RLS enforcement.",
-    );
-  }
-  return getSupabase();
+  return null;
 }

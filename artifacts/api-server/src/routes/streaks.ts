@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { getSupabase } from "../lib/supabase";
 import { getSupabaseForRequest } from "../lib/supabaseUser";
+import { requireAuth } from "../lib/authMiddleware";
 import { getCached, setCache, cacheKey, TTL } from "../lib/fplCache";
 
 const router = Router();
@@ -77,9 +78,14 @@ async function queryStreak(supabase: any, userId: string, season: string, sport:
   return { data, error };
 }
 
-router.get("/streaks/:user_id", async (req: Request, res: Response) => {
+router.get("/streaks/:user_id", requireAuth, async (req: Request, res: Response) => {
   try {
-    const supabase = getSupabaseForRequest(req);
+    if (req.params.user_id !== (req as any).verifiedUserId) {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
+
+    const supabase = (req as any).userSupabase;
     if (!supabase) {
       res.status(503).json({ error: "Database unavailable" });
       return;
@@ -159,19 +165,17 @@ async function insertStreak(supabase: any, row: Record<string, any>) {
   return { error };
 }
 
-router.post("/streaks/mark-active", async (req: Request, res: Response) => {
+router.post("/streaks/mark-active", requireAuth, async (req: Request, res: Response) => {
   try {
-    const supabase = getSupabaseForRequest(req);
+    const supabase = (req as any).userSupabase;
     if (!supabase) {
       res.status(503).json({ error: "Database unavailable" });
       return;
     }
 
-    const { user_id, sport = "fpl" } = req.body;
-    if (!user_id) {
-      res.status(400).json({ error: "user_id required" });
-      return;
-    }
+    const verifiedUserId = (req as any).verifiedUserId;
+    const { sport = "fpl" } = req.body;
+    const user_id = verifiedUserId;
 
     const gameweek = await getCurrentGameweek();
     if (!gameweek) {
@@ -403,19 +407,17 @@ router.post("/streaks/update-all", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/streaks/init", async (req: Request, res: Response) => {
+router.post("/streaks/init", requireAuth, async (req: Request, res: Response) => {
   try {
-    const supabase = getSupabaseForRequest(req);
+    const supabase = (req as any).userSupabase;
     if (!supabase) {
       res.status(503).json({ error: "Database unavailable" });
       return;
     }
 
-    const { user_id, sport = "fpl" } = req.body;
-    if (!user_id) {
-      res.status(400).json({ error: "user_id required" });
-      return;
-    }
+    const verifiedUserId = (req as any).verifiedUserId;
+    const { sport = "fpl" } = req.body;
+    const user_id = verifiedUserId;
 
     const season = await getCurrentSeason();
 

@@ -5,6 +5,7 @@ import { getCached, getStale, cacheKey, TTL, setCache } from "../lib/fplCache";
 import { fetchFromFpl } from "../lib/fplRateLimiter";
 import { VIBE_PROMPTS } from "../lib/vibes";
 import { getSupabase } from "../lib/supabase";
+import { requireAuth } from "../lib/authMiddleware";
 import {
   checkCaptainHallucinations,
   checkTransferHallucinations,
@@ -1025,8 +1026,13 @@ router.post("/pre-generate/:gameweek", async (req: Request, res: Response) => {
           const banterVibe = userPrefs?.default_persona ?? "expert";
 
           try {
-            const banterUrl = `http://localhost:${process.env.PORT || 3001}/api/banter/${gw}?user_id=${user.id}&vibe=${banterVibe}`;
-            const banterRes = await fetch(banterUrl);
+            const banterUrl = `http://localhost:${process.env.PORT || 3001}/api/banter/${gw}?vibe=${banterVibe}`;
+            const banterRes = await fetch(banterUrl, {
+              headers: {
+                Authorization: `ServiceToken ${process.env.PROCESS_DECISIONS_SECRET}`,
+                "x-service-user-id": user.id,
+              },
+            });
             if (banterRes.ok) {
               const banterData = await banterRes.json();
               if (banterData.banter_cards && banterData.banter_cards.length > 0) {
@@ -1073,7 +1079,7 @@ router.post("/pre-generate/:gameweek", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/pre-generated/:gameweek", async (req: Request, res: Response) => {
+router.get("/pre-generated/:gameweek", requireAuth, async (req: Request, res: Response) => {
   try {
     let gw: number;
     const gwParam = String(req.params.gameweek);
@@ -1095,10 +1101,11 @@ router.get("/pre-generated/:gameweek", async (req: Request, res: Response) => {
     } else {
       gw = parseInt(gwParam, 10);
     }
-    const { user_id, decision_type, vibe } = req.query;
+    const verifiedUserId = (req as any).verifiedUserId;
+    const { decision_type, vibe } = req.query;
 
-    if (isNaN(gw) || !user_id || !decision_type || !vibe) {
-      res.status(400).json({ error: "Missing required parameters: user_id, decision_type, vibe" });
+    if (isNaN(gw) || !decision_type || !vibe) {
+      res.status(400).json({ error: "Missing required parameters: decision_type, vibe" });
       return;
     }
 
@@ -1111,7 +1118,7 @@ router.get("/pre-generated/:gameweek", async (req: Request, res: Response) => {
     const { data, error } = await supabase
       .from("pre_generated_recommendations")
       .select("id, response_json, generated_at")
-      .eq("user_id", user_id)
+      .eq("user_id", verifiedUserId)
       .eq("gameweek", gw)
       .eq("decision_type", decision_type)
       .eq("vibe", vibe)

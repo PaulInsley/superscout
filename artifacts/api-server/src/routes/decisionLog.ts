@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { getSupabase } from "../lib/supabase";
 import { getSupabaseForRequest } from "../lib/supabaseUser";
+import { requireAuth } from "../lib/authMiddleware";
 import { getCached, getStale, setCache, cacheKey, TTL } from "../lib/fplCache";
 
 const router = Router();
@@ -171,18 +172,19 @@ function getPlayerDisplayName(
   return "unknown";
 }
 
-router.post("/decision-log/recommendation", async (req: Request, res: Response) => {
+router.post("/decision-log/recommendation", requireAuth, async (req: Request, res: Response) => {
   try {
-    const supabase = getSupabaseForRequest(req);
+    const supabase = (req as any).userSupabase;
     if (!supabase) {
       res.status(503).json({ error: "Database not configured" });
       return;
     }
 
-    const { user_id, gameweek, decision_type, options_shown, persona_used, tier_at_time, options } =
+    const verifiedUserId = (req as any).verifiedUserId;
+    const { gameweek, decision_type, options_shown, persona_used, tier_at_time, options } =
       req.body;
 
-    if (!user_id || !gameweek || !decision_type || !persona_used) {
+    if (!gameweek || !decision_type || !persona_used) {
       res.status(400).json({ error: "Missing required fields" });
       return;
     }
@@ -204,7 +206,7 @@ router.post("/decision-log/recommendation", async (req: Request, res: Response) 
     const { data: rec, error: recError } = await supabase
       .from("recommendations")
       .insert({
-        user_id: user_id,
+        user_id: verifiedUserId,
         gameweek,
         season: "2026-27",
         decision_type,
@@ -284,23 +286,23 @@ router.post("/decision-log/recommendation", async (req: Request, res: Response) 
   }
 });
 
-router.post("/decision-log/decision", async (req: Request, res: Response) => {
+router.post("/decision-log/decision", requireAuth, async (req: Request, res: Response) => {
   try {
-    const supabase = getSupabaseForRequest(req);
+    const supabase = (req as any).userSupabase;
     if (!supabase) {
       res.status(503).json({ error: "Database not configured" });
       return;
     }
 
+    const verifiedUserId = (req as any).verifiedUserId;
     const {
       recommendation_id,
       recommendation_option_id,
-      user_id,
       chosen_option,
       hours_before_deadline,
     } = req.body;
 
-    if (!recommendation_id || !user_id || !chosen_option) {
+    if (!recommendation_id || !chosen_option) {
       res.status(400).json({ error: "Missing required fields" });
       return;
     }
@@ -315,9 +317,19 @@ router.post("/decision-log/decision", async (req: Request, res: Response) => {
       optionId = opts?.[0]?.id ?? null;
     }
 
+    const { data: recOwner } = await supabase
+      .from("recommendations")
+      .select("user_id")
+      .eq("id", recommendation_id)
+      .single();
+    if (!recOwner || recOwner.user_id !== verifiedUserId) {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
+
     const { error } = await supabase.from("user_decisions").insert({
       recommendation_id,
-      user_id: user_id,
+      user_id: verifiedUserId,
       recommendation_option_id: optionId,
       chosen_option,
       hours_before_deadline: hours_before_deadline ?? null,

@@ -11,6 +11,7 @@ import {
 import { analyseGameweek } from "../lib/gameweekAnalysis";
 import { getSupabase } from "../lib/supabase";
 import { getSupabaseForRequest } from "../lib/supabaseUser";
+import { requireAuth } from "../lib/authMiddleware";
 import { extractTransferOutPlayers, buildTransferContextPrompt } from "../lib/crossCheck";
 import { validateBody } from "../lib/validateRequest";
 import { captainPicksSchema } from "../schemas/captain";
@@ -177,10 +178,12 @@ function checkCaptainStaleness(
 
 router.post(
   "/captain-picks",
+  requireAuth,
   validateBody(captainPicksSchema),
   async (req: Request, res: Response) => {
     try {
-      const { vibe, context, user_id: clientUserId, skip_cache: skipCache } = req.body;
+      const { vibe, context, skip_cache: skipCache } = req.body;
+      const clientUserId = (req as any).verifiedUserId;
 
       const vibePrompt = VIBE_PROMPTS[vibe];
 
@@ -208,7 +211,7 @@ router.post(
       }
 
       if (!skipCache && clientUserId && gameweek && bootstrap) {
-        const supabase = getSupabaseForRequest(req);
+        const supabase = (req as any).userSupabase;
         if (supabase) {
           try {
             const cacheTimeout = new Promise<null>((resolve) =>
@@ -262,7 +265,7 @@ router.post(
 
       let transferContextPrompt = "";
       if (clientUserId && gameweek) {
-        const supabase = getSupabaseForRequest(req);
+        const supabase = (req as any).userSupabase;
         if (supabase) {
           try {
             const { data: transferRows } = await supabase
@@ -448,7 +451,7 @@ TONE GUARDRAILS: Never use metaphors involving weapons, violence, or aggression.
       res.json(liveResult);
 
       if (clientUserId && gameweek) {
-        const supabase = getSupabaseForRequest(req);
+        const supabase = (req as any).userSupabase;
         if (supabase) {
           (async () => {
             try {

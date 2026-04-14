@@ -5,6 +5,7 @@ import { fetchFromFpl } from "../lib/fplRateLimiter";
 import { VIBE_PROMPTS } from "../lib/vibes";
 import { getSupabase } from "../lib/supabase";
 import { getSupabaseForRequest } from "../lib/supabaseUser";
+import { requireAuth } from "../lib/authMiddleware";
 import { validateBody } from "../lib/validateRequest";
 import { banterLeaguesSchema } from "../schemas/banter";
 
@@ -103,21 +104,17 @@ interface BanterCard {
   league_type: string;
 }
 
-router.get("/banter/:gameweek", async (req: Request, res: Response) => {
+router.get("/banter/:gameweek", requireAuth, async (req: Request, res: Response) => {
   try {
-    const supabase = getSupabaseForRequest(req);
+    const supabase = (req as any).userSupabase;
     if (!supabase) {
       res.status(503).json({ error: "Database not configured" });
       return;
     }
 
+    const verifiedUserId = (req as any).verifiedUserId;
     const gwParam = String(req.params.gameweek);
-    const { user_id, vibe = "expert", manager_id: qManagerId } = req.query;
-
-    if (!user_id) {
-      res.status(400).json({ error: "Missing user_id" });
-      return;
-    }
+    const { vibe = "expert", manager_id: qManagerId } = req.query;
 
     const bootstrap = await fetchCachedData<BootstrapData>(
       cacheKey("bootstrap-static"),
@@ -142,7 +139,7 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
     const { data: cachedBanter } = await supabase
       .from("pre_generated_recommendations")
       .select("response_json")
-      .eq("user_id", String(user_id))
+      .eq("user_id", verifiedUserId)
       .eq("gameweek", gw)
       .eq("decision_type", "banter")
       .eq("vibe", String(vibe))
@@ -160,7 +157,7 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
     const { data: leagues, error: leagueErr } = await supabase
       .from("mini_league_context")
       .select("*")
-      .eq("user_id", String(user_id))
+      .eq("user_id", verifiedUserId)
       .eq("season", "2026-27");
 
     if (leagueErr || !leagues || leagues.length === 0) {
@@ -173,7 +170,7 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
     const { data: userData } = await supabase
       .from("users")
       .select("fpl_manager_id")
-      .eq("id", String(user_id))
+      .eq("id", verifiedUserId)
       .single();
 
     let managerId: number;
@@ -492,7 +489,7 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
           const { data: existing } = await supabase
             .from("pre_generated_recommendations")
             .select("id")
-            .eq("user_id", String(user_id))
+            .eq("user_id", verifiedUserId)
             .eq("gameweek", gw)
             .eq("decision_type", "banter")
             .eq("vibe", String(vibe))
@@ -505,7 +502,7 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
               .eq("id", existing[0].id);
           } else {
             await supabase.from("pre_generated_recommendations").insert({
-              user_id: String(user_id),
+              user_id: verifiedUserId,
               gameweek: gw,
               decision_type: "banter",
               vibe: String(vibe),
@@ -531,21 +528,23 @@ router.get("/banter/:gameweek", async (req: Request, res: Response) => {
 
 router.post(
   "/banter/leagues",
+  requireAuth,
   validateBody(banterLeaguesSchema),
   async (req: Request, res: Response) => {
     try {
-      const supabase = getSupabaseForRequest(req);
+      const supabase = (req as any).userSupabase;
       if (!supabase) {
         res.status(503).json({ error: "Database not configured" });
         return;
       }
 
-      const { user_id, leagues } = req.body;
+      const verifiedUserId = (req as any).verifiedUserId;
+      const { leagues } = req.body;
 
       const { error: deleteErr } = await supabase
         .from("mini_league_context")
         .delete()
-        .eq("user_id", user_id)
+        .eq("user_id", verifiedUserId)
         .eq("season", "2026-27");
 
       if (deleteErr) {
@@ -556,7 +555,7 @@ router.post(
 
       for (const league of leagues) {
         const { error: insertErr } = await supabase.from("mini_league_context").insert({
-          user_id,
+          user_id: verifiedUserId,
           mini_league_id: String(league.id),
           mini_league_name: league.name,
           current_rank: league.rank ?? null,
@@ -580,9 +579,14 @@ router.post(
   },
 );
 
-router.get("/banter/leagues/:userId", async (req: Request, res: Response) => {
+router.get("/banter/leagues/:userId", requireAuth, async (req: Request, res: Response) => {
   try {
-    const supabase = getSupabaseForRequest(req);
+    if (req.params.userId !== (req as any).verifiedUserId) {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
+
+    const supabase = (req as any).userSupabase;
     if (!supabase) {
       res.status(503).json({ error: "Database not configured" });
       return;

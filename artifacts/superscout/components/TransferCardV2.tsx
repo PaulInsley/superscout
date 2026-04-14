@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { View, Text, Pressable, StyleSheet, Animated, LayoutAnimation, Platform, UIManager } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import type { TransferRecommendation, FixtureDetailAPI } from "./TransferCard";
+import type { TransferRecommendation, FixtureDetailAPI } from "./transferTypes";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);

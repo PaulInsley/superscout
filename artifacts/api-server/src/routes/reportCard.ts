@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSupabase } from "../lib/supabase";
 import { getSupabaseForRequest } from "../lib/supabaseUser";
+import { requireAuth } from "../lib/authMiddleware";
 import { VIBE_PROMPTS } from "../lib/vibes";
 import {
   computeFullScore,
@@ -51,6 +52,7 @@ async function fetchFplJson<T>(path: string): Promise<T> {
 
 router.post(
   "/report-card/generate/:gameweek",
+  requireAuth,
   validateBody(reportCardGenerateSchema),
   async (req: Request, res: Response) => {
     try {
@@ -67,12 +69,13 @@ router.post(
       }
 
       const managerId = parseInt(String(manager_id), 10);
-      const supabase = getSupabaseForRequest(req);
+      const supabase = (req as any).userSupabase;
       if (!supabase) {
         res.status(503).json({ error: "Database not configured" });
         return;
       }
 
+      const verifiedUserId = (req as any).verifiedUserId;
       let userId: string | null = null;
       try {
         const { data: userRow } = await supabase
@@ -89,6 +92,11 @@ router.post(
       if (!userId) {
         req.log.warn({ managerId, gw }, "No user found for manager_id");
         res.status(404).json({ error: "User not found. Please sign in and link your FPL team." });
+        return;
+      }
+
+      if (userId !== verifiedUserId) {
+        res.status(403).json({ error: "Access denied" });
         return;
       }
 
@@ -372,7 +380,7 @@ Write ONLY the commentary paragraph — no headers, no labels, no JSON.`,
   },
 );
 
-router.get("/report-card/:gameweek", async (req: Request, res: Response) => {
+router.get("/report-card/:gameweek", requireAuth, async (req: Request, res: Response) => {
   try {
     const gw = parseInt(String(req.params.gameweek), 10);
     const managerId = req.query.manager_id;
@@ -382,12 +390,13 @@ router.get("/report-card/:gameweek", async (req: Request, res: Response) => {
       return;
     }
 
-    const supabase = getSupabaseForRequest(req);
+    const supabase = (req as any).userSupabase;
     if (!supabase) {
       res.status(503).json({ error: "Database not configured" });
       return;
     }
 
+    const verifiedUserId = (req as any).verifiedUserId;
     let userId: string | null = null;
     try {
       const { data: userRow } = await supabase
@@ -403,6 +412,11 @@ router.get("/report-card/:gameweek", async (req: Request, res: Response) => {
 
     if (!userId) {
       res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    if (userId !== verifiedUserId) {
+      res.status(403).json({ error: "Access denied" });
       return;
     }
 

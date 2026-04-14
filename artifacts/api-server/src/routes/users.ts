@@ -1,6 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { getSupabase } from "../lib/supabase";
-import { getSupabaseForRequest } from "../lib/supabaseUser";
+import { requireAuth } from "../lib/authMiddleware";
 import { validateBody } from "../lib/validateRequest";
 import { userProfileSchema } from "../schemas/users";
 
@@ -8,17 +7,19 @@ const router = Router();
 
 router.post(
   "/users/profile",
+  requireAuth,
   validateBody(userProfileSchema),
   async (req: Request, res: Response) => {
     try {
-      const supabase = getSupabaseForRequest(req);
+      const supabase = (req as any).userSupabase;
       if (!supabase) {
         res.status(503).json({ error: "Database not configured" });
         return;
       }
 
+      const verifiedUserId = (req as any).verifiedUserId;
+
       const {
-        user_id,
         email,
         fpl_manager_id,
         default_persona,
@@ -45,7 +46,7 @@ router.post(
           .from("users")
           .select("id")
           .eq("email", updates.email as string)
-          .neq("id", user_id)
+          .neq("id", verifiedUserId)
           .maybeSingle();
 
         if (existing) {
@@ -61,10 +62,10 @@ router.post(
 
       const { error } = await supabase
         .from("users")
-        .upsert({ id: user_id, ...updates }, { onConflict: "id" });
+        .upsert({ id: verifiedUserId, ...updates }, { onConflict: "id" });
 
       if (error) {
-        req.log.error({ err: error, user_id }, "User profile upsert failed");
+        req.log.error({ err: error, user_id: verifiedUserId }, "User profile upsert failed");
         res.status(500).json({ error: "Failed to create user profile" });
         return;
       }
@@ -77,14 +78,20 @@ router.post(
   },
 );
 
-router.get("/users/profile/:userId", async (req: Request, res: Response) => {
+router.get("/users/profile/:userId", requireAuth, async (req: Request, res: Response) => {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(req.params.userId)) {
     res.status(400).json({ error: "Invalid user ID format" });
     return;
   }
+
+  if (req.params.userId !== (req as any).verifiedUserId) {
+    res.status(403).json({ error: "Access denied" });
+    return;
+  }
+
   try {
-    const supabase = getSupabaseForRequest(req);
+    const supabase = (req as any).userSupabase;
     if (!supabase) {
       res.status(503).json({ error: "Database not configured" });
       return;

@@ -119,7 +119,12 @@ router.post("/api/login", (req: Request, res: Response) => {
   }
 
   const { password } = req.body || {};
-  if (password === ADMIN_PASSWORD) {
+  const passwordBuffer = Buffer.from(password || "");
+  const adminBuffer = Buffer.from(ADMIN_PASSWORD);
+  const isValid =
+    passwordBuffer.length === adminBuffer.length &&
+    crypto.timingSafeEqual(passwordBuffer, adminBuffer);
+  if (isValid) {
     clearAttempts(ip);
     const sessionToken = crypto.randomBytes(32).toString("hex");
     activeSessions.set(sessionToken, { authenticatedAt: Date.now() });

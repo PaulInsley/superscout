@@ -5,6 +5,7 @@ import { fetchFromFpl } from "../lib/fplRateLimiter";
 import { VIBE_PROMPTS } from "../lib/vibes";
 import { getSupabase } from "../lib/supabase";
 import { getSupabaseForRequest } from "../lib/supabaseUser";
+import { requireAuth } from "../lib/authMiddleware";
 import { validateBody } from "../lib/validateRequest";
 import { squadCardGenerateSchema, squadCardShareSchema } from "../schemas/squadCard";
 
@@ -119,10 +120,30 @@ function inferFormation(starters: SquadCardPlayer[]): string {
 
 router.post(
   "/squad-card",
+  requireAuth,
   validateBody(squadCardGenerateSchema),
   async (req: Request, res: Response) => {
     try {
       const { manager_id, vibe, gameweek: requestedGw } = req.body;
+      const verifiedUserId = (req as any).verifiedUserId;
+
+      const ownershipSupabase = (req as any).userSupabase;
+      if (ownershipSupabase && manager_id) {
+        try {
+          const { data: ownerRow } = await ownershipSupabase
+            .from("users")
+            .select("id")
+            .eq("fpl_manager_id", String(manager_id))
+            .limit(1)
+            .single();
+          if (ownerRow && ownerRow.id !== verifiedUserId) {
+            res.status(403).json({ error: "Access denied" });
+            return;
+          }
+        } catch (err) {
+          (req as any).log?.warn?.({ err, manager_id }, "Ownership check failed — proceeding");
+        }
+      }
 
       const vibeKey = vibe || "expert";
       const vibePrompt = VIBE_PROMPTS[vibeKey];
@@ -329,8 +350,9 @@ IMPORTANT: Return ONLY the quip text. No quotes, no preamble, no explanation. Ju
 
       let cardId: string | null = null;
       try {
-        const supabase = getSupabaseForRequest(req);
+        const supabase = (req as any).userSupabase;
         if (supabase) {
+          const verifiedUserId = (req as any).verifiedUserId;
           let userId: string | null = null;
           try {
             const { data: userRow } = await supabase
@@ -339,7 +361,7 @@ IMPORTANT: Return ONLY the quip text. No quotes, no preamble, no explanation. Ju
               .eq("fpl_manager_id", String(manager_id))
               .limit(1)
               .single();
-            if (userRow?.id) userId = userRow.id;
+            if (userRow?.id && userRow.id === verifiedUserId) userId = userRow.id;
           } catch (err) {
             req.log.warn({ err, manager_id }, "[SquadCard] user lookup for DB save failed");
           }
@@ -420,16 +442,18 @@ IMPORTANT: Return ONLY the quip text. No quotes, no preamble, no explanation. Ju
 
 router.post(
   "/squad-card/share",
+  requireAuth,
   validateBody(squadCardShareSchema),
   async (req: Request, res: Response) => {
     try {
-      const supabase = getSupabaseForRequest(req);
+      const supabase = (req as any).userSupabase;
       if (!supabase) {
         res.status(503).json({ error: "Database not configured" });
         return;
       }
 
-      const { card_id, gameweek, platform, user_id } = req.body;
+      const verifiedUserId = (req as any).verifiedUserId;
+      const { card_id, gameweek, platform } = req.body;
 
       const dbPlatforms = [
         "twitter",
@@ -448,13 +472,13 @@ router.post(
           .from("squad_cards")
           .update({ was_shared: true, share_platform: sharePlatform })
           .eq("id", card_id)
-          .eq("user_id", user_id)
+          .eq("user_id", verifiedUserId)
           .select("id, was_shared, share_platform");
       } else {
         updateResult = await supabase
           .from("squad_cards")
           .update({ was_shared: true, share_platform: sharePlatform })
-          .eq("user_id", user_id)
+          .eq("user_id", verifiedUserId)
           .eq("gameweek", gameweek)
           .order("created_at", { ascending: false })
           .limit(1)

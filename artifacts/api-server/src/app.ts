@@ -61,7 +61,11 @@ app.use(
     },
   }),
 );
-app.use(cookieParser(process.env.COOKIE_SECRET || "superscout-dev-secret"));
+const cookieSecret = process.env.COOKIE_SECRET;
+if (!cookieSecret) {
+  throw new Error("COOKIE_SECRET environment variable is required");
+}
+app.use(cookieParser(cookieSecret));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -87,7 +91,15 @@ app.use("/api/banter/generate", aiRateLimiter);
 app.use("/api/report-card/generate", aiRateLimiter);
 app.use("/api/squad-card/generate", aiRateLimiter);
 
-app.use("/api/admin", adminRouter);
+const adminRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 50,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many admin requests" },
+});
+
+app.use("/api/admin", adminRateLimiter, adminRouter);
 app.use("/api", dataRateLimiter, router);
 
 export default app;

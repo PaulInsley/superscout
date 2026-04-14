@@ -82,14 +82,14 @@ export async function getAuthenticatedUserId(): Promise<string | null> {
       data: { session },
     } = await supabase.auth.getSession();
     if (session?.user?.id) {
-      Sentry.setUser({ id: session.user.id, email: session.user.email });
+      Sentry.setUser({ id: session.user.id });
       return session.user.id;
     }
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (user?.id) {
-      Sentry.setUser({ id: user.id, email: user.email });
+      Sentry.setUser({ id: user.id });
     }
     return user?.id ?? null;
   } catch (err) {

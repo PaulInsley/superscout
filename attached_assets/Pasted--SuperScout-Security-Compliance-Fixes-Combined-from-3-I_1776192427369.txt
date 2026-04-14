@@ -1,0 +1,534 @@
+# SuperScout — Security & Compliance Fixes (Combined from 3 Independent Code Reviews)
+
+**Context:** Three independent code reviews (BROADSPEC internal, ChatGPT static review, and a full BROADSPEC v2.3 external review) all identified the same core security issue plus several supporting findings. This prompt addresses everything that must be fixed before beta testers arrive.
+
+**Structure:** 11 fixes, grouped into 3 tiers. Do them in order. Report back after each fix before moving to the next. Do not batch.
+
+-----
+
+# TIER 1 — Auth & Access Control (Fixes 1–4)
+
+These four fixes address the same root cause: user-facing API routes trust caller-supplied user_id instead of deriving it from the authenticated session. Combined with the service-role fallback, this means unauthenticated requests get full database access and authenticated users can target another user's data.
+
+All three reviews flagged this as the #1 priority.
+
+-----
+
+## Fix 1: Create auth middleware
+
+**What to build:** A reusable middleware function in a new file `artifacts/api-server/src/lib/authMiddleware.ts` that:
+
+1. Reads the Authorization header (Bearer token)
+1. Verifies the token with Supabase Auth (calls `supabase.auth.getUser(token)`)
+1. If valid: attaches the verified user ID to the request as `req.verifiedUserId` and the user-scoped Supabase client as `req.userSupabase`
+1. If missing or invalid: returns 401 with `{ error: "Authentication required" }`
+
+**Example:**
+
+```typescript
+import { Request, Response, NextFunction } from "express";
+import { createClient } from "@supabase/supabase-js";
+
+export async function requireAuth(req: Request, res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+
+  const token = authHeader.slice(7);
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    res.status(503).json({ error: "Auth service unavailable" });
+    return;
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+
+  if (error || !user) {
+    res.status(401).json({ error: "Invalid or expired token" });
+    return;
+  }
+
+  (req as any).verifiedUserId = user.id;
+  (req as any).userSupabase = supabase;
+  next();
+}
+```
+
+**Tell me when done. Do not move to Fix 2 until confirmed.**
+
+-----
+
+## Fix 2: Remove service-role fallback from user requests
+
+**File:** `artifacts/api-server/src/lib/supabaseUser.ts`
+
+**Current problem:** `getSupabaseForRequest` falls back to the service-role client when no auth header is present. This bypasses all RLS policies.
+
+**Change to:**
+
+```typescript
+export function getSupabaseForRequest(req: Request): SupabaseClient | null {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const token = authHeader.slice(7);
+    return getUserSupabase(token);
+  }
+  // No fallback to service-role for user-facing routes
+  return null;
+}
+```
+
+Routes that legitimately need service-role access (admin, background jobs, pre-generation batch) should call `getSupabase()` from `supabase.ts` directly. Do NOT change those routes — only the fallback behaviour.
+
+**Tell me when done.**
+
+-----
+
+## Fix 3: Apply auth middleware to all user-facing routes
+
+Apply `requireAuth` middleware and replace caller-supplied `user_id` with `req.verifiedUserId` in every route listed below. IGNORE any `user_id` sent in the request body or URL params — always use the verified ID from the auth token.
+
+### 3a. users.ts
+
+**POST /users/profile:**
+
+- Add `requireAuth` middleware
+- IGNORE `user_id` from request body
+- Use `req.verifiedUserId` for the upsert: `{ id: req.verifiedUserId, ...updates }`
+- Also update the duplicate email check on line 48 to use `req.verifiedUserId` instead of `user_id`
+
+**GET /users/profile/:userId:**
+
+- Add `requireAuth` middleware
+- Check `req.params.userId === req.verifiedUserId`
+- If mismatch: return 403 `{ error: "Access denied" }`
+
+### 3b. decisionLog.ts
+
+**POST /decision-log/recommendation:**
+
+- Add `requireAuth` middleware
+- IGNORE `user_id` from request body
+- Use `req.verifiedUserId` for the insert
+
+**POST /decision-log/decision:**
+
+- Add `requireAuth` middleware
+- IGNORE `user_id` from request body
+- Use `req.verifiedUserId`
+- Verify the `recommendation_id` belongs to the authenticated user before writing
+
+### 3c. streaks.ts
+
+**GET /streaks/:user_id:**
+
+- Add `requireAuth` middleware
+- Check `req.params.user_id === req.verifiedUserId`
+- If mismatch: return 403
+
+**POST /streaks/mark-active:**
+
+- Add `requireAuth` middleware
+- IGNORE `user_id` from request body
+- Use `req.verifiedUserId`
+
+**POST /streaks/init:**
+
+- Add `requireAuth` middleware
+- IGNORE `user_id` from request body
+- Use `req.verifiedUserId`
+
+(Leave **POST /streaks/update-all** alone — it already has `PROCESS_DECISIONS_SECRET` bearer auth and is a server-only route.)
+
+### 3d. notifications.ts
+
+**POST /notifications/register-token:**
+
+- Add `requireAuth` middleware
+- IGNORE `user_id` from request body
+- Use `req.verifiedUserId`
+
+**PUT /notifications/preferences:**
+
+- Add `requireAuth` middleware
+- IGNORE `user_id` from request body
+- Use `req.verifiedUserId`
+
+**GET /notifications/preferences/:user_id:**
+
+- Add `requireAuth` middleware
+- Check `req.params.user_id === req.verifiedUserId`
+- If mismatch: return 403
+
+**GET /notifications/log/:user_id:**
+
+- Add `requireAuth` middleware
+- Check `req.params.user_id === req.verifiedUserId`
+- If mismatch: return 403
+
+(Leave **POST /notifications/send** and **POST /notifications/send-batch** alone — these are server-triggered notification dispatch routes, not called by the mobile app. They should be protected with a server secret like processDecisions uses, but that's a separate task.)
+
+### 3e. preGenerate.ts (user-facing retrieval endpoint only)
+
+**GET /pre-generated/:gameweek:**
+
+- Add `requireAuth` middleware
+- IGNORE `user_id` from query params
+- Use `req.verifiedUserId` instead of `req.query.user_id`
+
+(Leave **POST /pre-generate/:gameweek** alone — that's the batch pre-generation job, it should keep using service-role.)
+
+### 3f. banter.ts
+
+**GET /banter/:gameweek:**
+
+- Add `requireAuth` middleware
+- IGNORE `user_id` from query params (currently `req.query.user_id`)
+- Use `req.verifiedUserId` for all database operations (cache lookups on `pre_generated_recommendations`, user lookup, league context lookup, and cache writes)
+
+**POST /banter/leagues:**
+
+- Add `requireAuth` middleware
+- IGNORE `user_id` from request body
+- Use `req.verifiedUserId` for the delete and all inserts into `mini_league_context`
+
+**GET /banter/leagues/:userId:**
+
+- Add `requireAuth` middleware
+- Check `req.params.userId === req.verifiedUserId`
+- If mismatch: return 403
+
+### 3g. captain.ts
+
+**POST /captain-picks:**
+
+- Add `requireAuth` middleware
+- IGNORE `user_id` from request body (currently destructured as `clientUserId`)
+- Use `req.verifiedUserId` for all Supabase operations (cache lookups on `pre_generated_recommendations`, cache writes)
+
+### 3h. transfer.ts
+
+**POST /transfer-advice:**
+
+- Add `requireAuth` middleware
+- The transfer route uses `manager_id` (FPL ID) rather than `user_id` — it looks up the user row via `fpl_manager_id`. After adding auth, verify that the looked-up `userRow.id` matches `req.verifiedUserId` before using it for cache reads/writes on `pre_generated_recommendations`
+- If the looked-up user doesn't match the authenticated user, skip caching rather than writing to another user's cache
+
+### 3i. reportCard.ts
+
+**POST /report-card/generate/:gameweek:**
+
+- Add `requireAuth` middleware
+- The route currently looks up `userId` from `manager_id` via the users table. After the lookup, verify that the resolved `userId` matches `req.verifiedUserId`
+- If mismatch: return 403
+- Use `req.verifiedUserId` for all database writes to `report_cards`
+
+**GET /report-card/:gameweek:**
+
+- Add `requireAuth` middleware
+- Same pattern: look up userId from `manager_id`, verify it matches `req.verifiedUserId`
+- If mismatch: return 403
+
+### 3j. squadCard.ts
+
+**POST /squad-card:**
+
+- Add `requireAuth` middleware
+- The route uses `manager_id` and looks up the user row. After lookup, verify `userId === req.verifiedUserId` before writing to `squad_cards`
+
+**POST /squad-card/share:**
+
+- Add `requireAuth` middleware
+- IGNORE `user_id` from request body
+- Use `req.verifiedUserId` for the update query on `squad_cards`
+
+**Tell me when all routes are updated. List every route you changed so I can verify.**
+
+-----
+
+## Fix 4: Mark server-only routes explicitly
+
+These routes should NOT get the auth middleware — they use service-role access legitimately:
+
+- **Admin routes** (`/api/admin/*`) — already behind admin password auth
+- **processDecisions.ts** — `PROCESS_DECISIONS_SECRET` bearer auth
+- **POST /pre-generate/:gameweek** — batch pre-generation job, service-role
+- **POST /streaks/update-all** — `PROCESS_DECISIONS_SECRET` bearer auth
+- **POST /notifications/send** — server-triggered dispatch (needs its own server secret later)
+- **POST /notifications/send-batch** — server-triggered batch dispatch, already uses `getSupabase()` directly
+- **Health check** — public
+- **FPL proxy routes** (bootstrap-static, fixtures, etc.) — public data, no auth needed
+
+Add a comment at the top of each: `// Server-only route — uses service-role, not user auth`
+
+**Tell me when done.**
+
+-----
+
+# TIER 2 — Security Hardening (Fixes 5–8)
+
+These are supporting security fixes identified across all three reviews.
+
+-----
+
+## Fix 5: Remove cookie secret hardcoded fallback
+
+**File:** `artifacts/api-server/src/app.ts`, line 64
+
+**Current:**
+
+```
+app.use(cookieParser(process.env.COOKIE_SECRET || "superscout-dev-secret"));
+```
+
+**Fix:**
+
+```typescript
+const cookieSecret = process.env.COOKIE_SECRET;
+if (!cookieSecret) {
+  throw new Error("COOKIE_SECRET environment variable is required");
+}
+app.use(cookieParser(cookieSecret));
+```
+
+-----
+
+## Fix 6: Fix admin password timing attack
+
+**File:** `artifacts/api-server/src/routes/admin.ts`, line 122
+
+The `crypto` module is already imported on line 28 — do not add a duplicate import.
+
+Find where the admin password is compared using `===` (line 122: `if (password === ADMIN_PASSWORD)`) and replace with constant-time comparison:
+
+```typescript
+// Replace line 122:  if (password === ADMIN_PASSWORD)
+// With:
+const passwordBuffer = Buffer.from(password);
+const adminBuffer = Buffer.from(ADMIN_PASSWORD);
+const isValid = passwordBuffer.length === adminBuffer.length &&
+  crypto.timingSafeEqual(passwordBuffer, adminBuffer);
+if (isValid) {
+  // ... grant access (keep existing body)
+}
+```
+
+This prevents timing attacks that could leak the admin password character by character.
+
+-----
+
+## Fix 7: Add max length on captain context schema
+
+**File:** `artifacts/api-server/src/schemas/captain.ts`
+
+The `context` field in the captain picks schema has no maximum length. Without a limit, someone could send a massive prompt and burn API credits.
+
+**Current:**
+```typescript
+context: z.string().min(1, "Context is required"),
+```
+
+**Change to:**
+```typescript
+context: z.string().min(1, "Context is required").max(50000),
+```
+
+50,000 characters is generous for any legitimate captain context but blocks abuse.
+
+The transfer schema (`schemas/transfer.ts`) only has `manager_id`, `vibe`, and `skip_cache` — no free-text fields, so it's fine as-is.
+
+-----
+
+## Fix 8: Rate limit admin routes
+
+**File:** `artifacts/api-server/src/app.ts`
+
+The admin routes are mounted BEFORE the rate limiter:
+
+```
+app.use("/api/admin", adminRouter);       // line 90 — no rate limit
+app.use("/api", dataRateLimiter, router); // line 91 — rate limited
+```
+
+Add rate limiting to admin routes. Use a separate, stricter limiter:
+
+```typescript
+const adminRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,  // 15 minutes
+  max: 50,                     // 50 requests per 15 min
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many admin requests" },
+});
+
+app.use("/api/admin", adminRateLimiter, adminRouter);
+```
+
+-----
+
+# TIER 3 — Compliance & Cleanup (Fixes 9–11)
+
+-----
+
+## Fix 9: Add age gate to onboarding
+
+The app requires users to be 13+ (matching FPL's own requirement and UK AADC compliance). Currently there's no age check anywhere in onboarding.
+
+Add an age verification step to the **SignUpScreen** (`artifacts/superscout/app/onboarding/SignUpScreen.tsx`) BEFORE account creation. Two options — pick whichever is simpler:
+
+**Option A (checkbox):** Add a checkbox: "I confirm I am 13 years of age or older" that must be ticked before the Create Account button is enabled. Store the confirmation in the `consent_events` table (this table already exists — see `ConnectFPLScreen.tsx` for usage examples).
+
+**Option B (date of birth):** Add a date of birth picker. If the user is under 13, show a message: "SuperScout is available for users aged 13 and over" and block account creation. Do NOT store the date of birth — just use it for the check and discard it.
+
+Option A is simpler and sufficient for App Store compliance.
+
+-----
+
+## Fix 10: Stop sending email to Sentry
+
+**File:** `artifacts/superscout/services/auth.ts`
+
+**Current (lines 85 and 92):**
+
+```typescript
+Sentry.setUser({ id: session.user.id, email: session.user.email });
+```
+
+and
+
+```typescript
+Sentry.setUser({ id: user.id, email: user.email });
+```
+
+**Fix — remove email, send ID only:**
+
+```typescript
+Sentry.setUser({ id: session.user.id });
+```
+
+and
+
+```typescript
+Sentry.setUser({ id: user.id });
+```
+
+Apply this to both places where `Sentry.setUser` is called (lines 85 and 92). Email is PII and should not be sent to third-party error tracking services.
+
+-----
+
+## Fix 11: Extract shared types, then remove old TransferCard component
+
+The old `TransferCard.tsx` (628 lines) still exists alongside `TransferCardV2.tsx`. However, **TransferCardV2 imports type definitions from TransferCard** — so you cannot simply delete it without breaking imports.
+
+**Step 1: Create a types file**
+
+Create a new file `artifacts/superscout/components/transferTypes.ts` and move these type exports from `TransferCard.tsx` into it:
+
+- `FixtureDetailAPI` (interface, lines 8–16)
+- `TransferSwap` (interface, lines 18–29)
+- `TransferRecommendation` (interface, lines 31–63)
+
+**Step 2: Update imports in TransferCardV2.tsx**
+
+Change line 4 from:
+```typescript
+import type { TransferRecommendation, FixtureDetailAPI } from "./TransferCard";
+```
+to:
+```typescript
+import type { TransferRecommendation, FixtureDetailAPI } from "./transferTypes";
+```
+
+**Step 3: Update imports in transfers.tsx**
+
+Change the import in `artifacts/superscout/app/(tabs)/transfers.tsx` line 27 from:
+```typescript
+import type { TransferRecommendation } from "@/components/TransferCard";
+```
+to:
+```typescript
+import type { TransferRecommendation } from "@/components/transferTypes";
+```
+
+**Step 4: Search and confirm**
+
+Search the entire codebase for any remaining imports of `TransferCard` (not `TransferCardV2`, not `transferTypes`). If any remain, update them.
+
+**Step 5: Delete**
+
+Delete `artifacts/superscout/components/TransferCard.tsx`.
+
+-----
+
+# Verification Checklist
+
+After all 11 fixes:
+
+**Auth (Tier 1):**
+- [ ] Call any user route WITHOUT an auth token — returns 401
+- [ ] Call GET /users/profile/{userB_id} with userA's token — returns 403
+- [ ] Call POST /decision-log/recommendation with userB's user_id in body but userA's token — writes to userA, not userB
+- [ ] Call GET /streaks/{userB_id} with userA's token — returns 403
+- [ ] Call POST /streaks/init with userB's user_id in body but userA's token — creates streak for userA
+- [ ] Call GET /banter/:gameweek?user_id={userB} with userA's token — uses userA's data, ignores query param
+- [ ] Call POST /banter/leagues with userB's user_id in body but userA's token — writes to userA
+- [ ] Call GET /banter/leagues/{userB_id} with userA's token — returns 403
+- [ ] Call GET /notifications/preferences/{userB_id} with userA's token — returns 403
+- [ ] Call GET /notifications/log/{userB_id} with userA's token — returns 403
+- [ ] Call POST /report-card/generate/:gameweek with a manager_id belonging to userB, using userA's token — returns 403
+- [ ] Call POST /squad-card/share with userB's user_id in body but userA's token — uses userA's ID
+- [ ] Admin routes still work with admin password cookie
+- [ ] processDecisions and pre-generation batch still work with service-role
+- [ ] POST /streaks/update-all still works with PROCESS_DECISIONS_SECRET
+- [ ] POST /notifications/send-batch still works (uses getSupabase directly)
+- [ ] Health check returns 200 without auth
+- [ ] FPL proxy routes (bootstrap-static, fixtures, etc.) still work without auth
+
+**Security Hardening (Tier 2):**
+- [ ] Server refuses to start without COOKIE_SECRET
+- [ ] Admin password comparison uses timingSafeEqual
+- [ ] Captain context with 100,000 characters is rejected by schema
+- [ ] Admin routes return 429 after 50 rapid requests
+
+**Compliance (Tier 3):**
+- [ ] Onboarding requires age confirmation before account creation
+- [ ] Sentry.setUser is called with ID only, no email
+- [ ] No imports of old TransferCard.tsx remain — only TransferCardV2 and transferTypes
+- [ ] TransferCardV2 and transfers.tsx import types from transferTypes.ts
+- [ ] App compiles without errors after TransferCard.tsx deletion
+
+-----
+
+# Routes NOT Changed (for reference)
+
+These should continue working exactly as they do now:
+
+- GET /api/health and /api/healthz — public, no auth
+- POST /api/admin/* — admin password auth, service-role
+- POST /api/process-decisions/:gameweek — server secret auth, service-role
+- POST /api/pre-generate/:gameweek — batch job, service-role
+- POST /api/streaks/update-all — server secret auth, service-role
+- POST /api/notifications/send — server dispatch (needs its own server secret later, separate task)
+- POST /api/notifications/send-batch — server dispatch, service-role
+- GET /api/notifications/schedule-info — informational, no user data
+- FPL proxy routes (bootstrap-static, fixtures, entry, etc.) — public data, no auth needed
+
+-----
+
+## Git Safety
+
+Do not run any destructive git operations (git reset –hard, orphan commits, force pushes rewriting history) without stopping and explaining the consequences first.
+
+Commit after each tier with a clear message:
+
+- Tier 1: "Auth middleware — enforce JWT verification on all user routes"
+- Tier 2: "Security hardening — cookie secret, timing attack, schema limits, admin rate limit"
+- Tier 3: "Compliance — age gate, Sentry PII removal, extract transfer types, remove old TransferCard"

@@ -11,6 +11,7 @@ import {
 import { analyseGameweek } from "../lib/gameweekAnalysis";
 import { getSupabase } from "../lib/supabase";
 import { getSupabaseForRequest } from "../lib/supabaseUser";
+import { requireAuth } from "../lib/authMiddleware";
 import { extractCaptainPicks, buildCaptainContextPrompt } from "../lib/crossCheck";
 import { validateBody } from "../lib/validateRequest";
 import { transferAdviceSchema } from "../schemas/transfer";
@@ -682,6 +683,7 @@ function sanitiseCommentary(
 
 router.post(
   "/transfer-advice",
+  requireAuth,
   validateBody(transferAdviceSchema),
   async (req: Request, res: Response) => {
     const isSSE = (req.headers.accept ?? "").includes("text/event-stream");
@@ -725,6 +727,25 @@ router.post(
       req.log.info({ manager_id, vibe, skipCache: !!skipCache }, "Transfer advice started");
 
       const managerId = String(manager_id);
+      const verifiedUserId = (req as any).verifiedUserId;
+
+      const ownershipSupabase = (req as any).userSupabase;
+      if (ownershipSupabase) {
+        try {
+          const { data: ownerRow } = await ownershipSupabase
+            .from("users")
+            .select("id")
+            .eq("fpl_manager_id", parseInt(managerId, 10))
+            .limit(1)
+            .single();
+          if (ownerRow && ownerRow.id !== verifiedUserId) {
+            sendError(403, { error: "Access denied" });
+            return;
+          }
+        } catch (err) {
+          req.log.warn({ err, managerId }, "Ownership check failed — proceeding");
+        }
+      }
 
       if (skipCache) {
         clearCache(cacheKey("entry", managerId));
@@ -804,7 +825,7 @@ router.post(
       }
 
       lap("pre_cache_lookup");
-      const supabase = getSupabaseForRequest(req);
+      const supabase = (req as any).userSupabase;
       if (!skipCache && supabase) {
         try {
           const cacheTimeout = new Promise<null>((resolve) =>
@@ -822,6 +843,12 @@ router.post(
 
             if (!userRow) {
               req.log.info({ ms: Date.now() - t0 }, "Cache: no user row found for manager");
+              return null;
+            }
+
+            const verifiedUserId = (req as any).verifiedUserId;
+            if (userRow.id !== verifiedUserId) {
+              req.log.warn({ lookedUp: userRow.id, verified: verifiedUserId }, "Cache: user mismatch — skipping cache");
               return null;
             }
 
@@ -1322,7 +1349,7 @@ ${transferInstructions}`;
       }
 
       let captainContextPrompt = "";
-      const supabaseCross = getSupabaseForRequest(req);
+      const supabaseCross = (req as any).userSupabase;
       if (supabaseCross) {
         try {
           const { data: userRow } = await supabaseCross
@@ -1950,6 +1977,8 @@ ${transferInstructions}`;
               .limit(1)
               .single();
             if (!userRow) return;
+            const verifiedUserId = (req as any).verifiedUserId;
+            if (userRow.id !== verifiedUserId) return;
             const expiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
             const now = new Date().toISOString();
 

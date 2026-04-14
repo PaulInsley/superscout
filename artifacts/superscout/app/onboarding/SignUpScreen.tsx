@@ -40,9 +40,11 @@ export default function SignUpScreen({ managerId, vibe, onSignUpComplete, onSkip
   const [resetSent, setResetSent] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
 
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
+
   const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const isValidPassword = password.length >= 8;
-  const canSubmit = isValidEmail && isValidPassword && !loading;
+  const canSubmit = isValidEmail && isValidPassword && !loading && (isSignIn || ageConfirmed);
 
   const handleResetPassword = async () => {
     if (!isValidEmail || resetLoading) return;
@@ -233,6 +235,31 @@ export default function SignUpScreen({ managerId, vibe, onSignUpComplete, onSkip
                 )}
               </View>
 
+              {!isSignIn && (
+                <Pressable
+                  onPress={() => setAgeConfirmed(!ageConfirmed)}
+                  style={styles.ageRow}
+                  accessibilityLabel="Confirm age 13 or older"
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: ageConfirmed }}
+                >
+                  <View
+                    style={[
+                      styles.checkbox,
+                      {
+                        borderColor: ageConfirmed ? colors.accent : colors.border,
+                        backgroundColor: ageConfirmed ? colors.accent : "transparent",
+                      },
+                    ]}
+                  >
+                    {ageConfirmed && <Feather name="check" size={14} color={colors.primary} />}
+                  </View>
+                  <Text style={[styles.ageText, { color: colors.mutedForeground }]}>
+                    I confirm I am 13 years of age or older
+                  </Text>
+                </Pressable>
+              )}
+
               {error && (
                 <View style={styles.errorBox}>
                   <Feather name="alert-circle" size={14} color="#ef4444" />
@@ -405,5 +432,24 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
     textAlign: "center",
     marginTop: 12,
+  },
+  ageRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 4,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 5,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ageText: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    flex: 1,
   },
 });

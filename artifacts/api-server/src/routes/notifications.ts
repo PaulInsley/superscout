@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import { getSupabase } from "../lib/supabase";
 import { getSupabaseForRequest } from "../lib/supabaseUser";
+import { requireAuth } from "../lib/authMiddleware";
 import { getCached, cacheKey, TTL } from "../lib/fplCache";
 import { fetchFromFpl } from "../lib/fplRateLimiter";
 import { validateBody } from "../lib/validateRequest";
@@ -165,21 +166,23 @@ async function sendExpoPush(
 
 router.post(
   "/notifications/register-token",
+  requireAuth,
   validateBody(registerTokenSchema),
   async (req: Request, res: Response) => {
     try {
-      const supabase = getSupabaseForRequest(req);
+      const supabase = (req as any).userSupabase;
       if (!supabase) {
         res.status(503).json({ error: "Database not configured" });
         return;
       }
 
-      const { user_id, token } = req.body;
+      const verifiedUserId = (req as any).verifiedUserId;
+      const { token } = req.body;
 
       const { error } = await supabase
         .from("users")
         .update({ push_notification_token: token })
-        .eq("id", user_id);
+        .eq("id", verifiedUserId);
 
       if (error) {
         req.log.error({ err: error }, "Failed to save push token");
@@ -197,16 +200,19 @@ router.post(
 
 router.post(
   "/notifications/send",
+  requireAuth,
   validateBody(sendNotificationSchema),
   async (req: Request, res: Response) => {
     try {
-      const supabase = getSupabaseForRequest(req);
+      const supabase = (req as any).userSupabase;
       if (!supabase) {
         res.status(503).json({ error: "Database not configured" });
         return;
       }
 
-      const { user_id, notification_type, gameweek, vars } = req.body;
+      const verifiedUserId = (req as any).verifiedUserId;
+      const { notification_type, gameweek, vars } = req.body;
+      const user_id = verifiedUserId;
 
       const sentCount = await getNotificationCount(user_id, gameweek);
       if (sentCount >= MAX_PER_GW) {
@@ -284,6 +290,13 @@ router.post(
   validateBody(sendBatchSchema),
   async (req: Request, res: Response) => {
     try {
+      const expectedToken = process.env.PROCESS_DECISIONS_SECRET;
+      const providedToken = req.headers["x-admin-token"] || req.body.admin_token;
+      if (!expectedToken || providedToken !== expectedToken) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
       const supabase = getSupabase();
       if (!supabase) {
         res.status(503).json({ error: "Database not configured" });
@@ -356,9 +369,14 @@ router.post(
   },
 );
 
-router.get("/notifications/preferences/:user_id", async (req: Request, res: Response) => {
+router.get("/notifications/preferences/:user_id", requireAuth, async (req: Request, res: Response) => {
   try {
-    const supabase = getSupabaseForRequest(req);
+    if (req.params.user_id !== (req as any).verifiedUserId) {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
+
+    const supabase = (req as any).userSupabase;
     if (!supabase) {
       res.status(503).json({ error: "Database not configured" });
       return;
@@ -400,21 +418,23 @@ router.get("/notifications/preferences/:user_id", async (req: Request, res: Resp
 
 router.put(
   "/notifications/preferences",
+  requireAuth,
   validateBody(updatePreferencesSchema),
   async (req: Request, res: Response) => {
     try {
-      const supabase = getSupabaseForRequest(req);
+      const supabase = (req as any).userSupabase;
       if (!supabase) {
         res.status(503).json({ error: "Database not configured" });
         return;
       }
 
-      const { user_id, preferences } = req.body;
+      const verifiedUserId = (req as any).verifiedUserId;
+      const { preferences } = req.body;
 
       const { error } = await supabase
         .from("users")
         .update({ notification_preferences: preferences })
-        .eq("id", user_id);
+        .eq("id", verifiedUserId);
 
       if (error) {
         req.log.error({ err: error }, "Failed to update preferences");
@@ -464,9 +484,14 @@ router.get("/notifications/schedule-info", async (req: Request, res: Response) =
   }
 });
 
-router.get("/notifications/log/:user_id", async (req: Request, res: Response) => {
+router.get("/notifications/log/:user_id", requireAuth, async (req: Request, res: Response) => {
   try {
-    const supabase = getSupabaseForRequest(req);
+    if (req.params.user_id !== (req as any).verifiedUserId) {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
+
+    const supabase = (req as any).userSupabase;
     if (!supabase) {
       res.status(503).json({ error: "Database not configured" });
       return;
