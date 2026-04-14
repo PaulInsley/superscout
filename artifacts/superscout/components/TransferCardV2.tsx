@@ -11,8 +11,8 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 
 const FDR_COLORS: Record<number, { bg: string; text: string }> = {
   1: { bg: "#257D5A", text: "#FFFFFF" },
-  2: { bg: "#00FF87", text: "#1A1A1A" },
-  3: { bg: "#CBCBCB", text: "#333333" },
+  2: { bg: "#01F780", text: "#1A1A1A" },
+  3: { bg: "#B0B0B0", text: "#1A1A1A" },
   4: { bg: "#FF1751", text: "#FFFFFF" },
   5: { bg: "#80132B", text: "#FFFFFF" },
 };
@@ -149,8 +149,8 @@ function FixtureStrip({ teamShortName }: { teamShortName: string }) {
         <Text style={styles.fdrLegendLabel}>Easy</Text>
         <View style={styles.fdrGradient}>
           <View style={[styles.fdrSegment, { backgroundColor: "#257D5A", borderTopLeftRadius: 3, borderBottomLeftRadius: 3 }]} />
-          <View style={[styles.fdrSegment, { backgroundColor: "#00FF87" }]} />
-          <View style={[styles.fdrSegment, { backgroundColor: "#CBCBCB" }]} />
+          <View style={[styles.fdrSegment, { backgroundColor: "#01F780" }]} />
+          <View style={[styles.fdrSegment, { backgroundColor: "#B0B0B0" }]} />
           <View style={[styles.fdrSegment, { backgroundColor: "#FF1751" }]} />
           <View style={[styles.fdrSegment, { backgroundColor: "#80132B", borderTopRightRadius: 3, borderBottomRightRadius: 3 }]} />
         </View>
