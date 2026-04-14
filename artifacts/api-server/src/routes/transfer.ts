@@ -1288,11 +1288,13 @@ RULES: Buy price ≤ budget(£${bank.toFixed(1)}m)+sell price. Max 3 per club. P
 COMMENTARY: summary(1-2 sentence headline why this move matters), upside/risk/case about player_in only, 1-2 sentences each. No cross-references. Different player_in per rec. Use exact web_name. One rec: is_superscout_pick:true.
 
 CRITICAL COACHING TEXT RULES:
-1. Each player "plays FOR" their team. The fixtures listed are OPPONENTS — teams they play AGAINST. NEVER say a player "faces" or "gets" their own team. Say "[player]'s team faces [opponent]" or "[player] has [opponent](h/a)".
+1. Each player "plays FOR" their team. The fixtures listed are OPPONENTS — teams they play AGAINST. NEVER say a player "faces" or "gets" their own team. Always refer to the team by name — say "Brentford play Fulham at home", NEVER say "[player]'s team plays [opponent]".
 2. Use the exact form values shown (the F: field). Do not use total_points as form. Form is points-per-game over recent matches.
 3. If the IN player's form is lower than the OUT player's form, acknowledge this honestly. Do not write bullish text that ignores a form disadvantage.
 4. Reference actual fixture opponents, venues (h/a), and FDR from the data. Mention blank GWs and DGWs when relevant.
 5. Your summary, upside, risk, and case must be internally consistent. If the move has significant downsides, the risk field must reflect them honestly.
+6. The case (coach quote) must be a complete sentence or sentences. Never start mid-thought or with a sentence fragment.
+7. ALL recommendations including hold (is_hold_recommendation:true) must include summary, upside, risk, and case fields. For hold recs, risk should address what could go wrong by waiting (e.g. price drops, injuries, missed fixture swings).
 
 PACKAGES: is_package:true, package_name, transfers[{player_out,player_in,player_out_team,player_in_team,player_out_selling_price,player_in_price}], total_net_cost, total_hit_cost, uses_free_transfers.
 SWAPS: player_out, player_in, player_out_team, player_in_team, player_out_selling_price, player_in_price, net_cost, uses_free_transfer, hit_cost.

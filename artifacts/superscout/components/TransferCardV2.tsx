@@ -348,11 +348,20 @@ export default function TransferCardV2({
         </View>
 
         <View style={styles.coachingZone}>
+          {recommendation.summary ? (
+            <BoldText text={recommendation.summary} style={styles.summaryText} />
+          ) : null}
           <View style={styles.upsideRiskGrid}>
             <View style={styles.gridRow}>
               <Text style={styles.upsideLabel}>UPSIDE</Text>
               <Text style={styles.gridText}>{recommendation.upside}</Text>
             </View>
+            {recommendation.risk ? (
+              <View style={styles.gridRow}>
+                <Text style={styles.riskLabel}>RISK</Text>
+                <Text style={styles.gridText}>{recommendation.risk}</Text>
+              </View>
+            ) : null}
           </View>
           <View style={styles.quoteBlock}>
             <Text style={styles.quoteText}>{stripQuotes(recommendation.case)}</Text>
