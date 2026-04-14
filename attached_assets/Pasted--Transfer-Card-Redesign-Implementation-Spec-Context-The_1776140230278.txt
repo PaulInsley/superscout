@@ -1,0 +1,218 @@
+# Transfer Card Redesign — Implementation Spec
+
+**Context:** The Transfer Advisor cards need a full redesign. The current layout has no visual hierarchy — OUT/IN players, fixtures, tags, upside, risk, and coach quote all compete for attention equally. This spec defines the new card structure, styling, and points calculation logic.
+
+**Reference mockup:** The approved design mockup is deployed at the project's design reference. The HTML source is in the project — use it as the pixel-level reference for spacing, colours, and layout.
+
+---
+
+## Card Structure
+
+Each transfer card has 5 distinct zones, rendered top to bottom. Every card follows this exact structure — no exceptions.
+
+### Zone 1: Header (always visible)
+
+A flex row with two blocks:
+
+**Left block — Swap identity:**
+- OUT player name: small (13px), medium weight, secondary colour (#6B7280), with strikethrough text decoration
+- Arrow icon: → in muted colour, inline after OUT name
+- IN player name: large (20px), bold (700), primary colour (#1A1A1A) — this is the dominant element on the card
+- IN player meta line: "TEAM · £price · Form X.X" in 12px secondary colour
+
+**Right block — Impact score:**
+- The differential number: large (28px), Space Grotesk bold, green (#16A34A) for positive, red (#DC2626) if negative
+- "pts vs [OUT player name]" in 10px muted text, right-aligned
+- "Over next N gameweeks" in 9px muted text, right-aligned (see Points Calculation section below for how N is determined)
+- For hit transfers, show: "Over N GWs · evens in X" where X is the breakeven gameweek count
+
+The right block should have `min-width: 80px` and be right-aligned. All text in the right block is right-aligned.
+
+### Zone 2: Tags (always visible)
+
+A horizontal flex row of small pill-shaped tags. Each tag is 11px, font-weight 600, with 3px 10px padding and 20px border-radius.
+
+Tag types and their styles:
+- **SuperScout Pick** — indigo background (#EEF2FF), indigo text (#4F46E5). Only on the top-ranked recommendation.
+- **Free transfer** — green background (#F0FDF4), green text (#15803D)
+- **−4 pt hit** — red background (#FEF2F2), red text (#DC2626). Show the actual hit cost. Only on transfers that cost points.
+- **Saves £X.Xm** — grey background (#F3F4F6), secondary text (#6B7280). Show the price saving.
+- **Calculated Risk** — coral background (#FFF7ED), dark coral text (#C2410C). Show when the AI flags higher variance.
+
+Rules:
+- A card shows either "Free transfer" OR "−N pt hit", never both
+- "Saves £X.Xm" only appears when IN player costs less than OUT player
+- Tags wrap to a second line if needed, but aim for one line
+
+### Zone 3: Fixtures (always visible)
+
+A self-contained section with a subtle background (#FAFAF8) and top/bottom borders (#F3F4F6).
+
+**Header row:** flex with space-between
+- Left: "NEXT 5 FIXTURES" in 10px uppercase, 1px letter-spacing, muted colour
+- Right (only when a DGW fixture exists in the row): a small indigo dot (6px) + "Plays twice" in 9px muted text
+
+**Fixture cells:** 5 equal-width cells in a flex row, 5px gap. Each cell:
+- Gameweek number: 8px, 500 weight, 70% opacity, displayed as a block above the team abbreviation
+- Team abbreviation: 10px, bold (700)
+- Home/away indicator: "h" or "a" below team name
+- Border-radius: 6px
+- Padding: 6px 2px
+
+**Fixture difficulty colours (FDR):**
+- FDR 1: #00875A background, white text
+- FDR 2: #A3F5C1 background, #1A1A1A text
+- FDR 3: #E7E7E7 background, #555 text
+- FDR 4: #FF6B6B background, white text
+- FDR 5: #80132B background, white text
+
+**DGW indicator:** Fixture cells for double gameweek fixtures get a small indigo (#4F46E5) dot on the top-right corner:
+- 8px diameter circle
+- Positioned absolute, top: -3px, right: -3px
+- 2px solid border matching the section background (#FAFAF8)
+- Subtle pulsing animation: box-shadow expanding from 0 to 4px with indigo at 40% opacity, 2s ease-in-out infinite
+
+**Fixture difficulty legend:** Below the fixture row, centred:
+- "Easy" label (9px, muted) — gradient bar (6px tall, 120px max-width, border-radius 3px, linear gradient from #00875A through #A3F5C1, #E7E7E7, #FF6B6B to #80132B) — "Hard" label
+
+### Zone 4: Coaching Content (expandable)
+
+This zone has two states: **collapsed** and **expanded**.
+
+**Collapsed state:** Shows only a "Show coaching detail ▾" button — full-width, no background, 12px indigo text (#4F46E5), font-weight 600, 10px padding, top border (#F3F4F6). This is the default for all cards except the SuperScout Pick.
+
+**Expanded state (default for SuperScout Pick only):**
+
+**Coaching summary:** A 1-2 sentence summary paragraph. 14px, line-height 1.55. Key phrases wrapped in `<span>` with font-weight 600 for emphasis. This is the AI-generated headline — it should give the user enough to decide without reading further.
+
+**Upside/Risk grid:** A 2-column CSS grid (auto / 1fr), 4px row gap, 10px column gap.
+- "UPSIDE" label: 11px, uppercase, 0.5px letter-spacing, green (#16A34A), font-weight 600
+- Upside text: 13px, line-height 1.5, primary colour
+- "RISK" label: same style but red (#DC2626)
+- Risk text: same style as upside
+
+**Coach quote:** Indigo-tinted block:
+- Background: #EEF2FF
+- Left border: 3px solid #4F46E5
+- Border-radius: 0 6px 6px 0
+- Padding: 12px 14px
+- Text: 13px italic, line-height 1.55, colour #3730A3
+- This is the personality-driven vibe text — Expert/Critic/Fanboy voice
+
+When expanded, the button text changes to "Hide coaching detail ▴".
+
+### Zone 5: Navigation (not part of the card)
+
+The bottom tab bar is unchanged. No changes needed.
+
+---
+
+## Points Calculation Logic
+
+**IMPORTANT: This section needs verification against the current codebase. The transfer card currently shows "Expected 3GW impact" but it is unclear whether this is a differential or a raw score. Please check and confirm.**
+
+### What the number MUST represent
+
+The impact number (+18, +12, etc.) must be the **differential** — how many more points the IN player is expected to score compared to the OUT player over the projection window. NOT the IN player's raw expected points.
+
+Formula:
+```
+impact = expected_points(IN player, N gameweeks) - expected_points(OUT player, N gameweeks)
+```
+
+If the transfer costs a hit:
+```
+net_impact = impact - hit_cost
+```
+
+### Projection window (N gameweeks)
+
+The number of gameweeks used for the projection should be **contextual**, not hardcoded:
+
+- **Free transfer:** Use 3 gameweeks as the default projection window. This covers the typical planning horizon before the next free transfer.
+- **Hit transfer:** Use a longer window (5 gameweeks) to show whether the hit is justified over a reasonable period. Also calculate the **breakeven gameweek** — the point at which cumulative expected points of the IN player exceed the OUT player + hit cost.
+
+Display the timeframe explicitly:
+- Free: "Over next 3 gameweeks"
+- Hit: "Over 5 GWs · evens in 2" (where 2 is the breakeven)
+
+### Expected points calculation
+
+If the current codebase does not already calculate per-player expected points, here is the recommended approach:
+
+```
+expected_points(player, N) = sum over next N gameweeks of:
+  base_form_score × fixture_difficulty_modifier × minutes_probability
+```
+
+Where:
+- `base_form_score` = player's recent form rating from FPL API (points per game over last 5 GWs)
+- `fixture_difficulty_modifier` = scaling factor based on FDR (e.g., FDR 1 = 1.2×, FDR 2 = 1.1×, FDR 3 = 1.0×, FDR 4 = 0.85×, FDR 5 = 0.7×). These modifiers should be tuned based on historical data.
+- `minutes_probability` = likelihood the player starts (based on recent minutes, injury flags, rotation risk). 1.0 for nailed starters, reduced for rotation/injury risks.
+
+For DGW fixtures, the player gets TWO fixture entries in that gameweek (one per match), each with their own FDR modifier.
+
+### Breakeven calculation (hit transfers only)
+
+```
+breakeven_gw = smallest N where:
+  expected_points(IN, N) - expected_points(OUT, N) >= hit_cost
+```
+
+If breakeven exceeds 8 gameweeks, the transfer may not be worth the hit — the coaching text should flag this.
+
+### What to check in the current codebase
+
+1. **Is the impact number already a differential?** Search for how `Expected 3GW impact` is calculated in the transfer recommendation logic. If it's just the IN player's raw expected points, this needs fixing.
+2. **Is expected points calculated per-player?** Check whether the AI generates these numbers or if there's a deterministic calculation. If the AI generates them, they may not be consistent or auditable — consider making them deterministic with the formula above, and letting the AI handle the coaching text only.
+3. **Is the hit cost subtracted?** For −4 point hits, the displayed impact should be AFTER subtracting the cost. +8 should mean "you'll be 8 points better off even after paying the hit."
+
+---
+
+## Styling Reference
+
+### Colours
+```
+--indigo: #4F46E5        (brand primary, SuperScout Pick, DGW indicators)
+--indigo-light: #EEF2FF  (quote background, SuperScout Pick tag bg)
+--green: #16A34A          (positive scores, free transfer, upside)
+--green-bg: #F0FDF4       (free transfer tag background)
+--red: #DC2626            (negative scores, hit cost, risk)
+--red-bg: #FEF2F2         (hit tag background)
+--coral: #F97316          (calculated risk accent)
+--coral-bg: #FFF7ED       (calculated risk tag background)
+--text: #1A1A1A           (primary text)
+--text-secondary: #6B7280 (secondary text, meta info)
+--text-muted: #9CA3AF     (tertiary text, labels)
+--border: #E5E7EB         (dividers)
+--border-light: #F3F4F6   (subtle dividers, tag backgrounds)
+--card-bg: #FFFFFF        (card background)
+--bg: #F8F8F6             (screen background)
+```
+
+### Typography
+```
+Headings/numbers: Space Grotesk (700)
+Body/labels: Inter (400, 500, 600)
+```
+
+### Spacing
+```
+Card border-radius: 16px
+Card shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06)
+Card internal padding: 16-18px horizontal
+Section gaps: 12-14px
+Tag pill radius: 20px
+Fixture cell radius: 6px
+```
+
+---
+
+## Implementation Notes
+
+1. **Component file:** Redesign `TransferCard.tsx` (or create `TransferCardV2.tsx` alongside it for safe comparison)
+2. **Expand/collapse state:** Use React state per card. Default expanded for the first card (SuperScout Pick), collapsed for all others.
+3. **Animation:** The DGW ping animation uses CSS `@keyframes` — no JS needed. The expand/collapse can use `LayoutAnimation` or `Animated` for smooth height transitions.
+4. **Responsive:** Test on iPhone SE (375px) and iPhone Pro Max (430px). The fixture cells flex equally so they adapt automatically. The header may need the IN player name to truncate with ellipsis on very small screens.
+5. **Dark mode:** Not in scope for this change. Design a dark variant later.
+6. **The "Current" design column in the mockup is for comparison only — do not implement it. Only the "Proposed" column matters.**
