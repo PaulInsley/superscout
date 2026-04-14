@@ -1282,8 +1282,8 @@ RULES: Buy price ≤ budget(£${bank.toFixed(1)}m)+sell price. Max 3 per club. P
 
 COMMENTARY: summary(1-2 sentence headline why this move matters), upside/risk/case about player_in only, 1-2 sentences each. No cross-references. Different player_in per rec. Use exact web_name. One rec: is_superscout_pick:true. Reference the actual fixture opponents from the SQUAD data. Mention blank GWs and DGWs when relevant.
 
-PACKAGES: is_package:true, package_name, transfers[{player_out,player_in,player_out_team,player_in_team,player_out_selling_price,player_in_price,player_in_form}], total_net_cost, total_hit_cost, uses_free_transfers.
-SWAPS: player_out, player_in, player_out_team, player_in_team, player_out_selling_price, player_in_price, player_in_form(string from F: field), net_cost, uses_free_transfer, hit_cost.
+PACKAGES: is_package:true, package_name, transfers[{player_out,player_in,player_out_team,player_in_team,player_out_selling_price,player_in_price}], total_net_cost, total_hit_cost, uses_free_transfers.
+SWAPS: player_out, player_in, player_out_team, player_in_team, player_out_selling_price, player_in_price, net_cost, uses_free_transfer, hit_cost.
 Both: summary, confidence(BANKER|CALCULATED_RISK|BOLD_PUNT), upside, risk, case, is_superscout_pick, is_hold_recommendation.
 NOTE: Do NOT include expected_points_gain fields — impact is calculated server-side.
 
@@ -1811,7 +1811,7 @@ ${transferInstructions}`;
 
             return {
               ...swap,
-              player_in_form: playerIn?.form ?? swap.player_in_form,
+              player_in_form: playerIn?.form ?? null,
               player_in_fixtures: inFixtures,
               player_out_fixtures: outFixtures,
               player_in_team_short: inTeam?.short_name ?? swap.player_in_team,
@@ -1858,7 +1858,7 @@ ${transferInstructions}`;
           const rawImpact = Math.round((inExp - outExp) * 10) / 10;
           const netImpact = Math.round((rawImpact - hitCost) * 10) / 10;
 
-          enrichRec.player_in_form = playerIn?.form ?? rec.player_in_form;
+          enrichRec.player_in_form = playerIn?.form ?? null;
           enrichRec.player_in_fixtures = inFixtures;
           enrichRec.player_out_fixtures = outFixtures;
           enrichRec.player_in_team_short = inTeam?.short_name ?? rec.player_in_team;

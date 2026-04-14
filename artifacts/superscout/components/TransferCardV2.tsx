@@ -290,7 +290,7 @@ export default function TransferCardV2({
     ? recommendation.transfers?.[0]?.player_in_form ?? null
     : (recommendation.player_in_form ?? null);
   const formValue = rawForm ? parseFloat(String(rawForm)) : null;
-  const displayForm = formValue !== null && formValue > 0 && formValue <= 15 ? formValue.toFixed(1) : null;
+  const displayForm = formValue !== null && formValue > 0 && formValue <= 12 ? formValue.toFixed(1) : null;
 
   const projectionWindow = recommendation.projection_window ?? (isFreeTransfer ? 3 : 5);
   const breakevenGw = recommendation.breakeven_gw ?? null;
