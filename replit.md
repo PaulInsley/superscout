@@ -30,7 +30,7 @@ A dynamic rules engine loads and caches sport-specific rules, injecting them int
 
 ### Key Features
 - **Captain Picker**: AI-powered captain recommendations with lineup optimization and confidence badges.
-- **Transfer Advisor**: AI-driven transfer advice with streaming support, robust error handling, and optimized response times (~12s warm-cache via parallelized FPL fetches, compressed AI prompts, position-grouped candidates, and graceful package validation that strips invalid swaps instead of dropping whole packages).
+- **Transfer Advisor**: AI-driven transfer advice with streaming support, robust error handling, and optimized response times (~12s warm-cache via parallelized FPL fetches, compressed AI prompts, position-grouped candidates, and graceful package validation that strips invalid swaps instead of dropping whole packages). Impact points are calculated deterministically server-side using `form × FDR_modifier × minutes_probability` over 3 GWs (free) or 5 GWs (hit). Each recommendation is enriched with `player_in_fixtures`, `player_out_fixtures`, `computed_impact`, `projection_window`, and `breakeven_gw`. TransferCardV2 displays dual fixture strips (IN player on top, OUT player on bottom) with FDR colors: FDR1=#00875A, FDR2=#A3F5C1, FDR3=#E7E7E7, FDR4=#FF6B6B, FDR5=#80132B. SuperScout Pick card defaults to coaching expanded; all others collapsed.
 - **Gameweek Analysis**: Utility for detecting blank and double gameweeks, providing context to AI prompts.
 - **Squad Card Generator**: Allows users to create shareable gameweek squad cards with AI-generated commentary.
 - **RevenueCat Subscription System**: Implements a three-tier subscription model (Free, Pro Monthly, Season Pass) with feature gating and subscription event logging.

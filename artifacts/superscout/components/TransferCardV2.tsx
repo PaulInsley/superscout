@@ -1,20 +1,18 @@
 import { useState, useEffect, useRef } from "react";
 import { View, Text, Pressable, StyleSheet, Animated, LayoutAnimation, Platform, UIManager } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { useFixtureData, getUpcomingFixtures } from "@/hooks/useFixtureData";
-import type { FixtureInfo } from "@/hooks/useFixtureData";
-import type { TransferRecommendation } from "./TransferCard";
+import type { TransferRecommendation, FixtureDetailAPI } from "./TransferCard";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const FDR_COLORS: Record<number, { bg: string; text: string; border: string }> = {
-  1: { bg: "#257D5A", text: "#FFFFFF", border: "#1B5C42" },
-  2: { bg: "#01F780", text: "#1A1A1A", border: "#00C966" },
-  3: { bg: "#E0E0E0", text: "#444444", border: "#BFBFBF" },
-  4: { bg: "#FF1751", text: "#FFFFFF", border: "#D4103F" },
-  5: { bg: "#80132B", text: "#FFFFFF", border: "#5C0D1F" },
+const FDR_COLORS: Record<number, { bg: string; text: string }> = {
+  1: { bg: "#00875A", text: "#FFFFFF" },
+  2: { bg: "#A3F5C1", text: "#1A1A1A" },
+  3: { bg: "#E7E7E7", text: "#555555" },
+  4: { bg: "#FF6B6B", text: "#FFFFFF" },
+  5: { bg: "#80132B", text: "#FFFFFF" },
 };
 
 const COLORS = {
@@ -77,27 +75,27 @@ function DgwDot() {
   );
 }
 
-function FixtureCell({ fixture }: { fixture: FixtureInfo }) {
+function FixtureCell({ fixture }: { fixture: FixtureDetailAPI }) {
   if (fixture.isBlank) {
     return (
-      <View style={[styles.fixtureCell, { backgroundColor: "#F3F4F6", borderColor: "#D1D5DB" }]}>
-        <Text style={[styles.fixtureCellGw, { color: "#9CA3AF" }]}>
+      <View style={[styles.fixtureCell, { backgroundColor: COLORS.borderLight }]}>
+        <Text style={[styles.fixtureCellGw, { color: COLORS.textMuted }]}>
           {fixture.event}
         </Text>
-        <Text style={[styles.fixtureCellTeam, { color: "#9CA3AF", fontSize: 9 }]}>
-          BLANK
+        <Text style={[styles.fixtureCellTeam, { color: COLORS.textMuted, fontSize: 11 }]}>
+          —
         </Text>
       </View>
     );
   }
-  const fdr = FDR_COLORS[fixture.fdr] ?? { bg: "#888", text: "#fff", border: "#666" };
+  const fdr = FDR_COLORS[fixture.fdr] ?? { bg: "#888", text: "#fff" };
   return (
-    <View style={[styles.fixtureCell, { backgroundColor: fdr.bg, borderColor: fdr.border }]}>
+    <View style={[styles.fixtureCell, { backgroundColor: fdr.bg }]}>
       <Text style={[styles.fixtureCellGw, { color: fdr.text }]}>
         {fixture.event}
       </Text>
-      <Text style={[styles.fixtureCellTeam, { color: fdr.text }]}>
-        {fixture.opponentShortName}
+      <Text style={[styles.fixtureCellTeam, { color: fdr.text }]} numberOfLines={1}>
+        {fixture.opponent}
       </Text>
       <Text style={[styles.fixtureCellVenue, { color: fdr.text }]}>
         {fixture.isHome ? "h" : "a"}
@@ -106,30 +104,87 @@ function FixtureCell({ fixture }: { fixture: FixtureInfo }) {
   );
 }
 
-function FixtureStrip({ teamShortName }: { teamShortName: string }) {
-  const fixtureData = useFixtureData();
-  if (!fixtureData) return null;
+function PlayerFixtureRow({
+  playerName,
+  teamShortName,
+  fixtures,
+  role,
+}: {
+  playerName: string;
+  teamShortName: string;
+  fixtures: FixtureDetailAPI[];
+  role: "IN" | "OUT";
+}) {
+  const slots = fixtures.slice(0, 5);
+  if (slots.length === 0) return null;
 
-  const allFixtures = getUpcomingFixtures(teamShortName, fixtureData, 10);
-  if (allFixtures.length === 0) return null;
+  return (
+    <View>
+      <View style={styles.fixturePlayerLabel}>
+        <Text style={styles.fixturePlayerLabelText}>
+          {playerName} · {teamShortName}
+        </Text>
+        <View
+          style={[
+            styles.fixtureRoleBadge,
+            role === "IN"
+              ? { backgroundColor: COLORS.greenBg }
+              : { backgroundColor: COLORS.borderLight },
+          ]}
+        >
+          <Text
+            style={[
+              styles.fixtureRoleBadgeText,
+              role === "IN"
+                ? { color: COLORS.greenTag }
+                : { color: COLORS.textMuted },
+            ]}
+          >
+            {role}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.fixtureCellRow}>
+        {slots.map((fixture, i) => {
+          const isDgw = fixture.isDgw;
+          return (
+            <View key={`gw-${fixture.event}-${i}`} style={styles.fixtureCellWrapper}>
+              <FixtureCell fixture={fixture} />
+              {isDgw && <DgwDot />}
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
 
-  const grouped: FixtureInfo[][] = [];
-  for (const fix of allFixtures) {
-    const last = grouped[grouped.length - 1];
-    if (last && last[0].event === fix.event) {
-      last.push(fix);
-    } else {
-      grouped.push([fix]);
-    }
-  }
+function DualFixtureStrip({
+  playerInName,
+  playerInTeam,
+  playerOutName,
+  playerOutTeam,
+  playerInFixtures,
+  playerOutFixtures,
+}: {
+  playerInName: string;
+  playerInTeam: string;
+  playerOutName: string;
+  playerOutTeam: string;
+  playerInFixtures?: FixtureDetailAPI[];
+  playerOutFixtures?: FixtureDetailAPI[];
+}) {
+  const inFix = playerInFixtures ?? [];
+  const outFix = playerOutFixtures ?? [];
 
-  const slots = grouped.slice(0, 5);
-  const hasDgw = slots.some((g) => g.length > 1);
+  if (inFix.length === 0 && outFix.length === 0) return null;
+
+  const hasDgw = [...inFix, ...outFix].some((f) => f.isDgw);
 
   return (
     <View style={styles.fixtureZone}>
       <View style={styles.fixtureHeader}>
-        <Text style={styles.fixtureHeaderLabel}>NEXT 5 GAMEWEEKS</Text>
+        <Text style={styles.fixtureHeaderLabel}>NEXT 5 FIXTURES</Text>
         {hasDgw && (
           <View style={styles.dgwIndicator}>
             <View style={styles.dgwIndicatorDot} />
@@ -138,32 +193,33 @@ function FixtureStrip({ teamShortName }: { teamShortName: string }) {
         )}
       </View>
 
-      <View style={styles.fixtureCellRow}>
-        {slots.map((group, i) => {
-          const isDgw = group.length > 1;
-          if (isDgw) {
-            return (
-              <View key={`gw-${group[0].event}-${i}`} style={styles.fixtureCellWrapper}>
-                <FixtureCell fixture={{ ...group[0], opponentShortName: group.map(f => f.opponentShortName).join("/") }} />
-                <DgwDot />
-              </View>
-            );
-          }
-          return (
-            <View key={`gw-${group[0].event}-${i}`} style={styles.fixtureCellWrapper}>
-              <FixtureCell fixture={group[0]} />
-            </View>
-          );
-        })}
-      </View>
+      {inFix.length > 0 && (
+        <PlayerFixtureRow
+          playerName={playerInName}
+          teamShortName={playerInTeam}
+          fixtures={inFix}
+          role="IN"
+        />
+      )}
+
+      {inFix.length > 0 && outFix.length > 0 && <View style={styles.fixtureDivider} />}
+
+      {outFix.length > 0 && (
+        <PlayerFixtureRow
+          playerName={playerOutName}
+          teamShortName={playerOutTeam}
+          fixtures={outFix}
+          role="OUT"
+        />
+      )}
 
       <View style={styles.fdrLegend}>
         <Text style={styles.fdrLegendLabel}>Easy</Text>
         <View style={styles.fdrGradient}>
-          <View style={[styles.fdrSegment, { backgroundColor: "#257D5A", borderTopLeftRadius: 3, borderBottomLeftRadius: 3 }]} />
-          <View style={[styles.fdrSegment, { backgroundColor: "#01F780" }]} />
-          <View style={[styles.fdrSegment, { backgroundColor: "#E0E0E0" }]} />
-          <View style={[styles.fdrSegment, { backgroundColor: "#FF1751" }]} />
+          <View style={[styles.fdrSegment, { backgroundColor: "#00875A", borderTopLeftRadius: 3, borderBottomLeftRadius: 3 }]} />
+          <View style={[styles.fdrSegment, { backgroundColor: "#A3F5C1" }]} />
+          <View style={[styles.fdrSegment, { backgroundColor: "#E7E7E7" }]} />
+          <View style={[styles.fdrSegment, { backgroundColor: "#FF6B6B" }]} />
           <View style={[styles.fdrSegment, { backgroundColor: "#80132B", borderTopRightRadius: 3, borderBottomRightRadius: 3 }]} />
         </View>
         <Text style={styles.fdrLegendLabel}>Hard</Text>
@@ -204,9 +260,11 @@ export default function TransferCardV2({
     Array.isArray(recommendation.transfers) &&
     recommendation.transfers.length > 0;
 
-  const pointsImpact = isPackage
-    ? (recommendation.total_expected_points_gain_3gw ?? 0)
-    : (recommendation.expected_points_gain_3gw ?? 0);
+  const pointsImpact = typeof recommendation.computed_impact === "number"
+    ? recommendation.computed_impact
+    : isPackage
+      ? (recommendation.total_expected_points_gain_3gw ?? 0)
+      : (recommendation.expected_points_gain_3gw ?? 0);
 
   const netCost = isPackage ? (recommendation.total_net_cost ?? 0) : (recommendation.net_cost ?? 0);
   const hitCost = isPackage ? (recommendation.total_hit_cost ?? 0) : (recommendation.hit_cost ?? 0);
@@ -221,17 +279,28 @@ export default function TransferCardV2({
   const playerInTeam = isPackage
     ? recommendation.transfers![0]?.player_in_team ?? ""
     : (recommendation.player_in_team ?? "");
+  const playerOutTeam = isPackage
+    ? recommendation.transfers![0]?.player_out_team ?? ""
+    : (recommendation.player_out_team ?? "");
   const playerInPrice = isPackage
     ? null
     : (recommendation.player_in_price ?? null);
-  const playerInForm = isPackage
+
+  const rawForm = isPackage
     ? recommendation.transfers?.[0]?.player_in_form ?? null
     : (recommendation.player_in_form ?? null);
+  const formValue = rawForm ? parseFloat(String(rawForm)) : null;
+  const displayForm = formValue !== null && formValue > 0 && formValue <= 15 ? formValue.toFixed(1) : null;
 
-  const projectionWindow = isFreeTransfer ? 3 : 5;
-  const breakevenGw = !isFreeTransfer && pointsImpact > 0
-    ? Math.max(1, Math.ceil(hitCost / (pointsImpact / projectionWindow)))
-    : null;
+  const projectionWindow = recommendation.projection_window ?? (isFreeTransfer ? 3 : 5);
+  const breakevenGw = recommendation.breakeven_gw ?? null;
+
+  const playerInFixtures = isPackage
+    ? recommendation.transfers?.[0]?.player_in_fixtures
+    : recommendation.player_in_fixtures;
+  const playerOutFixtures = isPackage
+    ? recommendation.transfers?.[0]?.player_out_fixtures
+    : recommendation.player_out_fixtures;
 
   const toggleExpand = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -279,7 +348,6 @@ export default function TransferCardV2({
 
   return (
     <View style={styles.card}>
-      {/* ZONE 1: Header */}
       <View style={styles.headerZone}>
         <View style={styles.headerLeft}>
           <View style={styles.headerOutRow}>
@@ -292,7 +360,7 @@ export default function TransferCardV2({
           <Text style={styles.headerMeta}>
             {playerInTeam}
             {typeof playerInPrice === "number" ? ` · £${playerInPrice.toFixed(1)}m` : ""}
-            {playerInForm ? ` · Form ${playerInForm}` : ""}
+            {displayForm ? ` · Form ${displayForm}` : ""}
           </Text>
         </View>
 
@@ -303,7 +371,7 @@ export default function TransferCardV2({
               { color: pointsImpact >= 0 ? COLORS.green : COLORS.red },
             ]}
           >
-            {pointsImpact >= 0 ? "+" : ""}{pointsImpact.toFixed(0)}
+            {pointsImpact >= 0 ? "+" : ""}{Math.round(pointsImpact)}
           </Text>
           <Text style={styles.headerImpactLabel}>
             pts vs {isPackage ? "current" : playerOut}
@@ -318,7 +386,6 @@ export default function TransferCardV2({
         </View>
       </View>
 
-      {/* Package sub-swaps for multi-transfer */}
       {isPackage && recommendation.transfers && (
         <View style={styles.packageSwaps}>
           {recommendation.transfers.map((swap, i) => (
@@ -334,7 +401,6 @@ export default function TransferCardV2({
         </View>
       )}
 
-      {/* ZONE 2: Tags */}
       <View style={styles.tagRow}>
         {isSuperScoutPick && (
           <TagPill label="SuperScout Pick" bg={COLORS.indigoLight} color={COLORS.indigo} />
@@ -359,14 +425,26 @@ export default function TransferCardV2({
         )}
       </View>
 
-      {/* ZONE 3: Fixtures */}
-      {!isPackage && playerInTeam ? (
-        <FixtureStrip teamShortName={playerInTeam} />
+      {!isPackage && playerInTeam && playerOutTeam ? (
+        <DualFixtureStrip
+          playerInName={playerIn}
+          playerInTeam={playerInTeam}
+          playerOutName={playerOut}
+          playerOutTeam={playerOutTeam}
+          playerInFixtures={playerInFixtures}
+          playerOutFixtures={playerOutFixtures}
+        />
       ) : isPackage && recommendation.transfers && recommendation.transfers.length > 0 ? (
-        <FixtureStrip teamShortName={recommendation.transfers[0].player_in_team} />
+        <DualFixtureStrip
+          playerInName={recommendation.transfers[0].player_in}
+          playerInTeam={recommendation.transfers[0].player_in_team}
+          playerOutName={recommendation.transfers[0].player_out}
+          playerOutTeam={recommendation.transfers[0].player_out_team}
+          playerInFixtures={recommendation.transfers[0].player_in_fixtures}
+          playerOutFixtures={recommendation.transfers[0].player_out_fixtures}
+        />
       ) : null}
 
-      {/* ZONE 4: Coaching Content */}
       <Pressable
         onPress={toggleExpand}
         style={styles.coachingToggle}
@@ -565,6 +643,35 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     color: COLORS.textMuted,
   },
+
+  fixturePlayerLabel: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginBottom: 5,
+  },
+  fixturePlayerLabelText: {
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    color: COLORS.textSecondary,
+  },
+  fixtureRoleBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 3,
+  },
+  fixtureRoleBadgeText: {
+    fontSize: 8,
+    fontFamily: "Inter_700Bold",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  fixtureDivider: {
+    height: 1,
+    backgroundColor: COLORS.borderLight,
+    marginVertical: 8,
+  },
+
   fixtureCellRow: {
     flexDirection: "row",
     gap: 5,
@@ -582,7 +689,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     minHeight: 46,
     justifyContent: "center",
-    borderWidth: 1,
   },
   fixtureCellGw: {
     fontSize: 8,

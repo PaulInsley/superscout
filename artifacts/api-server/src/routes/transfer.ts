@@ -226,6 +226,137 @@ async function fetchCachedData<T>(key: string, path: string, ttl: number): Promi
   }
 }
 
+const FDR_MODIFIER: Record<number, number> = { 1: 1.2, 2: 1.1, 3: 1.0, 4: 0.85, 5: 0.7 };
+
+interface FixtureDetail {
+  event: number;
+  opponent: string;
+  isHome: boolean;
+  fdr: number;
+  isBlank?: boolean;
+  isDgw?: boolean;
+  opponents?: Array<{ opponent: string; isHome: boolean; fdr: number }>;
+}
+
+function getPlayerFixtureDetails(
+  teamId: number,
+  fixtures: FPLFixture[],
+  teams: FPLTeam[],
+  currentGw: number,
+  count: number = 5,
+): FixtureDetail[] {
+  const teamMap = new Map(teams.map((t) => [t.id, t]));
+
+  const upcoming = fixtures
+    .filter(
+      (f) =>
+        f.event != null &&
+        f.event >= currentGw &&
+        !f.finished &&
+        (f.team_h === teamId || f.team_a === teamId),
+    )
+    .sort((a, b) => (a.event ?? 0) - (b.event ?? 0));
+
+  const byGw = new Map<number, FPLFixture[]>();
+  for (const fix of upcoming) {
+    const gw = fix.event!;
+    if (!byGw.has(gw)) byGw.set(gw, []);
+    byGw.get(gw)!.push(fix);
+  }
+
+  const result: FixtureDetail[] = [];
+
+  for (let gw = currentGw; result.length < count; gw++) {
+    const gwFixtures = byGw.get(gw);
+    if (!gwFixtures || gwFixtures.length === 0) {
+      result.push({ event: gw, opponent: "—", isHome: false, fdr: 0, isBlank: true });
+    } else if (gwFixtures.length === 1) {
+      const fix = gwFixtures[0];
+      const isHome = fix.team_h === teamId;
+      const opponentId = isHome ? fix.team_a : fix.team_h;
+      const opp = teamMap.get(opponentId);
+      result.push({
+        event: gw,
+        opponent: opp?.short_name ?? "???",
+        isHome,
+        fdr: isHome ? fix.team_h_difficulty : fix.team_a_difficulty,
+      });
+    } else {
+      const opponents = gwFixtures.map((fix) => {
+        const isHome = fix.team_h === teamId;
+        const opponentId = isHome ? fix.team_a : fix.team_h;
+        const opp = teamMap.get(opponentId);
+        return {
+          opponent: opp?.short_name ?? "???",
+          isHome,
+          fdr: isHome ? fix.team_h_difficulty : fix.team_a_difficulty,
+        };
+      });
+      result.push({
+        event: gw,
+        opponent: opponents.map((o) => o.opponent).join("/"),
+        isHome: opponents[0].isHome,
+        fdr: Math.max(...opponents.map((o) => o.fdr)),
+        isDgw: true,
+        opponents,
+      });
+    }
+  }
+
+  return result;
+}
+
+function getMinutesProbability(player: FPLPlayer): number {
+  if (player.chance_of_playing_next_round === 0) return 0;
+  if (player.chance_of_playing_next_round === 25) return 0.25;
+  if (player.chance_of_playing_next_round === 50) return 0.5;
+  if (player.chance_of_playing_next_round === 75) return 0.75;
+  if (player.minutes > 180) return 1.0;
+  if (player.minutes > 90) return 0.85;
+  return 0.7;
+}
+
+function calculateExpectedPoints(
+  player: FPLPlayer,
+  fixtureDetails: FixtureDetail[],
+  numGws: number,
+): number {
+  const form = parseFloat(player.form) || 0;
+  const minutesProb = getMinutesProbability(player);
+  let total = 0;
+  const gws = fixtureDetails.slice(0, numGws);
+
+  for (const gw of gws) {
+    if (gw.isBlank) continue;
+    if (gw.isDgw && gw.opponents) {
+      for (const opp of gw.opponents) {
+        const modifier = FDR_MODIFIER[opp.fdr] ?? 1.0;
+        total += form * modifier * minutesProb;
+      }
+    } else {
+      const modifier = FDR_MODIFIER[gw.fdr] ?? 1.0;
+      total += form * modifier * minutesProb;
+    }
+  }
+
+  return Math.round(total * 10) / 10;
+}
+
+function formatFixtureContext(
+  playerName: string,
+  teamShortName: string,
+  fixtures: FixtureDetail[],
+  role: "IN" | "OUT",
+): string {
+  const lines = fixtures.map((f) => {
+    if (f.isBlank) return `  GW${f.event}: BLANK (no fixture)`;
+    const venue = f.isHome ? "h" : "a";
+    const dgw = f.isDgw ? " [DGW]" : "";
+    return `  GW${f.event}: vs ${f.opponent} (${venue}) FDR ${f.fdr}${dgw}`;
+  });
+  return `${role} player fixtures (${playerName} · ${teamShortName}):\n${lines.join("\n")}`;
+}
+
 function preFilterCandidates(
   allPlayers: FPLPlayer[],
   squadIds: Set<number>,
@@ -1083,10 +1214,16 @@ router.post(
         .join("\n");
 
       const squadSummary = squadWithDetails
-        .map(
-          (p) =>
-            `${p.name}(${p.position},${p.team})£${p.price.toFixed(1)}m S:£${p.sellingPrice.toFixed(1)}m F:${p.form} P:${p.totalPoints} O:${p.ownershipPct}% vs${p.opponent} FDR:${p.fdr} ${p.status}${p.isBench ? " B" : ""}`,
-        )
+        .map((p) => {
+          const fiveGwFixtures = getPlayerFixtureDetails(p.teamId, fixtures, bootstrap.teams, currentGw, 5);
+          const fixtureStr = fiveGwFixtures.map((f) => {
+            if (f.isBlank) return `GW${f.event}:BLANK`;
+            const venue = f.isHome ? "h" : "a";
+            const dgw = f.isDgw ? "*DGW" : "";
+            return `GW${f.event}:${f.opponent}(${venue})FDR${f.fdr}${dgw}`;
+          }).join(",");
+          return `${p.name}(${p.position},${p.team})£${p.price.toFixed(1)}m S:£${p.sellingPrice.toFixed(1)}m F:${p.form} P:${p.totalPoints} O:${p.ownershipPct}% ${p.status}${p.isBench ? " B" : ""} [${fixtureStr}]`;
+        })
         .join("\n");
 
       const fullClubs = Array.from(fullClubsSet);
@@ -1143,11 +1280,12 @@ ${recommendationCount}.
 
 RULES: Buy price ≤ budget(£${bank.toFixed(1)}m)+sell price. Max 3 per club. POSITION LOCK: only swap within same position group — [GKP]→GKP, [DEF]→DEF, [MID]→MID, [FWD]→FWD. No injured players. ${freeTransfers} FT — extra transfers cost -4pts each, set hit_cost accurately. Last rec must be hold (is_hold_recommendation:true).
 
-COMMENTARY: summary(1-2 sentence headline why this move matters), upside/risk/case about player_in only, 1-2 sentences each. No cross-references. Different player_in per rec. Use exact web_name. One rec: is_superscout_pick:true.
+COMMENTARY: summary(1-2 sentence headline why this move matters), upside/risk/case about player_in only, 1-2 sentences each. No cross-references. Different player_in per rec. Use exact web_name. One rec: is_superscout_pick:true. Reference the actual fixture opponents from the SQUAD data. Mention blank GWs and DGWs when relevant.
 
-PACKAGES: is_package:true, package_name, transfers[{player_out,player_in,player_out_team,player_in_team,player_out_selling_price,player_in_price,player_in_form}], total_net_cost, total_hit_cost, uses_free_transfers, total_expected_points_gain_3gw.
-SWAPS: player_out, player_in, player_out_team, player_in_team, player_out_selling_price, player_in_price, player_in_form(string from F: field), net_cost, uses_free_transfer, hit_cost, expected_points_gain_3gw.
+PACKAGES: is_package:true, package_name, transfers[{player_out,player_in,player_out_team,player_in_team,player_out_selling_price,player_in_price,player_in_form}], total_net_cost, total_hit_cost, uses_free_transfers.
+SWAPS: player_out, player_in, player_out_team, player_in_team, player_out_selling_price, player_in_price, player_in_form(string from F: field), net_cost, uses_free_transfer, hit_cost.
 Both: summary, confidence(BANKER|CALCULATED_RISK|BOLD_PUNT), upside, risk, case, is_superscout_pick, is_hold_recommendation.
+NOTE: Do NOT include expected_points_gain fields — impact is calculated server-side.
 
 JSON only. {"gameweek":${currentGw},"free_transfers":${freeTransfers},"budget_remaining":${bank.toFixed(1)},"recommendations":[...]}`;
 
@@ -1630,10 +1768,117 @@ ${transferInstructions}`;
         );
       }
 
+      const enriched = deduped.map((rec) => {
+        if (rec.is_hold_recommendation) return rec;
+
+        const enrichRec = { ...rec } as Record<string, unknown>;
+
+        if (rec.is_package && Array.isArray(rec.transfers)) {
+          const transfers = rec.transfers as Array<Record<string, unknown>>;
+          let totalImpact = 0;
+          const pkgHitCost = typeof enrichRec.total_hit_cost === "number" ? enrichRec.total_hit_cost as number : 0;
+          const pkgProjNForCalc = pkgHitCost > 0 ? 5 : 3;
+          const enrichedTransfers = transfers.map((swap) => {
+            const inName = String(swap.player_in ?? "");
+            const outName = String(swap.player_out ?? "");
+            const playerIn = bootstrap.elements.find(
+              (p) => p.web_name?.toLowerCase() === inName.toLowerCase(),
+            );
+            const playerOut = squadWithDetails.find(
+              (p) => p.name.toLowerCase() === outName.toLowerCase(),
+            );
+            const playerOutElement = playerOut
+              ? bootstrap.elements.find((p) => p.id === playerOut.id)
+              : undefined;
+
+            const inTeamId = playerIn?.team;
+            const outTeamId = playerOutElement?.team;
+            const inFixtures = inTeamId
+              ? getPlayerFixtureDetails(inTeamId, fixtures, bootstrap.teams, currentGw, 5)
+              : [];
+            const outFixtures = outTeamId
+              ? getPlayerFixtureDetails(outTeamId, fixtures, bootstrap.teams, currentGw, 5)
+              : [];
+            const inTeam = inTeamId ? teamMap.get(inTeamId) : undefined;
+            const outTeam = outTeamId ? teamMap.get(outTeamId) : undefined;
+
+            const inExp = playerIn ? calculateExpectedPoints(playerIn, inFixtures, pkgProjNForCalc) : 0;
+            const outExp = playerOutElement
+              ? calculateExpectedPoints(playerOutElement, outFixtures, pkgProjNForCalc)
+              : 0;
+            const impact = Math.round((inExp - outExp) * 10) / 10;
+            totalImpact += impact;
+
+            return {
+              ...swap,
+              player_in_form: playerIn?.form ?? swap.player_in_form,
+              player_in_fixtures: inFixtures,
+              player_out_fixtures: outFixtures,
+              player_in_team_short: inTeam?.short_name ?? swap.player_in_team,
+              player_out_team_short: outTeam?.short_name ?? swap.player_out_team,
+              computed_impact: impact,
+            };
+          });
+
+          enrichRec.transfers = enrichedTransfers;
+          enrichRec.computed_impact = Math.round((totalImpact - pkgHitCost) * 10) / 10;
+          enrichRec.projection_window = pkgProjNForCalc;
+        } else {
+          const inName = String(rec.player_in ?? "");
+          const outName = String(rec.player_out ?? "");
+          const playerIn = bootstrap.elements.find(
+            (p) => p.web_name?.toLowerCase() === inName.toLowerCase(),
+          );
+          const playerOut = squadWithDetails.find(
+            (p) => p.name.toLowerCase() === outName.toLowerCase(),
+          );
+          const playerOutElement = playerOut
+            ? bootstrap.elements.find((p) => p.id === playerOut.id)
+            : undefined;
+
+          const inTeamId = playerIn?.team;
+          const outTeamId = playerOutElement?.team;
+          const inFixtures = inTeamId
+            ? getPlayerFixtureDetails(inTeamId, fixtures, bootstrap.teams, currentGw, 5)
+            : [];
+          const outFixtures = outTeamId
+            ? getPlayerFixtureDetails(outTeamId, fixtures, bootstrap.teams, currentGw, 5)
+            : [];
+          const inTeam = inTeamId ? teamMap.get(inTeamId) : undefined;
+          const outTeam = outTeamId ? teamMap.get(outTeamId) : undefined;
+
+          const hitCost = typeof rec.hit_cost === "number" ? rec.hit_cost as number : 0;
+          const isFreeXfer = hitCost === 0;
+          const projN = isFreeXfer ? 3 : 5;
+
+          const inExp = playerIn ? calculateExpectedPoints(playerIn, inFixtures, projN) : 0;
+          const outExp = playerOutElement
+            ? calculateExpectedPoints(playerOutElement, outFixtures, projN)
+            : 0;
+          const rawImpact = Math.round((inExp - outExp) * 10) / 10;
+          const netImpact = Math.round((rawImpact - hitCost) * 10) / 10;
+
+          enrichRec.player_in_form = playerIn?.form ?? rec.player_in_form;
+          enrichRec.player_in_fixtures = inFixtures;
+          enrichRec.player_out_fixtures = outFixtures;
+          enrichRec.player_in_team_short = inTeam?.short_name ?? rec.player_in_team;
+          enrichRec.player_out_team_short = outTeam?.short_name ?? rec.player_out_team;
+          enrichRec.computed_impact = netImpact;
+          enrichRec.projection_window = projN;
+
+          if (hitCost > 0 && rawImpact > 0) {
+            const perGw = rawImpact / projN;
+            enrichRec.breakeven_gw = perGw > 0 ? Math.ceil(hitCost / perGw) : null;
+          }
+        }
+
+        return enrichRec;
+      });
+
       const playerNameSet = new Set<string>(
         (bootstrap.elements as FPLPlayer[]).map((p) => p.web_name),
       );
-      const sanitised = sanitiseCommentary(deduped, req.log, playerNameSet);
+      const sanitised = sanitiseCommentary(enriched, req.log, playerNameSet);
 
       const chipName = isWildcardActive
         ? "wildcard"
