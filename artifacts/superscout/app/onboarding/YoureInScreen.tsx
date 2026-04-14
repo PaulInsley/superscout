@@ -1,202 +1,168 @@
-import React, { useEffect, useState, useRef } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
-import config from "@/constants/config";
-import { fetchCaptainCandidates } from "@/services/fpl/api";
+import ChoiceCard from "@/components/ChoiceCard";
+import ProgressLoadingIndicator from "@/components/ProgressLoadingIndicator";
+import type { CaptainRecommendation } from "@/services/fpl/types";
+
+type Vibe = "expert" | "critic" | "fanboy";
 
 interface Props {
   teamName: string | null;
   managerId: number | null;
-  vibe: "expert" | "critic" | "fanboy" | null;
+  vibe: Vibe | null;
   onFinish: () => void;
+  prefetchedRecs: CaptainRecommendation[] | null;
+  prefetchLoading: boolean;
+  prefetchError: boolean;
 }
 
-interface MiniRecommendation {
-  playerName: string;
-  confidence: string;
-  reason: string;
-}
+const FALLBACK_MESSAGES: Record<Vibe, string> = {
+  expert:
+    "Your squad data is loaded and ready. Head to Captain Picks for a full analysis of your best options this gameweek.",
+  critic:
+    "Couldn't get your first pick ready in time — not ideal, but don't worry. Your Captain Picks are waiting inside. Try not to overthink it.",
+  fanboy:
+    "We couldn't load your first pick just yet, but your Captain Picks are READY AND WAITING inside!! Let's GO!!",
+};
 
-const FETCH_TIMEOUT_MS = 12000;
+const LOADING_STAGES: Record<Vibe, string> = {
+  expert: "Analysing your squad and fixtures...",
+  critic: "Having a look at what you're working with...",
+  fanboy: "SCANNING YOUR SQUAD — this is going to be GOOD!!",
+};
 
-export default function YoureInScreen({ teamName, managerId, vibe, onFinish }: Props) {
+export default function YoureInScreen({
+  teamName,
+  managerId,
+  vibe,
+  onFinish,
+  prefetchedRecs,
+  prefetchLoading,
+  prefetchError,
+}: Props) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const [recommendation, setRecommendation] = useState<MiniRecommendation | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [gave_up, setGaveUp] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
+  const effectiveVibe: Vibe = vibe || "expert";
+
+  const [loadingStage, setLoadingStage] = useState<string>("squad");
+  const stageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!managerId) return;
-    setLoading(true);
-    setGaveUp(false);
-    const domain = process.env.EXPO_PUBLIC_DOMAIN;
-    const apiBase = `https://${domain}/api`;
-    const persona = vibe || "expert";
-
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    const timeout = setTimeout(() => {
-      controller.abort();
-    }, FETCH_TIMEOUT_MS);
-
-    (async () => {
-      try {
-        const result = await fetchCaptainCandidates(managerId);
-        if (controller.signal.aborted) return;
-        if (!result.candidates.length) throw new Error("No candidates available");
-
-        const squadSummary = result.candidates
-          .map(
-            (c) =>
-              `- ${c.name} (${c.position}, ${c.team}) | Pos: ${c.pickPosition}${c.isBench ? " [BENCH]" : ""} | Form: ${c.form} | Total Pts: ${c.totalPoints} | Ownership: ${c.ownershipPct}% | Price: £${c.price}m | vs ${c.opponent} | FDR: ${c.fixtureDifficulty} | Status: ${c.status}${c.chanceOfPlaying !== null && c.chanceOfPlaying < 100 ? ` (${c.chanceOfPlaying}% chance)` : ""}`,
-          )
-          .join("\n");
-
-        const context = `GAMEWEEK: ${result.gameweek}
-DEADLINE: ${result.deadlineTime}
-VIBE: ${persona}
-
-SQUAD (15 players — positions 1-11 = starting XI, 12-15 = bench):
-${squadSummary}
-
-You are generating captain recommendations for this FPL manager. Analyse their squad and upcoming fixtures. Return exactly 3 captain options. For each option provide: the player name, their team, the opponent and whether it is home or away, an expected points estimate, a confidence level (one of: BANKER, CALCULATED_RISK, or BOLD_PUNT), the player's ownership percentage, one clear upside sentence, one clear risk sentence, a persona-voiced one-liner making the case for this pick, and whether this is the SuperScout Pick (exactly one must be true).
-
-You MUST respond with valid JSON only — no markdown, no preamble, no backticks. Use this exact JSON structure:
-{
-  "gameweek": ${result.gameweek},
-  "recommendations": [
-    {
-      "player_name": "Player Name",
-      "team": "Team Short Name",
-      "opponent": "OPP (H/A)",
-      "expected_points": 8,
-      "confidence": "BANKER",
-      "ownership_pct": 50,
-      "ownership_context": "One short sentence about what this ownership means for rank",
-      "upside": "One sentence",
-      "risk": "One sentence",
-      "case": "Persona one-liner",
-      "is_superscout_pick": true
+    if (!prefetchLoading) {
+      if (stageTimerRef.current) clearTimeout(stageTimerRef.current);
+      return;
     }
-  ]
-}`;
 
-        const captainRes = await fetch(`${apiBase}/captain-picks`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ vibe: persona, context }),
-          signal: controller.signal,
-        });
-        if (!captainRes.ok) throw new Error(`Captain HTTP ${captainRes.status}`);
-        const data = await captainRes.json();
-
-        if (controller.signal.aborted) return;
-
-        const picks = data?.recommendations ?? data?.picks ?? [];
-        if (picks.length > 0) {
-          const top =
-            picks.find((p: Record<string, unknown>) => p.is_superscout_pick) ?? picks[0];
-          setRecommendation({
-            playerName: top.web_name ?? top.player_name ?? "Unknown",
-            confidence: top.confidence ?? "BANKER",
-            reason: top.case ?? top.upside ?? "",
-          });
-        } else {
-          setGaveUp(true);
-        }
-      } catch (err: unknown) {
-        if (controller.signal.aborted) {
-          console.warn("[YoureIn] recommendation fetch timed out");
-        } else {
-          console.warn("[YoureIn] recommendation fetch failed:", err);
-        }
-        setGaveUp(true);
-      } finally {
-        clearTimeout(timeout);
-        setLoading(false);
-      }
-    })();
+    setLoadingStage("squad");
+    stageTimerRef.current = setTimeout(() => {
+      setLoadingStage("analyse_fixtures");
+      stageTimerRef.current = setTimeout(() => {
+        setLoadingStage("analyse_form");
+        stageTimerRef.current = setTimeout(() => {
+          setLoadingStage("analyse_differentials");
+          stageTimerRef.current = setTimeout(() => {
+            setLoadingStage("ai");
+            stageTimerRef.current = setTimeout(() => {
+              setLoadingStage("ai_deep");
+            }, 8000);
+          }, 1200);
+        }, 800);
+      }, 700);
+    }, 600);
 
     return () => {
-      clearTimeout(timeout);
-      controller.abort();
+      if (stageTimerRef.current) clearTimeout(stageTimerRef.current);
     };
-  }, [managerId, vibe]);
+  }, [prefetchLoading]);
 
-  const confLabel =
-    recommendation?.confidence === "BOLD_PUNT"
-      ? "Bold Punt"
-      : recommendation?.confidence === "CALCULATED_RISK"
-        ? "Calculated Risk"
-        : "Banker";
+  const hasRecs = prefetchedRecs && prefetchedRecs.length > 0;
+  const showFallback = prefetchError || (!prefetchLoading && !hasRecs);
 
   return (
     <View
       style={[
         styles.container,
-        { backgroundColor: colors.primary, paddingBottom: insets.bottom + 32 },
+        { backgroundColor: colors.background, paddingBottom: insets.bottom + 16 },
       ]}
     >
-      <View style={styles.content}>
-        <Feather name="check-circle" size={64} color={colors.accent} accessibilityElementsHidden={true} />
-        <Text style={[styles.heading, { color: colors.primaryForeground }]}>
-          {teamName ? teamName : `Welcome to ${config.brandName}`}
-        </Text>
-        <Text style={[styles.subtext, { color: colors.primaryForeground }]}>
-          {recommendation
-            ? "Your first recommendation is ready."
-            : gave_up
-              ? "You're all set — let's go!"
-              : "Getting your first recommendation..."}
-        </Text>
-
-        {loading && (
-          <View style={styles.loadingRow}>
-            <ActivityIndicator size="small" color={colors.accent} />
-            <Text style={[styles.loadingHint, { color: colors.primaryForeground }]}>
-              Analysing your squad...
-            </Text>
-          </View>
-        )}
-
-        {recommendation && !loading && (
-          <View style={[styles.previewCard, { backgroundColor: colors.primary + "dd" }]}>
-            <Text style={[styles.previewLabel, { color: colors.accent }]}>SuperScout Pick</Text>
-            <Text style={[styles.previewPlayer, { color: colors.primaryForeground }]}>
-              {recommendation.playerName}
-            </Text>
-            <View style={[styles.confBadge, { backgroundColor: colors.accent + "30" }]}>
-              <Text style={[styles.confText, { color: colors.accent }]}>{confLabel}</Text>
-            </View>
-            {recommendation.reason ? (
-              <Text
-                style={[styles.previewReason, { color: colors.primaryForeground }]}
-                numberOfLines={3}
-              >
-                "{recommendation.reason}"
-              </Text>
-            ) : null}
-          </View>
-        )}
-      </View>
-
-      <Pressable
-        onPress={onFinish}
-        accessibilityLabel="See my squad"
-        accessibilityRole="button"
-        style={({ pressed }) => [
-          styles.button,
-          { backgroundColor: colors.accent, opacity: pressed ? 0.9 : 1 },
-        ]}
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 24 }]}
+        showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.buttonText, { color: colors.primary }]}>See my squad</Text>
-      </Pressable>
+        <View style={styles.header}>
+          <Text style={[styles.heading, { color: colors.foreground }]}>
+            {hasRecs
+              ? "Your first captain pick"
+              : prefetchLoading
+                ? teamName || "Analysing your squad"
+                : teamName || "You're all set"}
+          </Text>
+          <Text style={[styles.subtext, { color: colors.mutedForeground }]}>
+            {hasRecs
+              ? "Here's what SuperScout thinks about your captain options this gameweek."
+              : prefetchLoading
+                ? LOADING_STAGES[effectiveVibe]
+                : showFallback
+                  ? FALLBACK_MESSAGES[effectiveVibe]
+                  : ""}
+          </Text>
+        </View>
+
+        {prefetchLoading && (
+          <ProgressLoadingIndicator
+            vibe={effectiveVibe}
+            currentStage={loadingStage}
+            variant="captain"
+          />
+        )}
+
+        {hasRecs && (
+          <View style={styles.cardsContainer}>
+            {prefetchedRecs!.map((rec) => (
+              <ChoiceCard
+                key={rec.player_name}
+                recommendation={rec}
+                isBeginner={false}
+                vibe={effectiveVibe}
+              />
+            ))}
+          </View>
+        )}
+
+        {showFallback && (
+          <View style={styles.fallbackContainer}>
+            <View style={[styles.fallbackCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Feather name="zap" size={32} color={colors.accent} />
+              <Text style={[styles.fallbackTitle, { color: colors.foreground }]}>
+                Captain Picks ready inside
+              </Text>
+              <Text style={[styles.fallbackBody, { color: colors.mutedForeground }]}>
+                Your full analysis with 3 ranked options is waiting on the Captain Picker tab.
+              </Text>
+            </View>
+          </View>
+        )}
+      </ScrollView>
+
+      <View style={styles.buttonContainer}>
+        <Pressable
+          onPress={onFinish}
+          accessibilityLabel={hasRecs ? "Let's go" : "Go to Captain Picks"}
+          accessibilityRole="button"
+          style={({ pressed }) => [
+            styles.button,
+            { backgroundColor: colors.accent, opacity: pressed ? 0.9 : 1 },
+          ]}
+        >
+          <Text style={[styles.buttonText, { color: colors.primary }]}>
+            {hasRecs ? "Let's go" : "Go to Captain Picks"}
+          </Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -204,75 +170,51 @@ You MUST respond with valid JSON only — no markdown, no preamble, no backticks
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "space-between",
-    paddingHorizontal: 32,
-    paddingTop: 80,
   },
-  content: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 16,
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 100,
+  },
+  header: {
+    marginBottom: 16,
+    gap: 8,
   },
   heading: {
-    fontSize: 28,
+    fontSize: 26,
     fontFamily: "Inter_700Bold",
-    textAlign: "center",
   },
   subtext: {
-    fontSize: 17,
+    fontSize: 15,
     fontFamily: "Inter_400Regular",
-    opacity: 0.9,
+    lineHeight: 22,
+  },
+  cardsContainer: {
+    gap: 4,
+  },
+  fallbackContainer: {
+    marginTop: 16,
+  },
+  fallbackCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 24,
+    alignItems: "center",
+    gap: 12,
+  },
+  fallbackTitle: {
+    fontSize: 18,
+    fontFamily: "Inter_700Bold",
     textAlign: "center",
   },
-  loadingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginTop: 8,
-  },
-  loadingHint: {
+  fallbackBody: {
     fontSize: 14,
     fontFamily: "Inter_400Regular",
-    opacity: 0.7,
-  },
-  previewCard: {
-    borderRadius: 12,
-    padding: 16,
-    width: "100%",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.15)",
-  },
-  previewLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 1,
-    textTransform: "uppercase",
-  },
-  previewPlayer: {
-    fontSize: 24,
-    fontFamily: "Inter_700Bold",
-  },
-  confBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  confText: {
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  previewReason: {
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-    fontStyle: "italic",
-    opacity: 0.85,
     textAlign: "center",
     lineHeight: 20,
-    marginTop: 4,
+  },
+  buttonContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
   },
   button: {
     height: 56,
