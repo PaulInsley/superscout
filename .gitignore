@@ -55,3 +55,4 @@ build
 # Replit
 .cache/
 .local/
+attached_assets/
